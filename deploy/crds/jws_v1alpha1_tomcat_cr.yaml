@@ -1,0 +1,12 @@
+apiVersion: jws.apache.org/v1alpha1
+kind: Tomcat
+metadata:
+  name: example-tomcat
+spec:
+  ApplicationName:
+  SourceRepositoryUrl:
+  JwsAdminUsername:
+  JwsAdminPassword:
+  GithubWebhookSecret:
+  GenericWebhookSecret:
+  ImageStreamNamespace:

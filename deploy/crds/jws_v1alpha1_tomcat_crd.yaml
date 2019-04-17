@@ -1,0 +1,70 @@
+apiVersion: apiextensions.k8s.io/v1beta1
+kind: CustomResourceDefinition
+metadata:
+  name: tomcats.jws.apache.org
+spec:
+  group: jws.apache.org
+  names:
+    kind: Tomcat
+    listKind: TomcatList
+    plural: tomcats
+    singular: tomcat
+  scope: Namespaced
+  subresources:
+    status: {}
+  validation:
+    openAPIV3Schema:
+      properties:
+        apiVersion:
+          type: string
+        kind:
+          type: string
+        metadata:
+          type: object
+        spec:
+          properties:
+            applicationName:              
+              type: string
+            artifactDir:
+              type: string
+            contextDir:
+              type: string
+            genericWebhookSecret:
+              type: string
+            githubWebhookSecret:
+              type: string
+            hostnameHttp:
+              type: string
+            imageStreamNamespace:
+              type: string
+            jwsAdminPassword:
+              type: string
+            jwsAdminUsername:
+              type: string
+            mavenMirrorUrl:
+              type: string
+            sourceRepositoryRef:
+              type: string
+            sourceRepositoryUrl:
+              type: string
+          required:
+          - applicationName
+          - hostnameHttp
+          - sourceRepositoryUrl
+          - sourceRepositoryRef
+          - contextDir
+          - jwsAdminUsername
+          - jwsAdminPassword
+          - githubWebhookSecret
+          - genericWebhookSecret
+          - imageStreamNamespace
+          - mavenMirrorUrl
+          - artifactDir
+          type: object
+        status:
+          type: object
+  version: v1alpha1
+  versions:
+  - name: v1alpha1
+    served: true
+    storage: true
