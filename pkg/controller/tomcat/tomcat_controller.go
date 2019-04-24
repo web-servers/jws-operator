@@ -1,19 +1,22 @@
 package tomcat
 
 import (
-	"github.com/go-openapi/spec"
 	"context"
+
+	"k8s.io/apimachinery/pkg/util/intstr"
 
 	jwsv1alpha1 "github.com/jws-image-operator/pkg/apis/jws/v1alpha1"
 
 	appsv1 "github.com/openshift/api/apps/v1"
-	routev1 "github.com/openshift/api/route/v1"
-	imagev1 "github.com/openshift/api/image/v1"
 	buildv1 "github.com/openshift/api/build/v1"
-	corev1 "github.com/openshift/api/vendor/k8s.io/api/core/v1"
+	imagev1 "github.com/openshift/api/image/v1"
+	routev1 "github.com/openshift/api/route/v1"
+
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
@@ -105,34 +108,96 @@ func (r *ReconcileTomcat) Reconcile(request reconcile.Request) (reconcile.Result
 		return reconcile.Result{}, err
 	}
 
-	/*
-		// Define a new Pod object
-		pod := newPodForCR(tomcat)
-
-		// Set Tomcat tomcat as the owner and controller
-		if err := controllerutil.SetControllerReference(tomcat, pod, r.scheme); err != nil {
+	// Check if the Service already exists, if not create a new one
+	err = r.client.Get(context.TODO(), types.NamespacedName{Name: tomcat.Name, Namespace: tomcat.Namespace}, &corev1.Service{})
+	if err != nil && errors.IsNotFound(err) {
+		// Define a new Service
+		ser := r.serviceForTomcat(tomcat)
+		reqLogger.Info("Creating a new Service.", "Service.Namespace", ser.Namespace, "Service.Name", ser.Name)
+		err = r.client.Create(context.TODO(), ser)
+		if err != nil {
+			reqLogger.Error(err, "Failed to create new Service.", "Service.Namespace", ser.Namespace, "Service.Name", ser.Name)
 			return reconcile.Result{}, err
 		}
+		// Service created successfully - return and requeue
+		return reconcile.Result{Requeue: true}, nil
+	} else if err != nil {
+		reqLogger.Error(err, "Failed to get Service.")
+		return reconcile.Result{}, err
+	}
 
-		// Check if this Pod already exists
-		found := &corev1.Pod{}
-		err = r.client.Get(context.TODO(), types.NamespacedName{Name: pod.Name, Namespace: pod.Namespace}, found)
-		if err != nil && errors.IsNotFound(err) {
-			reqLogger.Info("Creating a new Pod", "Pod.Namespace", pod.Namespace, "Pod.Name", pod.Name)
-			err = r.client.Create(context.TODO(), pod)
-			if err != nil {
-				return reconcile.Result{}, err
-			}
-
-			// Pod created successfully - don't requeue
-			return reconcile.Result{}, nil
-		} else if err != nil {
+	// Check if the ImageStream already exists, if not create a new one
+	err = r.client.Get(context.TODO(), types.NamespacedName{Name: tomcat.Name, Namespace: tomcat.Namespace}, &imagev1.ImageStream{})
+	if err != nil && errors.IsNotFound(err) {
+		// Define a new ImageStream
+		img := r.imageStreamForTomcat(tomcat)
+		reqLogger.Info("Creating a new ImageStream.", "ImageStream.Namespace", img.Namespace, "ImageStream.Name", img.Name)
+		err = r.client.Create(context.TODO(), img)
+		if err != nil {
+			reqLogger.Error(err, "Failed to create new ImageStream.", "ImageStream.Namespace", img.Namespace, "ImageStream.Name", img.Name)
 			return reconcile.Result{}, err
 		}
+		// ImageStream created successfully - return and requeue
+		return reconcile.Result{Requeue: true}, nil
+	} else if err != nil {
+		reqLogger.Error(err, "Failed to get ImageStream.")
+		return reconcile.Result{}, err
+	}
 
-		// Pod already exists - don't requeue
-		reqLogger.Info("Skip reconcile: Pod already exists", "Pod.Namespace", found.Namespace, "Pod.Name", found.Name)
-	*/
+	// Check if the BuildConfig already exists, if not create a new one
+	err = r.client.Get(context.TODO(), types.NamespacedName{Name: tomcat.Name, Namespace: tomcat.Namespace}, &buildv1.BuildConfig{})
+	if err != nil && errors.IsNotFound(err) {
+		// Define a new BuildConfig
+		bui := r.buildConfigForTomcat(tomcat)
+		reqLogger.Info("Creating a new BuildConfig.", "BuildConfig.Namespace", bui.Namespace, "BuildConfig.Name", bui.Name)
+		err = r.client.Create(context.TODO(), bui)
+		if err != nil {
+			reqLogger.Error(err, "Failed to create new BuildConfig.", "BuildConfig.Namespace", bui.Namespace, "BuildConfig.Name", bui.Name)
+			return reconcile.Result{}, err
+		}
+		// BuildConfig created successfully - return and requeue
+		return reconcile.Result{Requeue: true}, nil
+	} else if err != nil {
+		reqLogger.Error(err, "Failed to get Service.")
+		return reconcile.Result{}, err
+	}
+
+	// Check if the DeploymentConfig already exists, if not create a new one
+	err = r.client.Get(context.TODO(), types.NamespacedName{Name: tomcat.Name, Namespace: tomcat.Namespace}, &appsv1.DeploymentConfig{})
+	if err != nil && errors.IsNotFound(err) {
+		// Define a new DeploymentConfig
+		dep := r.deploymentConfigForTomcat(tomcat)
+		reqLogger.Info("Creating a new DeploymentConfig.", "DeploymentConfig.Namespace", dep.Namespace, "DeploymentConfig.Name", dep.Name)
+		err = r.client.Create(context.TODO(), dep)
+		if err != nil {
+			reqLogger.Error(err, "Failed to create new DeploymentConfig.", "DeploymentConfig.Namespace", dep.Namespace, "DeploymentConfig.Name", dep.Name)
+			return reconcile.Result{}, err
+		}
+		// DeploymentConfig created successfully - return and requeue
+		return reconcile.Result{Requeue: true}, nil
+	} else if err != nil {
+		reqLogger.Error(err, "Failed to get Service.")
+		return reconcile.Result{}, err
+	}
+
+	// Check if the Route already exists, if not create a new one
+	err = r.client.Get(context.TODO(), types.NamespacedName{Name: tomcat.Name, Namespace: tomcat.Namespace}, &routev1.Route{})
+	if err != nil && errors.IsNotFound(err) {
+		// Define a new Route
+		rou := r.routeForTomcat(tomcat)
+		reqLogger.Info("Creating a new Route.", "Route.Namespace", rou.Namespace, "Route.Name", rou.Name)
+		err = r.client.Create(context.TODO(), rou)
+		if err != nil {
+			reqLogger.Error(err, "Failed to create new Route.", "Route.Namespace", rou.Namespace, "Route.Name", rou.Name)
+			return reconcile.Result{}, err
+		}
+		// Route created successfully - return and requeue
+		return reconcile.Result{Requeue: true}, nil
+	} else if err != nil {
+		reqLogger.Error(err, "Failed to get Service.")
+		return reconcile.Result{}, err
+	}
+
 	return reconcile.Result{}, nil
 }
 
@@ -146,7 +211,7 @@ func (r *ReconcileTomcat) serviceForTomcat(t *jwsv1alpha1.Tomcat) *corev1.Servic
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      t.Name,
 			Namespace: t.Namespace,
-			Labels:    map[string]string{
+			Labels: map[string]string{
 				"application": t.Spec.ApplicationName,
 			},
 		},
@@ -154,7 +219,7 @@ func (r *ReconcileTomcat) serviceForTomcat(t *jwsv1alpha1.Tomcat) *corev1.Servic
 			Ports: []corev1.ServicePort{{
 				Name:       "ui",
 				Port:       8080,
-				TargetPort: 8080,
+				TargetPort: intstr.FromInt(8080),
 			}},
 			Selector: map[string]string{
 				"deploymentConfig": t.Spec.ApplicationName,
@@ -202,7 +267,7 @@ func (r *ReconcileTomcat) deploymentConfigForTomcat(t *jwsv1alpha1.Tomcat) *apps
 			Selector: map[string]string{
 				"deploymentConfig": t.Spec.ApplicationName,
 			},
-			Template: corev1.PodTemplateSpec{
+			Template: &corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: t.Name,
 					Labels: map[string]string{
@@ -260,13 +325,13 @@ func (r *ReconcileTomcat) routeForTomcat(t *jwsv1alpha1.Tomcat) *routev1.Route {
 			Kind:       "Route",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:   t.Name,
+			Name: t.Name,
 			Labels: map[string]string{
 				"application": t.Spec.ApplicationName,
 			},
-			Annotations: map[string]string {
+			Annotations: map[string]string{
 				"description": "Route for application's http service.",
-			}
+			},
 		},
 		Spec: routev1.RouteSpec{
 			Host: t.Spec.HostnameHttp,
@@ -280,14 +345,14 @@ func (r *ReconcileTomcat) routeForTomcat(t *jwsv1alpha1.Tomcat) *routev1.Route {
 }
 
 func (r *ReconcileTomcat) imageStreamForTomcat(t *jwsv1alpha1.Tomcat) *imagev1.ImageStream {
-	
+
 	imageStream := &imagev1.ImageStream{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: "image.openshift.io/v1",
 			Kind:       "ImageStream",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:   t.Name,
+			Name: t.Name,
 			Labels: map[string]string{
 				"application": t.Spec.ApplicationName,
 			},
@@ -298,14 +363,14 @@ func (r *ReconcileTomcat) imageStreamForTomcat(t *jwsv1alpha1.Tomcat) *imagev1.I
 }
 
 func (r *ReconcileTomcat) buildConfigForTomcat(t *jwsv1alpha1.Tomcat) *buildv1.BuildConfig {
-	
+
 	buildConfig := &buildv1.BuildConfig{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: "build.openshift.io/v1",
 			Kind:       "BuildConfig",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:   t.Name,
+			Name: t.Name,
 			Labels: map[string]string{
 				"application": t.Spec.ApplicationName,
 			},
@@ -324,17 +389,17 @@ func (r *ReconcileTomcat) buildConfigForTomcat(t *jwsv1alpha1.Tomcat) *buildv1.B
 					Type: "Source",
 					SourceStrategy: &buildv1.SourceBuildStrategy{
 						Env: []corev1.EnvVar{{
-							Name: "MAVEN_MIRROR_URL",
+							Name:  "MAVEN_MIRROR_URL",
 							Value: t.Spec.MavenMirrorUrl,
-						},{
-							Name: "ARTIFACT_DIR",
+						}, {
+							Name:  "ARTIFACT_DIR",
 							Value: t.Spec.ArtifactDir,
 						}},
 						ForcePull: true,
 						From: corev1.ObjectReference{
-							Kind: "ImageStreamTag",
-							Namespace: t.Spec.Namespace,
-							Name: "jboss-webserver31-tomcat8-openshift:1.2",
+							Kind:      "ImageStreamTag",
+							Namespace: t.Spec.ImageStreamNamespace,
+							Name:      "jboss-webserver31-tomcat8-openshift:1.2",
 						},
 					},
 				},
@@ -350,42 +415,19 @@ func (r *ReconcileTomcat) buildConfigForTomcat(t *jwsv1alpha1.Tomcat) *buildv1.B
 				GitHubWebHook: &buildv1.WebHookTrigger{
 					Secret: t.Spec.GithubWebhookSecret,
 				},
-			},{
+			}, {
 				Type: "Generic",
 				GenericWebHook: &buildv1.WebHookTrigger{
 					Secret: t.Spec.GenericWebhookSecret,
 				},
-			},{
-				Type: "ImageChange",
+			}, {
+				Type:        "ImageChange",
 				ImageChange: &buildv1.ImageChangeTrigger{},
-			},{
+			}, {
 				Type: "ConfigChange",
 			}},
 		},
 	}
 
 	return buildConfig
-}
-
-// newPodForCR returns a busybox pod with the same name/namespace as the cr
-func newPodForCR(cr *jwsv1alpha1.Tomcat) *corev1.Pod {
-	labels := map[string]string{
-		"app": cr.Name,
-	}
-	return &corev1.Pod{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      cr.Name + "-pod",
-			Namespace: cr.Namespace,
-			Labels:    labels,
-		},
-		Spec: corev1.PodSpec{
-			Containers: []corev1.Container{
-				{
-					Name:    "busybox",
-					Image:   "busybox",
-					Command: []string{"sleep", "3600"},
-				},
-			},
-		},
-	}
 }
