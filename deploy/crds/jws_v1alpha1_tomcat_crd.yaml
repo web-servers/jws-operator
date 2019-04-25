@@ -49,17 +49,12 @@ spec:
               type: string
           required:
           - applicationName
-          - hostnameHttp
           - sourceRepositoryUrl
-          - sourceRepositoryRef
-          - contextDir
           - jwsAdminUsername
           - jwsAdminPassword
           - githubWebhookSecret
           - genericWebhookSecret
           - imageStreamNamespace
-          - mavenMirrorUrl
-          - artifactDir
           type: object
         status:
           type: object
