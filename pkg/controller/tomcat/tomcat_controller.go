@@ -109,8 +109,10 @@ func (r *ReconcileTomcat) Reconcile(request reconcile.Request) (reconcile.Result
 	}
 
 	// Check if the Service already exists, if not create a new one
-	err = r.client.Get(context.TODO(), types.NamespacedName{Name: tomcat.Name, Namespace: tomcat.Namespace}, &corev1.Service{})
-	if err != nil && errors.IsNotFound(err) {
+	list := &corev1.ServiceList{}
+	opts := &client.ListOptions{}
+	err = r.client.List(context.TODO(), opts, list)
+	if (err != nil && errors.IsNotFound(err)) || len(list.Items) == 1 {
 		// Define a new Service
 		ser := r.serviceForTomcat(tomcat)
 		reqLogger.Info("Creating a new Service.", "Service.Namespace", ser.Namespace, "Service.Name", ser.Name)
@@ -120,6 +122,24 @@ func (r *ReconcileTomcat) Reconcile(request reconcile.Request) (reconcile.Result
 			return reconcile.Result{}, err
 		}
 		// Service created successfully - return and requeue
+		return reconcile.Result{Requeue: true}, nil
+	} else if err != nil {
+		reqLogger.Error(err, "Failed to get Service.")
+		return reconcile.Result{}, err
+	}
+
+	// Check if the Route already exists, if not create a new one
+	err = r.client.Get(context.TODO(), types.NamespacedName{Name: tomcat.Name, Namespace: tomcat.Namespace}, &routev1.Route{})
+	if err != nil && errors.IsNotFound(err) {
+		// Define a new Route
+		rou := r.routeForTomcat(tomcat)
+		reqLogger.Info("Creating a new Route.", "Route.Namespace", rou.Namespace, "Route.Name", rou.Name)
+		err = r.client.Create(context.TODO(), rou)
+		if err != nil {
+			reqLogger.Error(err, "Failed to create new Route.", "Route.Namespace", rou.Namespace, "Route.Name", rou.Name)
+			return reconcile.Result{}, err
+		}
+		// Route created successfully - return and requeue
 		return reconcile.Result{Requeue: true}, nil
 	} else if err != nil {
 		reqLogger.Error(err, "Failed to get Service.")
@@ -180,24 +200,6 @@ func (r *ReconcileTomcat) Reconcile(request reconcile.Request) (reconcile.Result
 		return reconcile.Result{}, err
 	}
 
-	// Check if the Route already exists, if not create a new one
-	err = r.client.Get(context.TODO(), types.NamespacedName{Name: tomcat.Name, Namespace: tomcat.Namespace}, &routev1.Route{})
-	if err != nil && errors.IsNotFound(err) {
-		// Define a new Route
-		rou := r.routeForTomcat(tomcat)
-		reqLogger.Info("Creating a new Route.", "Route.Namespace", rou.Namespace, "Route.Name", rou.Name)
-		err = r.client.Create(context.TODO(), rou)
-		if err != nil {
-			reqLogger.Error(err, "Failed to create new Route.", "Route.Namespace", rou.Namespace, "Route.Name", rou.Name)
-			return reconcile.Result{}, err
-		}
-		// Route created successfully - return and requeue
-		return reconcile.Result{Requeue: true}, nil
-	} else if err != nil {
-		reqLogger.Error(err, "Failed to get Service.")
-		return reconcile.Result{}, err
-	}
-
 	return reconcile.Result{}, nil
 }
 
@@ -240,7 +242,8 @@ func (r *ReconcileTomcat) deploymentConfigForTomcat(t *jwsv1alpha1.Tomcat) *apps
 			Kind:       "DeploymentConfig",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name: t.Name,
+			Name:      t.Name,
+			Namespace: t.Namespace,
 			Labels: map[string]string{
 				"application": t.Spec.ApplicationName,
 			},
@@ -325,7 +328,8 @@ func (r *ReconcileTomcat) routeForTomcat(t *jwsv1alpha1.Tomcat) *routev1.Route {
 			Kind:       "Route",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name: t.Name,
+			Name:      t.Name,
+			Namespace: t.Namespace,
 			Labels: map[string]string{
 				"application": t.Spec.ApplicationName,
 			},
@@ -352,7 +356,8 @@ func (r *ReconcileTomcat) imageStreamForTomcat(t *jwsv1alpha1.Tomcat) *imagev1.I
 			Kind:       "ImageStream",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name: t.Name,
+			Name:      t.Name,
+			Namespace: t.Namespace,
 			Labels: map[string]string{
 				"application": t.Spec.ApplicationName,
 			},
@@ -370,7 +375,8 @@ func (r *ReconcileTomcat) buildConfigForTomcat(t *jwsv1alpha1.Tomcat) *buildv1.B
 			Kind:       "BuildConfig",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name: t.Name,
+			Name:      t.Name,
+			Namespace: t.Namespace,
 			Labels: map[string]string{
 				"application": t.Spec.ApplicationName,
 			},
