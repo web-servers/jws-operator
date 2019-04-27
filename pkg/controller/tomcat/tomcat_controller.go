@@ -129,7 +129,7 @@ func (r *ReconcileTomcat) Reconcile(request reconcile.Request) (reconcile.Result
 	}
 
 	// Check if the Route already exists, if not create a new one
-	err = r.client.Get(context.TODO(), types.NamespacedName{Name: tomcat.Name, Namespace: tomcat.Namespace}, &routev1.Route{})
+	err = r.client.Get(context.TODO(), types.NamespacedName{Name: tomcat.Spec.ApplicationName, Namespace: tomcat.Namespace}, &routev1.Route{})
 	if err != nil && errors.IsNotFound(err) {
 		// Define a new Route
 		rou := r.routeForTomcat(tomcat)
@@ -147,7 +147,7 @@ func (r *ReconcileTomcat) Reconcile(request reconcile.Request) (reconcile.Result
 	}
 
 	// Check if the ImageStream already exists, if not create a new one
-	err = r.client.Get(context.TODO(), types.NamespacedName{Name: tomcat.Name, Namespace: tomcat.Namespace}, &imagev1.ImageStream{})
+	err = r.client.Get(context.TODO(), types.NamespacedName{Name: tomcat.Spec.ApplicationName, Namespace: tomcat.Namespace}, &imagev1.ImageStream{})
 	if err != nil && errors.IsNotFound(err) {
 		// Define a new ImageStream
 		img := r.imageStreamForTomcat(tomcat)
@@ -165,7 +165,7 @@ func (r *ReconcileTomcat) Reconcile(request reconcile.Request) (reconcile.Result
 	}
 
 	// Check if the BuildConfig already exists, if not create a new one
-	err = r.client.Get(context.TODO(), types.NamespacedName{Name: tomcat.Name, Namespace: tomcat.Namespace}, &buildv1.BuildConfig{})
+	err = r.client.Get(context.TODO(), types.NamespacedName{Name: tomcat.Spec.ApplicationName, Namespace: tomcat.Namespace}, &buildv1.BuildConfig{})
 	if err != nil && errors.IsNotFound(err) {
 		// Define a new BuildConfig
 		bui := r.buildConfigForTomcat(tomcat)
@@ -183,7 +183,7 @@ func (r *ReconcileTomcat) Reconcile(request reconcile.Request) (reconcile.Result
 	}
 
 	// Check if the DeploymentConfig already exists, if not create a new one
-	err = r.client.Get(context.TODO(), types.NamespacedName{Name: tomcat.Name, Namespace: tomcat.Namespace}, &appsv1.DeploymentConfig{})
+	err = r.client.Get(context.TODO(), types.NamespacedName{Name: tomcat.Spec.ApplicationName, Namespace: tomcat.Namespace}, &appsv1.DeploymentConfig{})
 	if err != nil && errors.IsNotFound(err) {
 		// Define a new DeploymentConfig
 		dep := r.deploymentConfigForTomcat(tomcat)
@@ -211,7 +211,7 @@ func (r *ReconcileTomcat) serviceForTomcat(t *jwsv1alpha1.Tomcat) *corev1.Servic
 			Kind:       "Service",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      t.Name,
+			Name:      t.Spec.ApplicationName,
 			Namespace: t.Namespace,
 			Labels: map[string]string{
 				"application": t.Spec.ApplicationName,
@@ -242,7 +242,7 @@ func (r *ReconcileTomcat) deploymentConfigForTomcat(t *jwsv1alpha1.Tomcat) *apps
 			Kind:       "DeploymentConfig",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      t.Name,
+			Name:      t.Spec.ApplicationName,
 			Namespace: t.Namespace,
 			Labels: map[string]string{
 				"application": t.Spec.ApplicationName,
@@ -272,7 +272,7 @@ func (r *ReconcileTomcat) deploymentConfigForTomcat(t *jwsv1alpha1.Tomcat) *apps
 			},
 			Template: &corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
-					Name: t.Name,
+					Name: t.Spec.ApplicationName,
 					Labels: map[string]string{
 						"application":      t.Spec.ApplicationName,
 						"deploymentConfig": t.Spec.ApplicationName,
@@ -328,7 +328,7 @@ func (r *ReconcileTomcat) routeForTomcat(t *jwsv1alpha1.Tomcat) *routev1.Route {
 			Kind:       "Route",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      t.Name,
+			Name:      t.Spec.ApplicationName,
 			Namespace: t.Namespace,
 			Labels: map[string]string{
 				"application": t.Spec.ApplicationName,
@@ -356,7 +356,7 @@ func (r *ReconcileTomcat) imageStreamForTomcat(t *jwsv1alpha1.Tomcat) *imagev1.I
 			Kind:       "ImageStream",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      t.Name,
+			Name:      t.Spec.ApplicationName,
 			Namespace: t.Namespace,
 			Labels: map[string]string{
 				"application": t.Spec.ApplicationName,
@@ -375,7 +375,7 @@ func (r *ReconcileTomcat) buildConfigForTomcat(t *jwsv1alpha1.Tomcat) *buildv1.B
 			Kind:       "BuildConfig",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      t.Name,
+			Name:      t.Spec.ApplicationName,
 			Namespace: t.Namespace,
 			Labels: map[string]string{
 				"application": t.Spec.ApplicationName,
