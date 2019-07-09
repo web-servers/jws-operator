@@ -18,7 +18,7 @@ codegen: setup
 	operator-sdk generate k8s
 	operator-sdk generate openapi
 
-## build            Compile and build the JWS Image Operator.
+## build            Compile and build the JWS operator.
 build: dep codegen
 	operator-sdk build "${DOCKER_REPO}$(IMAGE):$(TAG)"
 
@@ -29,6 +29,10 @@ push: build
 ## clean            Remove all generated build files.
 clean:
 	rm -rf build/_output
+
+## run-openshift    Run the JWS operator on OpenShift.
+run-openshift:
+	./build/run-openshift.sh
 
 help : Makefile
 	@sed -n 's/^##//p' $<
