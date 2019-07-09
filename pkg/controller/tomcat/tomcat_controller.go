@@ -183,7 +183,8 @@ func (r *ReconcileTomcat) Reconcile(request reconcile.Request) (reconcile.Result
 	}
 
 	// Check if the DeploymentConfig already exists, if not create a new one
-	err = r.client.Get(context.TODO(), types.NamespacedName{Name: tomcat.Spec.ApplicationName, Namespace: tomcat.Namespace}, &appsv1.DeploymentConfig{})
+	foundDeployment := &appsv1.DeploymentConfig{}
+	err = r.client.Get(context.TODO(), types.NamespacedName{Name: tomcat.Spec.ApplicationName, Namespace: tomcat.Namespace}, foundDeployment)
 	if err != nil && errors.IsNotFound(err) {
 		// Define a new DeploymentConfig
 		dep := r.deploymentConfigForTomcat(tomcat)
@@ -198,6 +199,19 @@ func (r *ReconcileTomcat) Reconcile(request reconcile.Request) (reconcile.Result
 	} else if err != nil {
 		reqLogger.Error(err, "Failed to get Service.")
 		return reconcile.Result{}, err
+	}
+
+	// Handle Scaling
+	size := tomcat.Spec.Size
+	if foundDeployment.Spec.Replicas != size {
+		foundDeployment.Spec.Replicas = size
+		err = r.client.Update(context.TODO(), foundDeployment)
+		if err != nil {
+			reqLogger.Error(err, "Failed to update Deployment.", "Deployment.Namespace", foundDeployment.Namespace, "Deployment.Name", foundDeployment.Name)
+			return reconcile.Result{}, err
+		}
+		// Spec updated - return and requeue
+		return reconcile.Result{Requeue: true}, nil
 	}
 
 	return reconcile.Result{}, nil
