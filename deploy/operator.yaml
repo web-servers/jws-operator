@@ -1,7 +1,7 @@
 apiVersion: v1
 kind: Template
 metadata:
-  name: jws-image-operato-template
+  name: jws-image-operator-template
   annotations:
     description: "Description JWS Operator template"
 objects:

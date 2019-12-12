@@ -419,7 +419,7 @@ func (r *ReconcileTomcat) buildConfigForTomcat(t *jwsv1alpha1.Tomcat) *buildv1.B
 						From: corev1.ObjectReference{
 							Kind:      "ImageStreamTag",
 							Namespace: t.Spec.ImageStreamNamespace,
-							Name:      "jboss-webserver31-tomcat8-openshift:1.2",
+							Name:      "jboss-webserver52-tomcat9-openshift:latest",
 						},
 					},
 				},
