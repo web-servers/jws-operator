@@ -26,6 +26,7 @@ type TomcatSpec struct {
 	ImageStreamNamespace string `json:"imageStreamNamespace"`
 	MavenMirrorUrl       string `json:"mavenMirrorUrl"`
 	ArtifactDir          string `json:"artifactDir"`
+	Size		     int32  `json:"size"`
 }
 
 // TomcatStatus defines the observed state of Tomcat

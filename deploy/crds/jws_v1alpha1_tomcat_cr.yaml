@@ -13,3 +13,7 @@ spec:
   githubWebhookSecret: tomcat
   genericWebhookSecret: tomcat
   imageStreamNamespace: openshift
+  hostnameHttp: ""
+  mavenMirrorUrl: ""
+  artifactDir: ""
+  replica: 1

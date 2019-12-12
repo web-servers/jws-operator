@@ -39,10 +39,11 @@ Now that the tools are installed, follow these few steps to build it up:
 You will need to push it to a Docker Registry accessible by your Openshift Server in order to deploy it. I used docker.io:
 ```bash
 $ export IMAGE=docker.io/<username>/jws-image-operator:v0.0.1
+$ dep ensure
 $ operator-sdk build $IMAGE
+$ docker login docker.io
 $ docker push $IMAGE
 ```
-Finally, edit *deploy/operator.yaml* and change the image tag to your image.
 
 ## Deploy to an Openshift Cluster
 The operator is pre-built and containerized in a docker image. By default, the deployment has been configured to utilize that image. Therefore, deploying the operator can be done by following these simple steps:
@@ -67,17 +68,23 @@ $ oc create -f deploy/service_account.yaml -n $NAMESPACE
 $ oc create -f deploy/role.yaml -n $NAMESPACE
 $ oc create -f deploy/role_binding.yaml -n $NAMESPACE
 ```
-5. Deploy the operator
+5. Deploy the operator using the template
 ```bash
-$ oc create -f deploy/operator.yaml
+$ oc process -f deploy/operator.yaml IMAGE=${IMAGE} | oc create -f -
 ```
 6. Create a Tomcat instance (Custom Resource). An example has been provided in *deploy/crds/jws_v1alpha1_tomcat_cr.yaml*
 ```bash
 $ oc apply -f deploy/crds/jws_v1alpha1_tomcat_cr.yaml
 ```
-7. If the DNS is not setup in your Openshift installation, you will need to add the resulting route to your local `/etc/hosts` file in order to resolve the URL. It has point to the IP address of the node running the router. You can determine this address by running `oc get endpoints --namespace=default --selector=router` with a cluster-admin user.
+7. If the DNS is not setup in your Openshift installation, you will need to add the resulting route to your local `/etc/hosts` file in order to resolve the URL. It has point to the IP address of the node running the router. You can determine this address by running `oc get endpoints` with a cluster-admin user.
 
 8. Finally, to access the newly deployed application, simply use the created route with */websocket-chat*
+```bash
+oc get routes
+NAME      HOST/PORT                                            PATH      SERVICES   PORT      TERMINATION   WILDCARD
+jws-app   jws-app-jws-operator.apps.jclere.rhmw-runtimes.net             jws-app    <all>                   None
+```
+Then go to http://jws-app-jws-operator.apps.jclere.rhmw-runtimes.net/websocket-chat using a browser.
 
 ## What to do next?
 Below are some features that may be relevant to add in the near future.

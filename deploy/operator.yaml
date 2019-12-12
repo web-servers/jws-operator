@@ -1,33 +1,44 @@
-apiVersion: apps/v1
-kind: Deployment
+apiVersion: v1
+kind: Template
 metadata:
-  name: jws-image-operator
-spec:
-  replicas: 1
-  selector:
-    matchLabels:
-      name: jws-image-operator
-  template:
-    metadata:
-      labels:
-        name: jws-image-operator
-    spec:
-      serviceAccountName: jws-image-operator
-      containers:
-        - name: jws-image-operator
-          # Replace this with the built image name
-          image: docker.io/maxbeck/jws-image-operator:v0.0.1
-          command:
-          - jws-image-operator
-          imagePullPolicy: Always
-          env:
-            - name: WATCH_NAMESPACE
-              valueFrom:
-                fieldRef:
-                  fieldPath: metadata.namespace
-            - name: POD_NAME
-              valueFrom:
-                fieldRef:
-                  fieldPath: metadata.name
-            - name: OPERATOR_NAME
-              value: "jws-image-operator"
+  name: jws-image-operato-template
+  annotations:
+    description: "Description JWS Operator template"
+objects:
+ - apiVersion: apps/v1
+   kind: Deployment
+   metadata:
+     name: jws-image-operator
+   spec:
+     replicas: 1
+     selector:
+       matchLabels:
+         name: jws-image-operator
+     template:
+       metadata:
+         labels:
+           name: jws-image-operator
+       spec:
+         serviceAccountName: jws-image-operator
+         containers:
+           - name: jws-image-operator
+             image: "${IMAGE}"
+             command:
+             - jws-image-operator
+             imagePullPolicy: Always
+             env:
+               - name: WATCH_NAMESPACE
+                 valueFrom:
+                   fieldRef:
+                     fieldPath: metadata.namespace
+               - name: POD_NAME
+                 valueFrom:
+                   fieldRef:
+                     fieldPath: metadata.name
+               - name: OPERATOR_NAME
+                 value: "jws-image-operator"
+parameters:
+  - name: IMAGE
+    displayName: Docker image URL
+    description: The URL where you pushed the operator
+    required: true
