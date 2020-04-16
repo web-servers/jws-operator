@@ -39,7 +39,7 @@ Now that the tools are installed, follow these few steps to build it up:
 
 You will need to push it to a Docker Registry accessible by your Openshift Server in order to deploy it. I used docker.io:
 ```bash
-$ cd $GOPATH/src/github.comsrc/github.com
+$ cd $GOPATH/src/github.com
 $ git checkout https://github.com/web-servers/jws-image-operator.git
 $ export IMAGE=docker.io/<username>/jws-image-operator:v0.0.1
 $ dep ensure
