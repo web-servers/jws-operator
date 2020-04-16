@@ -4,7 +4,7 @@ The purpose of this repository is to showcase a proof of concept of a simple Ope
 ## What does it provide?
 This prototype mimics the features provided by the [JWS Tomcat8 Basic Template](https://github.com/openshift/openshift-ansible/blob/release-3.11/roles/openshift_examples/files/examples/x86_64/xpaas-templates/jws31-tomcat8-basic-s2i.json). It allows the automated deployment of Tomcat instances.
 
-## Development Workflow
+## Development Workflow (we did it to create the files in the repository)
 The prototype has been written in Golang. it uses [dep](https://golang.github.io/dep/) as dependency manager and the [operator-sdk](https://github.com/operator-framework/operator-sdk) as development Framework and project manager. This SDK allows the generation of source code to increase productivity. It is solely used to conveniently write and build an Openshift or Kubernetes operator (the end-user does not need the operator-sdk to deploy a pre-build version of the operator)·
 
 The development workflow used in this prototype is standard to all Operator development:
@@ -55,9 +55,9 @@ $ export NAMESPACE="jws-operator"
 ```bash
 $ oc new-project $NAMESPACE
 ```
-3. Install the JWS Tomcat8 Basic Image Stream in the *openshift* project. For testing purposes, this repository provides a version of the corresponding script (*xpaas-streams/jws31-tomcat8-image-stream.json*) using the __unsecured Red Hat Registy__ (registry.access.redhat.com). Please make sure to use the [latest version](https://github.com/openshift/openshift-ansible) with a secured registry for production use.
+3. Install the JWS Tomcat Basic Image Stream in the *openshift* project. For testing purposes, this repository provides a version of the corresponding script (*xpaas-streams/jws53-tomcat9-image-stream.json*) using the __unsecured Red Hat Registy__ (registry.access.redhat.com). Please make sure to use the [latest version](https://github.com/openshift/openshift-ansible) with a secured registry for production use.
 ```bash
-$ oc create -f xpaas-streams/jws52-tomcat9-image-stream.json -n openshift
+$ oc create -f xpaas-streams/jws53-tomcat9-image-stream.json -n openshift
 ```
 As the image stream isn't namespace-specific, creating this resource in the _openshift_ project makes it convenient to reuse it across multiple namespaces. The following resources, more specific, will need to be created for every namespace.
 
@@ -104,6 +104,3 @@ This may be tricky depending on how we decide to handle Tomcat updates. We may n
 __Adding Support for Kubernetes Clusters__
 
 This Operator prototype is currently using some Openshift specific resources such as DeploymentConfigs, Routes, and ImageStreams. In order to run on Kubernetes Clusters, equivalent resources available on Kubernetes have to be implemented.
-
-## Difficulty Evaluation
-I think the real difficulty of Operator development is that it needs a deep understanding of how both Kubernetes and Openshift works along with being aware of their respective stock resources/controllers and how they interact with each other. Otherwise, working with the operator-sdk is both simple and efficient. It takes a minute to get used to Golang but it probably won't scare off anyone familiar with structures and pointers.
