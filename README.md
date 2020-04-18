@@ -42,6 +42,7 @@ You will need to push it to a Docker Registry accessible by your Openshift Serve
 $ cd $GOPATH/src/github.com
 $ git clone https://github.com/web-servers/jws-image-operator.git
 $ export IMAGE=docker.io/<username>/jws-image-operator:v0.0.1
+$ cd jws-image-operator
 $ dep ensure
 $ operator-sdk build $IMAGE
 $ docker login docker.io
