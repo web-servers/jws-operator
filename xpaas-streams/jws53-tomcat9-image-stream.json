@@ -1,0 +1,52 @@
+{
+    "kind": "List",
+    "apiVersion": "v1",
+    "metadata": {
+        "name": "webserver53-tomcat9-image-stream",
+        "annotations": {
+            "description": "ImageStream definition for Red Hat JBoss Web Server 5.3 Apache Tomcat 9.",
+            "openshift.io/provider-display-name": "Red Hat, Inc."
+        }
+    },
+    "items": [
+        {
+            "kind": "ImageStream",
+            "apiVersion": "v1",
+            "metadata": {
+                "name": "jboss-webserver53-tomcat9-openshift",
+                "annotations": {
+                    "openshift.io/display-name": "JBoss Web Server 5.3 Apache Tomcat 9",
+                    "openshift.io/provider-display-name": "Red Hat, Inc.",
+                    "version": "1.0"
+                }
+            },
+            "labels": {
+                "jws53": "1.0"
+            },
+            "spec": {
+                "tags": [
+                    {
+                        "name": "latest",
+                        "annotations": {
+                            "description": "JBoss Web Server 5.3 Apache Tomcat 9 S2I images.",
+                            "iconClass": "icon-rh-tomcat",
+                            "tags": "builder,tomcat,tomcat9,java,jboss,hidden",
+                            "supports": "tomcat9:5.3,tomcat:9,java:8",
+                            "sampleRepo": "https://github.com/jboss-openshift/openshift-quickstarts.git",
+                            "sampleContextDir": "tomcat-websocket-chat",
+                            "version": "latest",
+                            "openshift.io/display-name": "Red Hat JBoss Web Server 5.3 Apache Tomcat 9"
+                        },
+                        "referencePolicy": {
+                            "type": "Local"
+                        },
+                        "from": {
+                            "kind": "DockerImage",
+                            "name": "registry.redhat.io/jboss-webserver-5/webserver53-openjdk8-tomcat9-openshift-rhel7:latest"
+                        }
+                    }
+                ]
+            }
+        }
+    ]
+}
