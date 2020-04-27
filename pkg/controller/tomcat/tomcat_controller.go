@@ -113,12 +113,20 @@ func (r *ReconcileTomcat) Reconcile(request reconcile.Request) (reconcile.Result
 	opts := &client.ListOptions{}
 	err = r.client.List(context.TODO(), opts, list)
 	if (err != nil && errors.IsNotFound(err)) || len(list.Items) == 1 {
-		// Define a new Service
+		// Define the Service for the route.
 		ser := r.serviceForTomcat(tomcat)
-		reqLogger.Info("Creating a new Service.", "Service.Namespace", ser.Namespace, "Service.Name", ser.Name)
+		reqLogger.Info("Creating a new Service. (route)", "Service.Namespace", ser.Namespace, "Service.Name", ser.Name)
 		err = r.client.Create(context.TODO(), ser)
 		if err != nil {
 			reqLogger.Error(err, "Failed to create new Service.", "Service.Namespace", ser.Namespace, "Service.Name", ser.Name)
+			return reconcile.Result{}, err
+		}
+		// Define the Service for DNSPing
+		ser1 := r.serviceForTomcatDNS(tomcat)
+		reqLogger.Info("Creating a new Service. (DNS)", "Service.Namespace", ser1.Namespace, "Service.Name", ser1.Name)
+		err = r.client.Create(context.TODO(), ser1)
+		if err != nil {
+			reqLogger.Error(err, "Failed to create new Service.", "Service.Namespace", ser1.Namespace, "Service.Name", ser1.Name)
 			return reconcile.Result{}, err
 		}
 		// Service created successfully - return and requeue
@@ -239,6 +247,36 @@ func (r *ReconcileTomcat) serviceForTomcat(t *jwsv1alpha1.Tomcat) *corev1.Servic
 			}},
 			Selector: map[string]string{
 				"deploymentConfig": t.Spec.ApplicationName,
+			},
+		},
+	}
+
+	return service
+}
+
+func (r *ReconcileTomcat) serviceForTomcatDNS(t *jwsv1alpha1.Tomcat) *corev1.Service {
+
+	service := &corev1.Service{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: "apps/v1",
+			Kind:       "Service",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "tomcat",
+			Namespace: t.Namespace,
+			Labels: map[string]string{
+				"application": t.Spec.ApplicationName,
+			},
+		},
+		Spec: corev1.ServiceSpec{
+			ClusterIP: "None",
+			Ports: []corev1.ServicePort{{
+				Name:       "http",
+				Port:       8080,
+				TargetPort: intstr.FromInt(8080),
+			}},
+			Selector: map[string]string{
+				"application": t.Spec.ApplicationName,
 			},
 		},
 	}
