@@ -1,6 +1,6 @@
 DOCKER_REPO ?= docker.io/
-IMAGE ?= maxbeck/jws-image-operator
-TAG ?= v0.0.1
+IMAGE ?= ${USER}/jws-image-operator
+TAG ?= v0.0.2
 PROG  := jws-image-operator
 
 .DEFAULT_GOAL := help
