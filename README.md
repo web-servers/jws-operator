@@ -49,7 +49,7 @@ $ docker login docker.io
 $ docker push $IMAGE
 ```
 
-## Using an operator prepared by Red Hat
+## Using an operator prepared by Red Hat (probably not the correct way / JFC will fix that!!!)
 Download the tar.gz file and import it in docker and then push it to your docker repo something like:
 ```bash
 $ wget http://download.eng.bos.redhat.com/brewroot/packages/jboss-webserver-5-webserver54-openjdk8-tomcat9-rhel8-operator-container/1.0/2/images/docker-image-sha256:a0eba0294e43b6316860bafe9250b377e6afb4ab1dae79681713fa357556f801.x86_64.tar.gz
