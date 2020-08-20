@@ -1,5 +1,5 @@
-# JWS Image Operator - Prototype
-The purpose of this repository is to showcase a proof of concept of a simple Openshift Operator to manage JWS Images.
+# JWS Image Operator
+This repository contains the source code a simple Openshift Operator to manage JWS Images.
 
 ## What does it provide?
 This prototype mimics the features provided by the [JWS Tomcat8 Basic Template](https://github.com/openshift/openshift-ansible/blob/release-3.11/roles/openshift_examples/files/examples/x86_64/xpaas-templates/jws31-tomcat8-basic-s2i.json). It allows the automated deployment of Tomcat instances.
@@ -72,7 +72,7 @@ $ oc create -f deploy/service_account.yaml -n $NAMESPACE
 $ oc create -f deploy/role.yaml -n $NAMESPACE
 $ oc create -f deploy/role_binding.yaml -n $NAMESPACE
 ```
-5. Deploy the operator using the template
+5. Deploy the operator using the template (IMAGE is something like docker.io/${USER}/jws-image-operator:v0.0.1)
 ```bash
 $ oc process -f deploy/operator.yaml IMAGE=${IMAGE} | oc create -f -
 ```
