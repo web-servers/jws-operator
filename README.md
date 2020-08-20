@@ -49,6 +49,21 @@ $ docker login docker.io
 $ docker push $IMAGE
 ```
 
+## Using an operator prepared by Red Hat
+Download the tar.gz file and import it in docker and then push it to your docker repo something like:
+```bash
+$ wget http://download.eng.bos.redhat.com/brewroot/packages/jboss-webserver-5-webserver54-openjdk8-tomcat9-rhel8-operator-container/1.0/2/images/docker-image-sha256:a0eba0294e43b6316860bafe9250b377e6afb4ab1dae79681713fa357556f801.x86_64.tar.gz
+$ export IMAGE=docker.io/${USER}/jws-image-operator:v0.0.1
+$ docker import docker-image-sha256:3c424d48db2ed757c320716dc5c4c487dba8d11ea7a04df0e63d586c4a0cf760.x86_64.tar.gz
+```
+
+The import command returns the local tag of the image something like: sha256:94a95418de84c20b7d96c3812a31e288494ce5d284ead326f359449f257b52b5, use it to name it and push it:
+```bash
+$ docker tag 94a95418de84c20b7d96c3812a31e288494ce5d284ead326f359449f257b52b5 ${IMAGE}
+$ docker login docker.io
+$ docker push $IMAGE
+```
+
 ## Deploy to an Openshift Cluster
 The operator is pre-built and containerized in a docker image. By default, the deployment has been configured to utilize that image. Therefore, deploying the operator can be done by following these simple steps:
 1. Define a namespace
