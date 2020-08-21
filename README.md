@@ -78,8 +78,8 @@ $ oc new-project $NAMESPACE
 ```bash
 $ oc create -f xpaas-streams/jws53-tomcat9-image-stream.json -n openshift
 ```
-As the image stream isn't namespace-specific, creating this resource in the _openshift_ project makes it convenient to reuse it across multiple namespaces. The following resources, more specific, will need to be created for every namespace.
-
+As the image stream isn't namespace-specific, creating this resource in the _openshift_ project makes it convenient to reuse it across multiple namespaces. The following resources, more specific, will need to be created for every namespace. If you don't use the __-n openshift__ you will have to adjust the   imageStreamNamespace: to $NAMESPACE in the Custom Resource file *deploy/crds/jws_v1alpha1_tomcat_cr.yaml*.
+ 
 4. Create the necessary resources
 ```bash
 $ oc create -f deploy/crds/jws_v1alpha1_tomcat_crd.yaml -n $NAMESPACE
@@ -105,13 +105,20 @@ $ oc apply -f deploy/crds/jws_v1alpha1_tomcat_cr.yaml
 ```
 7. If the DNS is not setup in your Openshift installation, you will need to add the resulting route to your local `/etc/hosts` file in order to resolve the URL. It has point to the IP address of the node running the router. You can determine this address by running `oc get endpoints` with a cluster-admin user.
 
-8. Finally, to access the newly deployed application, simply use the created route with */websocket-chat*
+8. Finally, to access the newly deployed application, simply use the created route with */demo-1.0/demo*
 ```bash
 oc get routes
 NAME      HOST/PORT                                            PATH      SERVICES   PORT      TERMINATION   WILDCARD
 jws-app   jws-app-jws-operator.apps.jclere.rhmw-runtimes.net             jws-app    <all>                   None
 ```
-Then go to http://jws-app-jws-operator.apps.jclere.rhmw-runtimes.net/websocket-chat using a browser.
+Then go to http://jws-app-jws-operator.apps.jclere.rhmw-runtimes.net/demo-1.0/demo using a browser.
+
+9. To remove everything
+```bash
+oc delete tomcat.jws.apache.org/example-tomcat
+oc delete deployment.apps/jws-image-operator
+```
+and use oc get all and oc delete to delete the remaining objects.
 
 ## What to do next?
 Below are some features that may be relevant to add in the near future.
