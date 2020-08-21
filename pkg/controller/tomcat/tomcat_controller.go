@@ -457,7 +457,7 @@ func (r *ReconcileTomcat) buildConfigForTomcat(t *jwsv1alpha1.Tomcat) *buildv1.B
 						From: corev1.ObjectReference{
 							Kind:      "ImageStreamTag",
 							Namespace: t.Spec.ImageStreamNamespace,
-							Name:      "jboss-webserver53-tomcat9-openshift:latest",
+							Name:      t.Spec.ImageStreamName,
 						},
 					},
 				},

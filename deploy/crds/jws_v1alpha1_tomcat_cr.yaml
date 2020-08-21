@@ -13,6 +13,7 @@ spec:
   githubWebhookSecret: tomcat
   genericWebhookSecret: tomcat
   imageStreamNamespace: openshift
+  imageStreamName: jboss-webserver54-openjdk8-tomcat9-ubi8-openshift:latest
   hostnameHttp: ""
   mavenMirrorUrl: ""
   artifactDir: ""

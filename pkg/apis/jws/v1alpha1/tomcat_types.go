@@ -24,6 +24,7 @@ type TomcatSpec struct {
 	GithubWebhookSecret  string `json:"githubWebhookSecret"`
 	GenericWebhookSecret string `json:"genericWebhookSecret"`
 	ImageStreamNamespace string `json:"imageStreamNamespace"`
+	ImageStreamName      string `json:"imageStreamName"`
 	MavenMirrorUrl       string `json:"mavenMirrorUrl"`
 	ArtifactDir          string `json:"artifactDir"`
 	Size		     int32  `json:"size"`
