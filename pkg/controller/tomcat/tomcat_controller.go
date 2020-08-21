@@ -5,7 +5,7 @@ import (
 
 	"k8s.io/apimachinery/pkg/util/intstr"
 
-	jwsv1alpha1 "github.com/jws-image-operator/pkg/apis/jws/v1alpha1"
+	jwsv1alpha1 "jws-image-operator/pkg/apis/jws/v1alpha1"
 
 	appsv1 "github.com/openshift/api/apps/v1"
 	buildv1 "github.com/openshift/api/build/v1"
@@ -457,7 +457,7 @@ func (r *ReconcileTomcat) buildConfigForTomcat(t *jwsv1alpha1.Tomcat) *buildv1.B
 						From: corev1.ObjectReference{
 							Kind:      "ImageStreamTag",
 							Namespace: t.Spec.ImageStreamNamespace,
-							Name:      "jboss-webserver53-tomcat9-openshift:latest",
+							Name:      t.Spec.ImageStreamName,
 						},
 					},
 				},
