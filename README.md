@@ -78,7 +78,8 @@ $ oc new-project $NAMESPACE
 ```bash
 $ oc create -f xpaas-streams/jws53-tomcat9-image-stream.json -n openshift
 ```
-As the image stream isn't namespace-specific, creating this resource in the _openshift_ project makes it convenient to reuse it across multiple namespaces. The following resources, more specific, will need to be created for every namespace. If you don't use the __-n openshift__ you will have to adjust the   imageStreamNamespace: to $NAMESPACE in the Custom Resource file *deploy/crds/jws_v1alpha1_tomcat_cr.yaml*.
+As the image stream isn't namespace-specific, creating this resource in the _openshift_ project makes it convenient to reuse it across multiple namespaces. The following resources, more specific, will need to be created for every namespace.
+If you don't use the __-n openshift__ or use another ImageStream name you will have to adjust the imageStreamNamespace: to $NAMESPACE and imageStreamName: to the correct value in the Custom Resource file *deploy/crds/jws_v1alpha1_tomcat_cr.yaml*.
  
 4. Create the necessary resources
 ```bash
@@ -98,6 +99,8 @@ like:
   sourceRepositoryUrl: https://github.com/jfclere/demo-webapp.git
   sourceRepositoryRef: "master"
   contextDir: /
+  imageStreamNamespace: openshift
+  imageStreamName: jboss-webserver54-openjdk8-tomcat9-ubi8-openshift:latest
 ```
 Then deploy your webapp.
 ```bash
