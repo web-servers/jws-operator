@@ -119,8 +119,10 @@ oc delete tomcat.jws.apache.org/example-tomcat
 oc delete deployment.apps/jws-image-operator
 ```
 and use oc get all and oc delete to delete the remaining objects.
+
 10. What is supported?
-10.1 changing the number of running replicas for the application in Custom Resource change size: 2 to the value you want.
+
+10.1 changing the number of running replicas for the application: in your Custom Resource change *size: 2* to the value you want.
 
 ## What to do next?
 Below are some features that may be relevant to add in the near future.
