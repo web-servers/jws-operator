@@ -1,7 +1,7 @@
 package apis
 
 import (
-	"github.com/jws-image-operator/pkg/apis/jws/v1alpha1"
+	"jws-image-operator/pkg/apis/jws/v1alpha1"
 )
 
 func init() {

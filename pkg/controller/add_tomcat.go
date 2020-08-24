@@ -1,7 +1,7 @@
 package controller
 
 import (
-	"github.com/jws-image-operator/pkg/controller/tomcat"
+	"jws-image-operator/pkg/controller/tomcat"
 )
 
 func init() {
