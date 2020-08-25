@@ -20,6 +20,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -253,6 +254,7 @@ func (r *ReconcileTomcat) serviceForTomcat(t *jwsv1alpha1.Tomcat) *corev1.Servic
 		},
 	}
 
+	controllerutil.SetControllerReference(t, service, r.scheme)
 	return service
 }
 
@@ -283,6 +285,7 @@ func (r *ReconcileTomcat) serviceForTomcatDNS(t *jwsv1alpha1.Tomcat) *corev1.Ser
 		},
 	}
 
+	controllerutil.SetControllerReference(t, service, r.scheme)
 	return service
 }
 
@@ -371,6 +374,7 @@ func (r *ReconcileTomcat) deploymentConfigForTomcat(t *jwsv1alpha1.Tomcat) *apps
 		},
 	}
 
+	controllerutil.SetControllerReference(t, deploymentConfig, r.scheme)
 	return deploymentConfig
 }
 
@@ -399,6 +403,7 @@ func (r *ReconcileTomcat) routeForTomcat(t *jwsv1alpha1.Tomcat) *routev1.Route {
 		},
 	}
 
+	controllerutil.SetControllerReference(t, route, r.scheme)
 	return route
 }
 
@@ -418,6 +423,7 @@ func (r *ReconcileTomcat) imageStreamForTomcat(t *jwsv1alpha1.Tomcat) *imagev1.I
 		},
 	}
 
+	controllerutil.SetControllerReference(t, imageStream, r.scheme)
 	return imageStream
 }
 
@@ -489,5 +495,6 @@ func (r *ReconcileTomcat) buildConfigForTomcat(t *jwsv1alpha1.Tomcat) *buildv1.B
 		},
 	}
 
+	controllerutil.SetControllerReference(t, buildConfig, r.scheme)
 	return buildConfig
 }
