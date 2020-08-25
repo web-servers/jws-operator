@@ -48,17 +48,19 @@ $ make push
 ```
 Note the Makefile uses *go mod tidy*, *go mod vendor* then *go build* to build the executable and docker to build and push the image.
 
-## Using an operator prepared by Red Hat (probably not the correct way / JFC will fix that!!!)
+## Using an operator prepared by Red Hat (Testing brewed images, internal)
 Download the tar.gz file and import it in docker and then push it to your docker repo something like:
 ```bash
 $ wget http://download.eng.bos.redhat.com/brewroot/packages/jboss-webserver-5-webserver54-openjdk8-tomcat9-rhel8-operator-container/1.0/2/images/docker-image-sha256:a0eba0294e43b6316860bafe9250b377e6afb4ab1dae79681713fa357556f801.x86_64.tar.gz
-$ export IMAGE=docker.io/${USER}/jws-image-operator:v0.0.1
-$ docker import docker-image-sha256:3c424d48db2ed757c320716dc5c4c487dba8d11ea7a04df0e63d586c4a0cf760.x86_64.tar.gz
+$ docker load -i docker-image-sha256:3c424d48db2ed757c320716dc5c4c487dba8d11ea7a04df0e63d586c4a0cf760.x86_64.tar.gz
+Loaded image: pprokopi/jboss-webserver-openjdk8-operator:jws-5.4-rhel-8-containers-candidate-96397-20200820162758-x86_64
 ```
+The <TAG> is the internal build tag.
 
-The import command returns the local tag of the image something like: sha256:94a95418de84c20b7d96c3812a31e288494ce5d284ead326f359449f257b52b5, use it to name it and push it:
+The load command returns the tag of the image from the build something like: <TAG>, use it to rename image and push it:
 ```bash
-$ docker tag 94a95418de84c20b7d96c3812a31e288494ce5d284ead326f359449f257b52b5 ${IMAGE}
+$ export IMAGE=docker.io/${USER}/jws-image-operator:v0.0.1
+$ docker tag <TAG> ${IMAGE}
 $ docker login docker.io
 $ docker push $IMAGE
 ```
