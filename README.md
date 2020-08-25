@@ -43,11 +43,10 @@ $ cd $GOPATH/src/github.com
 $ git clone https://github.com/web-servers/jws-image-operator.git
 $ export IMAGE=docker.io/${USER}/jws-image-operator:v0.0.1
 $ cd jws-image-operator
-$ dep ensure
-$ operator-sdk build $IMAGE
 $ docker login docker.io
-$ docker push $IMAGE
+$ make push
 ```
+Note the Makefile uses *go mod tidy*, *go mod vendor* then *go build* to build the executable and docker to build and push the image.
 
 ## Using an operator prepared by Red Hat (probably not the correct way / JFC will fix that!!!)
 Download the tar.gz file and import it in docker and then push it to your docker repo something like:
@@ -121,7 +120,7 @@ Then go to http://jws-app-jws-operator.apps.jclere.rhmw-runtimes.net/demo-1.0/de
 oc delete tomcat.jws.apache.org/example-tomcat
 oc delete deployment.apps/jws-image-operator
 ```
-and use oc get all and oc delete to delete the remaining objects.
+Note that the first *oc delete* deletes what the operator creates for the example-tomcat application, these second *oc delete* deletes the operator and all resource it needs to run. The ImageStream can be deleted manually if needed.
 
 10. What is supported?
 
@@ -144,4 +143,4 @@ This may be tricky depending on how we decide to handle Tomcat updates. We may n
 
 __Adding Support for Kubernetes Clusters__
 
-This Operator prototype is currently using some Openshift specific resources such as DeploymentConfigs, Routes, and ImageStreams. In order to run on Kubernetes Clusters, equivalent resources available on Kubernetes have to be implemented.
+This Operator prototype is currently using some Openshift specific resources such as DeploymentConfigs, Routes, and ImageStreams. In order to run on Kubernetes Clusters, equivalent resources available on Kubernetes have to be implemented or skipped.
