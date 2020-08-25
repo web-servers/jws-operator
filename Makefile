@@ -1,6 +1,4 @@
-DOCKER_REPO ?= docker.io/
-IMAGE ?= ${USER}/jws-image-operator
-TAG ?= v0.0.2
+IMAGE ?= docker.io/${USER}/jws-image-operator:latest
 PROG  := jws-image-operator
 
 .DEFAULT_GOAL := help
@@ -9,9 +7,12 @@ PROG  := jws-image-operator
 setup:
 	./build/setup-operator-sdk.sh
 
-## dep              Ensure deps are locally available.
-dep:
-	dep ensure
+## tidy             Ensure modules are tidy.
+tidy:
+	export GOPROXY=proxy.golang.org
+	go mod tidy
+vendor: tidy
+	go mod vendor
 
 ## codegen          Ensure code is generated.
 codegen: setup
@@ -19,12 +20,17 @@ codegen: setup
 	operator-sdk generate openapi
 
 ## build            Compile and build the JWS operator.
-build: dep codegen
-	operator-sdk build "${DOCKER_REPO}$(IMAGE):$(TAG)"
+build/_output/bin/jws-image-operator: vendor
+	go generate -mod=vendor ./...
+build: build/_output/bin/jws-image-operator
+	mkdir -p build/_output/bin/
+	CGO_ENABLED=0 go build -mod=vendor -a -o build/_output/bin/jws-image-operator jws-image-operator/cmd/manager
+image: build
+	docker build -t "$(IMAGE)" . -f build/Dockerfile
 
 ## push             Push Docker image to the docker.io repository.
-push: build
-	docker push "${DOCKER_REPO}$(IMAGE):$(TAG)"
+push: image
+	docker push "$(IMAGE)"
 
 ## clean            Remove all generated build files.
 clean:
