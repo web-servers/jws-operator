@@ -12,7 +12,7 @@ import (
 
 var (
 	// SchemeGroupVersion is group version used to register these objects
-	SchemeGroupVersion = schema.GroupVersion{Group: "jws.apache.org", Version: "v1alpha1"}
+	SchemeGroupVersion = schema.GroupVersion{Group: "jwsservers.web.servers.org", Version: "v1alpha1"}
 
 	// SchemeBuilder is used to add go types to the GroupVersionKind scheme
 	SchemeBuilder = &scheme.Builder{GroupVersion: SchemeGroupVersion}

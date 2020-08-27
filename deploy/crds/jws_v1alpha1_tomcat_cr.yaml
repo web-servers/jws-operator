@@ -1,4 +1,4 @@
-apiVersion: jws.apache.org/v1alpha1
+apiVersion: jwsservers.web.servers.org/v1alpha1
 kind: Tomcat
 metadata:
   name: example-tomcat

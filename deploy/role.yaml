@@ -72,7 +72,7 @@ rules:
   verbs:
   - update
 - apiGroups:
-  - jws.apache.org
+  - jwsservers.web.servers.org
   resources:
   - '*'
   verbs:
