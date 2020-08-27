@@ -7,8 +7,8 @@ spec:
   names:
     kind: JBossWebServer
     listKind: JBossWebServerList
-    plural: jbosswebservers
-    singular: jbosswebserver
+    plural: jwsservers
+    singular: jwsserver
   scope: Namespaced
   validation:
     openAPIV3Schema:
