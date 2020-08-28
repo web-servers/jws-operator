@@ -1,10 +1,10 @@
 package controller
 
 import (
-	"jws-image-operator/pkg/controller/tomcat"
+	"jws-image-operator/pkg/controller/jbosswebserver"
 )
 
 func init() {
 	// AddToManagerFuncs is a list of functions to create controllers and add them to a manager.
-	AddToManagerFuncs = append(AddToManagerFuncs, tomcat.Add)
+	AddToManagerFuncs = append(AddToManagerFuncs, jbosswebserver.Add)
 }

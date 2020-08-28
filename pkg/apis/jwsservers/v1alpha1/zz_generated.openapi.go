@@ -13,17 +13,17 @@ import (
 
 func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenAPIDefinition {
 	return map[string]common.OpenAPIDefinition{
-		"github.com/jws-image-operator/pkg/apis/jws/v1alpha1.Tomcat":       schema_pkg_apis_jws_v1alpha1_Tomcat(ref),
-		"github.com/jws-image-operator/pkg/apis/jws/v1alpha1.TomcatSpec":   schema_pkg_apis_jws_v1alpha1_TomcatSpec(ref),
-		"github.com/jws-image-operator/pkg/apis/jws/v1alpha1.TomcatStatus": schema_pkg_apis_jws_v1alpha1_TomcatStatus(ref),
+		"github.com/jws-image-operator/pkg/apis/jwsservers/v1alpha1.JBossWebServer":       schema_pkg_apis_jwsservers_v1alpha1_JBossWebServer(ref),
+		"github.com/jws-image-operator/pkg/apis/jwsservers/v1alpha1.JBossWebServerSpec":   schema_pkg_apis_jwsservers_v1alpha1_JBossWebServerSpec(ref),
+		"github.com/jws-image-operator/pkg/apis/jwsservers/v1alpha1.JBossWebServerStatus": schema_pkg_apis_jwsservers_v1alpha1_JBossWebServerStatus(ref),
 	}
 }
 
-func schema_pkg_apis_jws_v1alpha1_Tomcat(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_pkg_apis_jwsservers_v1alpha1_JBossWebServer(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "Tomcat is the Schema for the tomcats API",
+				Description: "JBossWebServer is the Schema for the JBossWebServers API",
 				Properties: map[string]spec.Schema{
 					"kind": {
 						SchemaProps: spec.SchemaProps{
@@ -46,27 +46,27 @@ func schema_pkg_apis_jws_v1alpha1_Tomcat(ref common.ReferenceCallback) common.Op
 					},
 					"spec": {
 						SchemaProps: spec.SchemaProps{
-							Ref: ref("github.com/jws-image-operator/pkg/apis/jws/v1alpha1.TomcatSpec"),
+							Ref: ref("github.com/jws-image-operator/pkg/apis/jwsservers/v1alpha1.JBossWebServerSpec"),
 						},
 					},
 					"status": {
 						SchemaProps: spec.SchemaProps{
-							Ref: ref("github.com/jws-image-operator/pkg/apis/jws/v1alpha1.TomcatStatus"),
+							Ref: ref("github.com/jws-image-operator/pkg/apis/jwsservers/v1alpha1.JBossWebServerStatus"),
 						},
 					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"github.com/jws-image-operator/pkg/apis/jws/v1alpha1.TomcatSpec", "github.com/jws-image-operator/pkg/apis/jws/v1alpha1.TomcatStatus", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
+			"github.com/jws-image-operator/pkg/apis/jwsservers/v1alpha1.JBossWebServerSpec", "github.com/jws-image-operator/pkg/apis/jwsservers/v1alpha1.JBossWebServerStatus", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
 	}
 }
 
-func schema_pkg_apis_jws_v1alpha1_TomcatSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_pkg_apis_jwsservers_v1alpha1_JBossWebServerSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "TomcatSpec defines the desired state of Tomcat",
+				Description: "JBossWebServerSpec defines the desired state of JBossWebServer",
 				Properties:  map[string]spec.Schema{},
 			},
 		},
@@ -74,11 +74,11 @@ func schema_pkg_apis_jws_v1alpha1_TomcatSpec(ref common.ReferenceCallback) commo
 	}
 }
 
-func schema_pkg_apis_jws_v1alpha1_TomcatStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_pkg_apis_jwsservers_v1alpha1_JBossWebServerStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "TomcatStatus defines the observed state of Tomcat",
+				Description: "JBossWebServerStatus defines the observed state of JBossWebServer",
 				Properties:  map[string]spec.Schema{},
 			},
 		},
