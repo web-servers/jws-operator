@@ -120,7 +120,7 @@ func (r *ReconcileJBossWebServer) Reconcile(request reconcile.Request) (reconcil
 		ser := r.serviceForJBossWebServer(jbosswebserver)
 		reqLogger.Info("Creating a new Service. (route)", "Service.Namespace", ser.Namespace, "Service.Name", ser.Name)
 		err = r.client.Create(context.TODO(), ser)
-		if err != nil {
+		if err != nil && !errors.IsAlreadyExists(err) { 
 			reqLogger.Error(err, "Failed to create new Service.", "Service.Namespace", ser.Namespace, "Service.Name", ser.Name)
 			return reconcile.Result{}, err
 		}
@@ -128,7 +128,7 @@ func (r *ReconcileJBossWebServer) Reconcile(request reconcile.Request) (reconcil
 		ser1 := r.serviceForJBossWebServerDNS(jbosswebserver)
 		reqLogger.Info("Creating a new Service. (DNS)", "Service.Namespace", ser1.Namespace, "Service.Name", ser1.Name)
 		err = r.client.Create(context.TODO(), ser1)
-		if err != nil {
+		if err != nil && !errors.IsAlreadyExists(err) { 
 			reqLogger.Error(err, "Failed to create new Service.", "Service.Namespace", ser1.Namespace, "Service.Name", ser1.Name)
 			return reconcile.Result{}, err
 		}
@@ -146,7 +146,7 @@ func (r *ReconcileJBossWebServer) Reconcile(request reconcile.Request) (reconcil
 		rou := r.routeForJBossWebServer(jbosswebserver)
 		reqLogger.Info("Creating a new Route.", "Route.Namespace", rou.Namespace, "Route.Name", rou.Name)
 		err = r.client.Create(context.TODO(), rou)
-		if err != nil {
+		if err != nil && !errors.IsAlreadyExists(err) { 
 			reqLogger.Error(err, "Failed to create new Route.", "Route.Namespace", rou.Namespace, "Route.Name", rou.Name)
 			return reconcile.Result{RequeueAfter: }, err
 		}
@@ -164,7 +164,7 @@ func (r *ReconcileJBossWebServer) Reconcile(request reconcile.Request) (reconcil
 		img := r.imageStreamForJBossWebServer(jbosswebserver)
 		reqLogger.Info("Creating a new ImageStream.", "ImageStream.Namespace", img.Namespace, "ImageStream.Name", img.Name)
 		err = r.client.Create(context.TODO(), img)
-		if err != nil {
+		if err != nil && !errors.IsAlreadyExists(err) { 
 			reqLogger.Error(err, "Failed to create new ImageStream.", "ImageStream.Namespace", img.Namespace, "ImageStream.Name", img.Name)
 			return reconcile.Result{}, err
 		}
@@ -182,7 +182,7 @@ func (r *ReconcileJBossWebServer) Reconcile(request reconcile.Request) (reconcil
 		bui := r.buildConfigForJBossWebServer(jbosswebserver)
 		reqLogger.Info("Creating a new BuildConfig.", "BuildConfig.Namespace", bui.Namespace, "BuildConfig.Name", bui.Name)
 		err = r.client.Create(context.TODO(), bui)
-		if err != nil {
+		if err != nil && !errors.IsAlreadyExists(err) { 
 			reqLogger.Error(err, "Failed to create new BuildConfig.", "BuildConfig.Namespace", bui.Namespace, "BuildConfig.Name", bui.Name)
 			return reconcile.Result{}, err
 		}
@@ -201,7 +201,7 @@ func (r *ReconcileJBossWebServer) Reconcile(request reconcile.Request) (reconcil
 		dep := r.deploymentConfigForJBossWebServer(jbosswebserver)
 		reqLogger.Info("Creating a new DeploymentConfig.", "DeploymentConfig.Namespace", dep.Namespace, "DeploymentConfig.Name", dep.Name)
 		err = r.client.Create(context.TODO(), dep)
-		if err != nil {
+		if err != nil && !errors.IsAlreadyExists(err) { 
 			reqLogger.Error(err, "Failed to create new DeploymentConfig.", "DeploymentConfig.Namespace", dep.Namespace, "DeploymentConfig.Name", dep.Name)
 			return reconcile.Result{}, err
 		}
