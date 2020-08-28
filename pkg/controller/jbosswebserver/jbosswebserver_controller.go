@@ -148,7 +148,7 @@ func (r *ReconcileJBossWebServer) Reconcile(request reconcile.Request) (reconcil
 		err = r.client.Create(context.TODO(), rou)
 		if err != nil && !errors.IsAlreadyExists(err) { 
 			reqLogger.Error(err, "Failed to create new Route.", "Route.Namespace", rou.Namespace, "Route.Name", rou.Name)
-			return reconcile.Result{RequeueAfter: }, err
+			return reconcile.Result{}, err
 		}
 		// Route created successfully - return and requeue
 		return reconcile.Result{Requeue: true}, nil
