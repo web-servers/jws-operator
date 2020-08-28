@@ -44,25 +44,25 @@ rules:
   resources:
   - imagestreams
   verbs:
-  - "*"
+  - '*'
 - apiGroups:
   - build.openshift.io
   resources:
   - buildconfigs
   verbs:
-  - "*"
+  - '*'
 - apiGroups:
   - apps.openshift.io
   resources:
   - deploymentconfigs
   verbs:
-  - "*"
+  - '*'
 - apiGroups:
   - route.openshift.io
   resources:
   - routes
   verbs:
-  - "*"
+  - '*'
 - apiGroups:
   - apps
   resourceNames:
@@ -72,7 +72,7 @@ rules:
   verbs:
   - update
 - apiGroups:
-  - jwsservers.web.servers.org
+  - web.servers.org
   resources:
   - '*'
   verbs:

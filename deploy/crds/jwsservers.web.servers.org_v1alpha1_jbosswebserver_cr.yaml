@@ -1,8 +1,9 @@
-apiVersion: jwsservers.web.servers.org/v1alpha1
-kind: Tomcat
+apiVersion: web.servers.org/v1alpha1
+kind: JBossWebServer
 metadata:
-  name: example-tomcat
+  name: example-jbosswebserver
 spec:
+  # Add fields here
   applicationName: jws-app
   size: 2
   sourceRepositoryUrl: https://github.com/jboss-openshift/openshift-quickstarts.git

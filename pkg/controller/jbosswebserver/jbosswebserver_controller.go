@@ -1,11 +1,11 @@
-package tomcat
+package jbosswebserver
 
 import (
 	"context"
 
 	"k8s.io/apimachinery/pkg/util/intstr"
 
-	jwsv1alpha1 "jws-image-operator/pkg/apis/jws/v1alpha1"
+	jwsserversv1alpha1 "jws-image-operator/pkg/apis/jwsservers/v1alpha1"
 
 	appsv1 "github.com/openshift/api/apps/v1"
 	kbappsv1 "k8s.io/api/apps/v1"
@@ -28,14 +28,14 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/source"
 )
 
-var log = logf.Log.WithName("controller_tomcat")
+var log = logf.Log.WithName("controller_jbosswebserver")
 
 /**
 * USER ACTION REQUIRED: This is a scaffold file intended for the user to modify with their own Controller
 * business logic.  Delete these comments after modifying this file.*
  */
 
-// Add creates a new Tomcat Controller and adds it to the Manager. The Manager will set fields on the Controller
+// Add creates a new JBossWebServer Controller and adds it to the Manager. The Manager will set fields on the Controller
 // and Start it when the Manager is Started.
 func Add(mgr manager.Manager) error {
 	return add(mgr, newReconciler(mgr))
@@ -43,27 +43,27 @@ func Add(mgr manager.Manager) error {
 
 // newReconciler returns a new reconcile.Reconciler
 func newReconciler(mgr manager.Manager) reconcile.Reconciler {
-	return &ReconcileTomcat{client: mgr.GetClient(), scheme: mgr.GetScheme()}
+	return &ReconcileJBossWebServer{client: mgr.GetClient(), scheme: mgr.GetScheme()}
 }
 
 // add adds a new Controller to mgr with r as the reconcile.Reconciler
 func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	// Create a new controller
-	c, err := controller.New("tomcat-controller", mgr, controller.Options{Reconciler: r})
+	c, err := controller.New("jbosswebserver-controller", mgr, controller.Options{Reconciler: r})
 	if err != nil {
 		return err
 	}
 
-	// Watch for changes to primary resource Tomcat
-	err = c.Watch(&source.Kind{Type: &jwsv1alpha1.Tomcat{}}, &handler.EnqueueRequestForObject{})
+	// Watch for changes to primary resource JBossWebServer
+	err = c.Watch(&source.Kind{Type: &jwsserversv1alpha1.JBossWebServer{}}, &handler.EnqueueRequestForObject{})
 	if err != nil {
 		return err
 	}
 
-	// Watch for changes to secondary resource Pods and requeue the owner Tomcat
+	// Watch for changes to secondary resource Pods and requeue the owner JBossWebServer
 	enqueueRequestForOwner := handler.EnqueueRequestForOwner{
 	IsController: true,
-	OwnerType:    &jwsv1alpha1.Tomcat{},
+	OwnerType:    &jwsserversv1alpha1.JBossWebServer{},
 	}
 	for _, obj := range [3]runtime.Object{&kbappsv1.StatefulSet{}, &corev1.Service{}, &routev1.Route{}} {
 		if err = c.Watch(&source.Kind{Type: obj}, &enqueueRequestForOwner); err != nil {
@@ -74,40 +74,40 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	return nil
 }
 
-var _ reconcile.Reconciler = &ReconcileTomcat{}
+var _ reconcile.Reconciler = &ReconcileJBossWebServer{}
 
-// ReconcileTomcat reconciles a Tomcat object
-type ReconcileTomcat struct {
+// ReconcileJBossWebServer reconciles a JBossWebServer object
+type ReconcileJBossWebServer struct {
 	// This client, initialized using mgr.Client() above, is a split client
 	// that reads objects from the cache and writes to the apiserver
 	client client.Client
 	scheme *runtime.Scheme
 }
 
-// Reconcile reads that state of the cluster for a Tomcat object and makes changes based on the state read
-// and what is in the Tomcat.Spec
+// Reconcile reads that state of the cluster for a JBossWebServer object and makes changes based on the state read
+// and what is in the JBossWebServer.Spec
 // TODO(user): Modify this Reconcile function to implement your Controller logic.  This example creates
 // a Pod as an example
 // Note:
 // The Controller will requeue the Request to be processed again if the returned error is non-nil or
 // Result.Requeue is true, otherwise upon completion it will remove the work from the queue.
-func (r *ReconcileTomcat) Reconcile(request reconcile.Request) (reconcile.Result, error) {
+func (r *ReconcileJBossWebServer) Reconcile(request reconcile.Request) (reconcile.Result, error) {
 	reqLogger := log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
-	reqLogger.Info("Reconciling Tomcat")
+	reqLogger.Info("Reconciling JBossWebServer")
 
-	// Fetch the Tomcat tomcat
-	tomcat := &jwsv1alpha1.Tomcat{}
-	err := r.client.Get(context.TODO(), request.NamespacedName, tomcat)
+	// Fetch the JBossWebServer tomcat
+	jbosswebserver := &jwsserversv1alpha1.JBossWebServer{}
+	err := r.client.Get(context.TODO(), request.NamespacedName, jbosswebserver)
 	if err != nil {
 		if errors.IsNotFound(err) {
 			// Request object not found, could have been deleted after reconcile request.
 			// Owned objects are automatically garbage collected. For additional cleanup logic use finalizers.
 			// Return and don't requeue
-			reqLogger.Info("Tomcat resource not found. Ignoring since object must be deleted")
+			reqLogger.Info("JBossWebServer resource not found. Ignoring since object must be deleted")
 			return reconcile.Result{}, nil
 		}
 		// Error reading the object - requeue the request.
-		reqLogger.Error(err, "Failed to get Tomcat")
+		reqLogger.Error(err, "Failed to get JBossWebServer")
 		return reconcile.Result{}, err
 	}
 
@@ -117,7 +117,7 @@ func (r *ReconcileTomcat) Reconcile(request reconcile.Request) (reconcile.Result
 	err = r.client.List(context.TODO(), opts, list)
 	if (err != nil && errors.IsNotFound(err)) || len(list.Items) == 1 {
 		// Define the Service for the route.
-		ser := r.serviceForTomcat(tomcat)
+		ser := r.serviceForJBossWebServer(jbosswebserver)
 		reqLogger.Info("Creating a new Service. (route)", "Service.Namespace", ser.Namespace, "Service.Name", ser.Name)
 		err = r.client.Create(context.TODO(), ser)
 		if err != nil {
@@ -125,7 +125,7 @@ func (r *ReconcileTomcat) Reconcile(request reconcile.Request) (reconcile.Result
 			return reconcile.Result{}, err
 		}
 		// Define the Service for DNSPing
-		ser1 := r.serviceForTomcatDNS(tomcat)
+		ser1 := r.serviceForJBossWebServerDNS(jbosswebserver)
 		reqLogger.Info("Creating a new Service. (DNS)", "Service.Namespace", ser1.Namespace, "Service.Name", ser1.Name)
 		err = r.client.Create(context.TODO(), ser1)
 		if err != nil {
@@ -140,15 +140,15 @@ func (r *ReconcileTomcat) Reconcile(request reconcile.Request) (reconcile.Result
 	}
 
 	// Check if the Route already exists, if not create a new one
-	err = r.client.Get(context.TODO(), types.NamespacedName{Name: tomcat.Spec.ApplicationName, Namespace: tomcat.Namespace}, &routev1.Route{})
+	err = r.client.Get(context.TODO(), types.NamespacedName{Name: jbosswebserver.Spec.ApplicationName, Namespace: jbosswebserver.Namespace}, &routev1.Route{})
 	if err != nil && errors.IsNotFound(err) {
 		// Define a new Route
-		rou := r.routeForTomcat(tomcat)
+		rou := r.routeForJBossWebServer(jbosswebserver)
 		reqLogger.Info("Creating a new Route.", "Route.Namespace", rou.Namespace, "Route.Name", rou.Name)
 		err = r.client.Create(context.TODO(), rou)
 		if err != nil {
 			reqLogger.Error(err, "Failed to create new Route.", "Route.Namespace", rou.Namespace, "Route.Name", rou.Name)
-			return reconcile.Result{}, err
+			return reconcile.Result{RequeueAfter: }, err
 		}
 		// Route created successfully - return and requeue
 		return reconcile.Result{Requeue: true}, nil
@@ -158,10 +158,10 @@ func (r *ReconcileTomcat) Reconcile(request reconcile.Request) (reconcile.Result
 	}
 
 	// Check if the ImageStream already exists, if not create a new one
-	err = r.client.Get(context.TODO(), types.NamespacedName{Name: tomcat.Spec.ApplicationName, Namespace: tomcat.Namespace}, &imagev1.ImageStream{})
+	err = r.client.Get(context.TODO(), types.NamespacedName{Name: jbosswebserver.Spec.ApplicationName, Namespace: jbosswebserver.Namespace}, &imagev1.ImageStream{})
 	if err != nil && errors.IsNotFound(err) {
 		// Define a new ImageStream
-		img := r.imageStreamForTomcat(tomcat)
+		img := r.imageStreamForJBossWebServer(jbosswebserver)
 		reqLogger.Info("Creating a new ImageStream.", "ImageStream.Namespace", img.Namespace, "ImageStream.Name", img.Name)
 		err = r.client.Create(context.TODO(), img)
 		if err != nil {
@@ -176,10 +176,10 @@ func (r *ReconcileTomcat) Reconcile(request reconcile.Request) (reconcile.Result
 	}
 
 	// Check if the BuildConfig already exists, if not create a new one
-	err = r.client.Get(context.TODO(), types.NamespacedName{Name: tomcat.Spec.ApplicationName, Namespace: tomcat.Namespace}, &buildv1.BuildConfig{})
+	err = r.client.Get(context.TODO(), types.NamespacedName{Name: jbosswebserver.Spec.ApplicationName, Namespace: jbosswebserver.Namespace}, &buildv1.BuildConfig{})
 	if err != nil && errors.IsNotFound(err) {
 		// Define a new BuildConfig
-		bui := r.buildConfigForTomcat(tomcat)
+		bui := r.buildConfigForJBossWebServer(jbosswebserver)
 		reqLogger.Info("Creating a new BuildConfig.", "BuildConfig.Namespace", bui.Namespace, "BuildConfig.Name", bui.Name)
 		err = r.client.Create(context.TODO(), bui)
 		if err != nil {
@@ -195,10 +195,10 @@ func (r *ReconcileTomcat) Reconcile(request reconcile.Request) (reconcile.Result
 
 	// Check if the DeploymentConfig already exists, if not create a new one
 	foundDeployment := &appsv1.DeploymentConfig{}
-	err = r.client.Get(context.TODO(), types.NamespacedName{Name: tomcat.Spec.ApplicationName, Namespace: tomcat.Namespace}, foundDeployment)
+	err = r.client.Get(context.TODO(), types.NamespacedName{Name: jbosswebserver.Spec.ApplicationName, Namespace: jbosswebserver.Namespace}, foundDeployment)
 	if err != nil && errors.IsNotFound(err) {
 		// Define a new DeploymentConfig
-		dep := r.deploymentConfigForTomcat(tomcat)
+		dep := r.deploymentConfigForJBossWebServer(jbosswebserver)
 		reqLogger.Info("Creating a new DeploymentConfig.", "DeploymentConfig.Namespace", dep.Namespace, "DeploymentConfig.Name", dep.Name)
 		err = r.client.Create(context.TODO(), dep)
 		if err != nil {
@@ -213,7 +213,7 @@ func (r *ReconcileTomcat) Reconcile(request reconcile.Request) (reconcile.Result
 	}
 
 	// Handle Scaling
-	size := tomcat.Spec.Size
+	size := jbosswebserver.Spec.Size
 	if foundDeployment.Spec.Replicas != size {
 		foundDeployment.Spec.Replicas = size
 		err = r.client.Update(context.TODO(), foundDeployment)
@@ -228,7 +228,7 @@ func (r *ReconcileTomcat) Reconcile(request reconcile.Request) (reconcile.Result
 	return reconcile.Result{}, nil
 }
 
-func (r *ReconcileTomcat) serviceForTomcat(t *jwsv1alpha1.Tomcat) *corev1.Service {
+func (r *ReconcileJBossWebServer) serviceForJBossWebServer(t *jwsserversv1alpha1.JBossWebServer) *corev1.Service {
 
 	service := &corev1.Service{
 		TypeMeta: metav1.TypeMeta{
@@ -258,7 +258,7 @@ func (r *ReconcileTomcat) serviceForTomcat(t *jwsv1alpha1.Tomcat) *corev1.Servic
 	return service
 }
 
-func (r *ReconcileTomcat) serviceForTomcatDNS(t *jwsv1alpha1.Tomcat) *corev1.Service {
+func (r *ReconcileJBossWebServer) serviceForJBossWebServerDNS(t *jwsserversv1alpha1.JBossWebServer) *corev1.Service {
 
 	service := &corev1.Service{
 		TypeMeta: metav1.TypeMeta{
@@ -266,7 +266,7 @@ func (r *ReconcileTomcat) serviceForTomcatDNS(t *jwsv1alpha1.Tomcat) *corev1.Ser
 			Kind:       "Service",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "tomcat",
+			Name:      "jbosswebserver",
 			Namespace: t.Namespace,
 			Labels: map[string]string{
 				"application": t.Spec.ApplicationName,
@@ -289,7 +289,7 @@ func (r *ReconcileTomcat) serviceForTomcatDNS(t *jwsv1alpha1.Tomcat) *corev1.Ser
 	return service
 }
 
-func (r *ReconcileTomcat) deploymentConfigForTomcat(t *jwsv1alpha1.Tomcat) *appsv1.DeploymentConfig {
+func (r *ReconcileJBossWebServer) deploymentConfigForJBossWebServer(t *jwsserversv1alpha1.JBossWebServer) *appsv1.DeploymentConfig {
 
 	terminationGracePeriodSeconds := int64(60)
 
@@ -378,7 +378,7 @@ func (r *ReconcileTomcat) deploymentConfigForTomcat(t *jwsv1alpha1.Tomcat) *apps
 	return deploymentConfig
 }
 
-func (r *ReconcileTomcat) routeForTomcat(t *jwsv1alpha1.Tomcat) *routev1.Route {
+func (r *ReconcileJBossWebServer) routeForJBossWebServer(t *jwsserversv1alpha1.JBossWebServer) *routev1.Route {
 
 	route := &routev1.Route{
 		TypeMeta: metav1.TypeMeta{
@@ -407,7 +407,7 @@ func (r *ReconcileTomcat) routeForTomcat(t *jwsv1alpha1.Tomcat) *routev1.Route {
 	return route
 }
 
-func (r *ReconcileTomcat) imageStreamForTomcat(t *jwsv1alpha1.Tomcat) *imagev1.ImageStream {
+func (r *ReconcileJBossWebServer) imageStreamForJBossWebServer(t *jwsserversv1alpha1.JBossWebServer) *imagev1.ImageStream {
 
 	imageStream := &imagev1.ImageStream{
 		TypeMeta: metav1.TypeMeta{
@@ -427,7 +427,7 @@ func (r *ReconcileTomcat) imageStreamForTomcat(t *jwsv1alpha1.Tomcat) *imagev1.I
 	return imageStream
 }
 
-func (r *ReconcileTomcat) buildConfigForTomcat(t *jwsv1alpha1.Tomcat) *buildv1.BuildConfig {
+func (r *ReconcileJBossWebServer) buildConfigForJBossWebServer(t *jwsserversv1alpha1.JBossWebServer) *buildv1.BuildConfig {
 
 	buildConfig := &buildv1.BuildConfig{
 		TypeMeta: metav1.TypeMeta{
