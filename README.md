@@ -120,10 +120,10 @@ Then go to http://jws-app-jws-operator.apps.jclere.rhmw-runtimes.net/demo-1.0/de
 
 9. To remove everything
 ```bash
-oc delete tomcat.jws.apache.org/example-tomcat
+oc delete jbosswebserver.web.servers.org/example-jbosswebserver
 oc delete deployment.apps/jws-image-operator
 ```
-Note that the first *oc delete* deletes what the operator creates for the example-tomcat application, these second *oc delete* deletes the operator and all resource it needs to run. The ImageStream can be deleted manually if needed.
+Note that the first *oc delete* deletes what the operator creates for the example-jbosswebserver application, these second *oc delete* deletes the operator and all resource it needs to run. The ImageStream can be deleted manually if needed.
 
 10. What is supported?
 
