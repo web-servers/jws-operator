@@ -9,7 +9,7 @@ if ! [ -x "$(command -v operator-sdk)" ]; then
   cd $GOPATH/src/github.com/operator-framework
   git clone https://github.com/operator-framework/operator-sdk
   cd operator-sdk
-  git checkout master
+  git checkout v0.17.x
   export GOPROXY=proxy.golang.org
   make tidy
   make install
