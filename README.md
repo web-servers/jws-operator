@@ -8,19 +8,20 @@ This prototype mimics the features provided by the [JWS Tomcat8 Basic Template](
 The prototype has been written in Golang. it uses [dep](https://golang.github.io/dep/) as dependency manager and the [operator-sdk](https://github.com/operator-framework/operator-sdk) as development Framework and project manager. This SDK allows the generation of source code to increase productivity. It is solely used to conveniently write and build an Openshift or Kubernetes operator (the end-user does not need the operator-sdk to deploy a pre-build version of the operator)·
 
 The development workflow used in this prototype is standard to all Operator development:
-1. Add a Custom Resource Definition
+1. Build the operator-sdk version we need and add a Custom Resource Definition
 ```bash
-$ operator-sdk add api --api-version=jws.apache.org/v1alpha1 --kind=Tomcat
+$ make setup
+$ operator-sdk add api --api-version=web.servers.org/v1alpha1 --kind=JBossWebServer
 ```
-2. Define its attributes (by editing the generated file *tomcat_types.go*)
+2. Define its attributes (by editing the generated file *jbosswebserver_types.go*)
 3. Update the generated code. This needs to be done every time CRDs are altered
 ```bash
 $ operator-sdk generate k8s
 ```
-4. Define the specifications of the CRD (by editing the generated file *deploy/crds/tomcat_v1alpha1_tomcat_crd.yaml*) and update the generated code
+4. Define the specifications of the CRD (by editing the generated file *deploy/crds/jwsservers.web.servers.org_v1alpha1_jbosswebserver_crd.yaml*) and update the generated code
 5. Add a Controller for that Custom Resource
 ```bash
-$ operator-sdk add controller --api-version=jws.apache.org/v1alpha1 --kind=Tomcat
+$ operator-sdk add controller --api-version=web.servers.org --help/v1alpha1 --kind=JBossWebServer
 ```
 6. Write the Controller logic and adapt roles to give permissions to necessary resources
 
@@ -84,7 +85,7 @@ If you don't use the __-n openshift__ or use another ImageStream name you will h
  
 4. Create the necessary resources
 ```bash
-$ oc create -f deploy/crds/jws_v1alpha1_tomcat_crd.yaml -n $NAMESPACE
+$ oc create -f deploy/crds/jwsservers.web.servers.org_v1alpha1_jbosswebserver_crd.yaml -n $NAMESPACE
 $ oc create -f deploy/service_account.yaml -n $NAMESPACE
 $ oc create -f deploy/role.yaml -n $NAMESPACE
 $ oc create -f deploy/role_binding.yaml -n $NAMESPACE
@@ -105,7 +106,7 @@ like:
 ```
 Then deploy your webapp.
 ```bash
-$ oc apply -f deploy/crds/jws_v1alpha1_tomcat_cr.yaml
+$ oc apply -f deploy/crds/jwsservers.web.servers.org_v1alpha1_jbosswebserver_cr.yaml
 ```
 7. If the DNS is not setup in your Openshift installation, you will need to add the resulting route to your local `/etc/hosts` file in order to resolve the URL. It has point to the IP address of the node running the router. You can determine this address by running `oc get endpoints` with a cluster-admin user.
 
