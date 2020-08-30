@@ -94,8 +94,8 @@ $ oc create -f deploy/role_binding.yaml -n $NAMESPACE
 ```bash
 $ oc process -f deploy/operator.yaml IMAGE=${IMAGE} | oc create -f -
 ```
-6. Create a Tomcat instance (Custom Resource). An example has been provided in *deploy/crds/jws_v1alpha1_tomcat_cr.yaml*
-make sure you adjust sourceRepositoryUrl, sourceRepositoryRef and contextDir to you webapp sources, branch and context.
+6. Create a Tomcat instance (Custom Resource). An example has been provided in *deploy/crds/jwsservers.web.servers.org_v1alpha1_jbosswebserver_cr.yaml*
+make sure you adjust sourceRepositoryUrl, sourceRepositoryRef (branch) and contextDir (subdirectory) to you webapp sources, branch and context.
 like:
 ```
   sourceRepositoryUrl: https://github.com/jfclere/demo-webapp.git
