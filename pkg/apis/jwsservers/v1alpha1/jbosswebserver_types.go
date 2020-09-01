@@ -13,6 +13,8 @@ type JBossWebServerSpec struct {
 	// Important: Run "operator-sdk generate k8s" to regenerate code after modifying this file
 	// Add custom validation using kubebuilder tags: https://book-v1.book.kubebuilder.io/beyond_basics/generating_crd.html
 
+	// ApplicationImage is the name of the application image to be deployed
+	ApplicationImage     string `json:"applicationImage"`
 	ApplicationName      string `json:"applicationName"`
 	HostnameHttp         string `json:"hostnameHttp"`
 	SourceRepositoryUrl  string `json:"sourceRepositoryUrl"`
@@ -26,7 +28,8 @@ type JBossWebServerSpec struct {
 	ImageStreamName      string `json:"imageStreamName"`
 	MavenMirrorUrl       string `json:"mavenMirrorUrl"`
 	ArtifactDir          string `json:"artifactDir"`
-	Replicas             int32  `json:"replicas"`
+	// Replicas is the desired number of replicas for the application
+	Replicas int32 `json:"replicas"`
 }
 
 // JBossWebServerStatus defines the observed state of JBossWebServer
