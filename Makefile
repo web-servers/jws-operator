@@ -35,10 +35,19 @@ push: image
 ## clean            Remove all generated build files.
 clean:
 	rm -rf build/_output
+	rm deploy/kubernetes_operator.yaml
+
+deploy/kubernetes_operator.yaml: deploy/operator.template
+	sed 's|@OP_IMAGE_TAG@|$(IMAGE)|' deploy/operator.template > deploy/kubernetes_operator.yaml
+
 
 ## run-openshift    Run the JWS operator on OpenShift.
 run-openshift:
 	./build/run-openshift.sh
+
+## run-kubernetes    Run the Tomcat operator on kubernetes.
+run-kubernetes: deploy/kubernetes_operator.yaml
+	./build/run-kubernetes.sh
 
 help : Makefile
 	@sed -n 's/^##//p' $<
