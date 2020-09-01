@@ -49,7 +49,7 @@ spec:
               type: string
             mavenMirrorUrl:
               type: string
-            size:
+            replicas:
               format: int32
               type: integer
             sourceRepositoryRef:
@@ -58,7 +58,7 @@ spec:
               type: string
           required:
           - applicationName
-          - size
+          - replicas
           - hostnameHttp
           - sourceRepositoryUrl
           - sourceRepositoryRef

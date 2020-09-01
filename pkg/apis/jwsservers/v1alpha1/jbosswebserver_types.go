@@ -26,7 +26,7 @@ type JBossWebServerSpec struct {
 	ImageStreamName      string `json:"imageStreamName"`
 	MavenMirrorUrl       string `json:"mavenMirrorUrl"`
 	ArtifactDir          string `json:"artifactDir"`
-	Size		     int32  `json:"size"`
+	Replicas             int32  `json:"replicas"`
 }
 
 // JBossWebServerStatus defines the observed state of JBossWebServer

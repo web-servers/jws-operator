@@ -5,7 +5,6 @@ metadata:
 spec:
   # Add fields here
   applicationName: jws-app
-  size: 2
   sourceRepositoryUrl: https://github.com/jboss-openshift/openshift-quickstarts.git
   sourceRepositoryRef: "1.2"
   contextDir: tomcat-websocket-chat
@@ -18,4 +17,4 @@ spec:
   hostnameHttp: ""
   mavenMirrorUrl: ""
   artifactDir: ""
-  replica: 1
+  replicas: 2

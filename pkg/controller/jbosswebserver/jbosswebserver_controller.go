@@ -213,9 +213,9 @@ func (r *ReconcileJBossWebServer) Reconcile(request reconcile.Request) (reconcil
 	}
 
 	// Handle Scaling
-	size := jbosswebserver.Spec.Size
-	if foundDeployment.Spec.Replicas != size {
-		foundDeployment.Spec.Replicas = size
+	replicas := jbosswebserver.Spec.Replicas
+	if foundDeployment.Spec.Replicas != replicas {
+		foundDeployment.Spec.Replicas = replicas
 		err = r.client.Update(context.TODO(), foundDeployment)
 		if err != nil {
 			reqLogger.Error(err, "Failed to update Deployment.", "Deployment.Namespace", foundDeployment.Namespace, "Deployment.Name", foundDeployment.Name)
