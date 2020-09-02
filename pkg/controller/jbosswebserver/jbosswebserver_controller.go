@@ -388,13 +388,6 @@ func (r *ReconcileJBossWebServer) deploymentConfigForJBossWebServer(t *jwsserver
 							ContainerPort: 8080,
 							Protocol:      corev1.ProtocolTCP,
 						}},
-						Env: []corev1.EnvVar{{
-							Name:  "JWS_ADMIN_USERNAME",
-							Value: t.Spec.JwsAdminUsername,
-						}, {
-							Name:  "JWS_ADMIN_PASSWORD",
-							Value: t.Spec.JwsAdminPassword,
-						}},
 					}},
 				},
 			},
@@ -455,13 +448,6 @@ func (r *ReconcileJBossWebServer) deploymentForJBossWebServer(t *jwsserversv1alp
 							Name:          "http",
 							ContainerPort: 8080,
 							Protocol:      corev1.ProtocolTCP,
-						}},
-						Env: []corev1.EnvVar{{
-							Name:  "JWS_ADMIN_USERNAME",
-							Value: t.Spec.JwsAdminUsername,
-						}, {
-							Name:  "JWS_ADMIN_PASSWORD",
-							Value: t.Spec.JwsAdminPassword,
 						}},
 					}},
 				},
@@ -611,15 +597,7 @@ func createLivenessProbe() *corev1.Probe {
 			InitialDelaySeconds: 60,
 		}
 	}
-	return &corev1.Probe{
-		Handler: corev1.Handler{
-			HTTPGet: &corev1.HTTPGetAction{
-				Path: "/health",
-				Port: intstr.FromString("admin"),
-			},
-		},
-		InitialDelaySeconds: 60,
-	}
+	return nil
 }
 
 // createReadinessProbe create a Exec probe if the SERVER_READINESS_SCRIPT env var is present.

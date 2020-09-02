@@ -20,8 +20,6 @@ type JBossWebServerSpec struct {
 	SourceRepositoryUrl  string `json:"sourceRepositoryUrl"`
 	SourceRepositoryRef  string `json:"sourceRepositoryRef"`
 	ContextDir           string `json:"contextDir"`
-	JwsAdminUsername     string `json:"jwsAdminUsername"`
-	JwsAdminPassword     string `json:"jwsAdminPassword"`
 	GithubWebhookSecret  string `json:"githubWebhookSecret"`
 	GenericWebhookSecret string `json:"genericWebhookSecret"`
 	ImageStreamNamespace string `json:"imageStreamNamespace"`

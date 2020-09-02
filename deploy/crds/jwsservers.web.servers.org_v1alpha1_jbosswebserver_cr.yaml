@@ -8,8 +8,6 @@ spec:
   sourceRepositoryUrl: https://github.com/jboss-openshift/openshift-quickstarts.git
   sourceRepositoryRef: "1.2"
   contextDir: tomcat-websocket-chat
-  jwsAdminUsername: tomcat
-  jwsAdminPassword: tomcat
   githubWebhookSecret: tomcat
   genericWebhookSecret: tomcat
   imageStreamNamespace: openshift
