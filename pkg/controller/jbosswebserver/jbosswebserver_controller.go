@@ -376,17 +376,8 @@ func (r *ReconcileJBossWebServer) deploymentConfigForJBossWebServer(t *jwsserver
 						Name:            t.Spec.ApplicationName,
 						Image:           t.Spec.ApplicationImage,
 						ImagePullPolicy: "Always",
-						ReadinessProbe: &corev1.Probe{
-							Handler: corev1.Handler{
-								Exec: &corev1.ExecAction{
-									Command: []string{
-										"/bin/bash",
-										"-c",
-										"curl --noproxy '*' -s -u ${JWS_ADMIN_USERNAME}:${JWS_ADMIN_PASSWORD} 'http://localhost:8080/manager/jmxproxy/?get=Catalina%3Atype%3DServer&att=stateName' | grep -iq 'stateName *= *STARTED'",
-									},
-								},
-							},
-						},
+						ReadinessProbe: createReadinessProbe(),
+						LivenessProbe: createLivenessProbe(),
 						Ports: []corev1.ContainerPort{{
 							Name:          "jolokia",
 							ContainerPort: 8778,
@@ -453,17 +444,8 @@ func (r *ReconcileJBossWebServer) deploymentForJBossWebServer(t *jwsserversv1alp
 						Name:            t.Spec.ApplicationName,
 						Image:           t.Spec.ApplicationImage,
 						ImagePullPolicy: "Always",
-						ReadinessProbe: &corev1.Probe{
-							Handler: corev1.Handler{
-								Exec: &corev1.ExecAction{
-									Command: []string{
-										"/bin/bash",
-										"-c",
-										"curl --noproxy '*' -s -u ${JWS_ADMIN_USERNAME}:${JWS_ADMIN_PASSWORD} 'http://localhost:8080/manager/jmxproxy/?get=Catalina%3Atype%3DServer&att=stateName' | grep -iq 'stateName *= *STARTED'",
-									},
-								},
-							},
-						},
+						ReadinessProbe: createReadinessProbe(),
+						LivenessProbe: createLivenessProbe(),
 						Ports: []corev1.ContainerPort{{
 							Name:          "jolokia",
 							ContainerPort: 8778,
@@ -610,3 +592,59 @@ func (r *ReconcileJBossWebServer) buildConfigForJBossWebServer(t *jwsserversv1al
 	controllerutil.SetControllerReference(t, buildConfig, r.scheme)
 	return buildConfig
 }
+
+// createLivenessProbe create a Exec probe if the SERVER_LIVENESS_SCRIPT env var is present.
+// Otherwise, it creates a HTTPGet probe that checks the /health endpoint on the admin port.
+//
+// If defined, the SERVER_LIVENESS_SCRIPT env var must be the path of a shell script that
+// complies to the Kuberenetes probes requirements.
+func createLivenessProbe() *corev1.Probe {
+	livenessProbeScript, defined := os.LookupEnv("SERVER_LIVENESS_SCRIPT")
+	if defined {
+		return &corev1.Probe{
+			Handler: corev1.Handler{
+				Exec: &corev1.ExecAction{
+					Command: []string{"/bin/bash", "-c", livenessProbeScript},
+				},
+			},
+			InitialDelaySeconds: 60,
+		}
+	}
+	return &corev1.Probe{
+		Handler: corev1.Handler{
+			HTTPGet: &corev1.HTTPGetAction{
+				Path: "/health",
+				Port: intstr.FromString("admin"),
+			},
+		},
+		InitialDelaySeconds: 60,
+	}
+}
+
+// createReadinessProbe create a Exec probe if the SERVER_READINESS_SCRIPT env var is present.
+// Otherwise, it use the default /health Valve via curl.
+//
+// If defined, the SERVER_READINESS_SCRIPT env var must be the path of a shell script that
+// complies to the Kuberenetes probes requirements.
+func createReadinessProbe() *corev1.Probe {
+	readinessProbeScript, defined := os.LookupEnv("SERVER_READINESS_SCRIPT")
+	if defined {
+		return &corev1.Probe{
+			Handler: corev1.Handler{
+				Exec: &corev1.ExecAction{
+					Command: []string{"/bin/bash", "-c", readinessProbeScript},
+				},
+			},
+		}
+	} else {
+		/* Use the default one */
+		return &corev1.Probe{
+			Handler: corev1.Handler{
+				Exec: &corev1.ExecAction{
+					Command: []string{"/bin/bash", "-c", "curl --noproxy '*' -s http://localhost:8080/health"},
+				},
+			},
+		}
+	}
+	return nil
+
