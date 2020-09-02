@@ -344,20 +344,20 @@ func (r *ReconcileJBossWebServer) deploymentConfigForJBossWebServer(t *jwsserver
 			Strategy: appsv1.DeploymentStrategy{
 				Type: appsv1.DeploymentStrategyTypeRecreate,
 			},
-			// Triggers: []appsv1.DeploymentTriggerPolicy{{
-			// 	Type: appsv1.DeploymentTriggerOnImageChange,
-			// 	ImageChangeParams: &appsv1.DeploymentTriggerImageChangeParams{
-			// 		Automatic:      true,
-			// 		ContainerNames: []string{t.Spec.ApplicationName},
-			// 		From: corev1.ObjectReference{
-			// 			Kind: "ImageStreamTag",
-			// 			Name: t.Spec.ApplicationName + ":latest",
-			// 		},
-			// 	},
-			// },
-			// 	{
-			// 		Type: appsv1.DeploymentTriggerOnConfigChange,
-			// 	}},
+			Triggers: []appsv1.DeploymentTriggerPolicy{{
+				Type: appsv1.DeploymentTriggerOnImageChange,
+				ImageChangeParams: &appsv1.DeploymentTriggerImageChangeParams{
+					Automatic:      true,
+					ContainerNames: []string{t.Spec.ApplicationName},
+					From: corev1.ObjectReference{
+						Kind: "ImageStreamTag",
+						Name: t.Spec.ApplicationName + ":latest",
+					},
+				},
+			},
+				{
+					Type: appsv1.DeploymentTriggerOnConfigChange,
+				}},
 			Replicas: 1,
 			Selector: map[string]string{
 				"deploymentConfig": t.Spec.ApplicationName,
@@ -374,7 +374,7 @@ func (r *ReconcileJBossWebServer) deploymentConfigForJBossWebServer(t *jwsserver
 					TerminationGracePeriodSeconds: &terminationGracePeriodSeconds,
 					Containers: []corev1.Container{{
 						Name:            t.Spec.ApplicationName,
-						Image:           t.Spec.ApplicationImage,
+						Image:           t.Spec.ApplicationName,
 						ImagePullPolicy: "Always",
 						ReadinessProbe: createReadinessProbe(),
 						LivenessProbe: createLivenessProbe(),
