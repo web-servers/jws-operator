@@ -63,7 +63,6 @@ spec:
             sourceRepositoryUrl:
               type: string
           required:
-            - applicationImage
             - applicationName
             - replicas
             - hostnameHttp
@@ -74,8 +73,6 @@ spec:
             - jwsAdminPassword
             - githubWebhookSecret
             - genericWebhookSecret
-            - imageStreamNamespace
-            - imageStreamName
             - mavenMirrorUrl
             - artifactDir
           type: object
