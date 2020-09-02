@@ -20,8 +20,8 @@ spec:
         version: v1
       specDescriptors:
       - description: Number of instances for a JBossWebServer resource.
-        displayName: Size
-        path: size
+        displayName: Replicas
+        path: replicas
       - description: Name of the application image to be deployed.
         displayName: Application Image
         path: image

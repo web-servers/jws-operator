@@ -213,9 +213,9 @@ func (r *ReconcileJBossWebServer) Reconcile(request reconcile.Request) (reconcil
 	}
 
 	// Handle Scaling
-	size := jbosswebserver.Spec.Size
-	if foundDeployment.Spec.Replicas != size {
-		foundDeployment.Spec.Replicas = size
+	replicas := jbosswebserver.Spec.Replicas
+	if foundDeployment.Spec.Replicas != replicas {
+		foundDeployment.Spec.Replicas = replicas
 		err = r.client.Update(context.TODO(), foundDeployment)
 		if err != nil {
 			reqLogger.Error(err, "Failed to update Deployment.", "Deployment.Namespace", foundDeployment.Namespace, "Deployment.Name", foundDeployment.Name)
@@ -309,20 +309,20 @@ func (r *ReconcileJBossWebServer) deploymentConfigForJBossWebServer(t *jwsserver
 			Strategy: appsv1.DeploymentStrategy{
 				Type: appsv1.DeploymentStrategyTypeRecreate,
 			},
-			Triggers: []appsv1.DeploymentTriggerPolicy{{
-				Type: appsv1.DeploymentTriggerOnImageChange,
-				ImageChangeParams: &appsv1.DeploymentTriggerImageChangeParams{
-					Automatic:      true,
-					ContainerNames: []string{t.Spec.ApplicationName},
-					From: corev1.ObjectReference{
-						Kind: "ImageStreamTag",
-						Name: t.Spec.ApplicationName + ":latest",
-					},
-				},
-			},
-				{
-					Type: appsv1.DeploymentTriggerOnConfigChange,
-				}},
+			// Triggers: []appsv1.DeploymentTriggerPolicy{{
+			// 	Type: appsv1.DeploymentTriggerOnImageChange,
+			// 	ImageChangeParams: &appsv1.DeploymentTriggerImageChangeParams{
+			// 		Automatic:      true,
+			// 		ContainerNames: []string{t.Spec.ApplicationName},
+			// 		From: corev1.ObjectReference{
+			// 			Kind: "ImageStreamTag",
+			// 			Name: t.Spec.ApplicationName + ":latest",
+			// 		},
+			// 	},
+			// },
+			// 	{
+			// 		Type: appsv1.DeploymentTriggerOnConfigChange,
+			// 	}},
 			Replicas: 1,
 			Selector: map[string]string{
 				"deploymentConfig": t.Spec.ApplicationName,
@@ -339,7 +339,7 @@ func (r *ReconcileJBossWebServer) deploymentConfigForJBossWebServer(t *jwsserver
 					TerminationGracePeriodSeconds: &terminationGracePeriodSeconds,
 					Containers: []corev1.Container{{
 						Name:            t.Spec.ApplicationName,
-						Image:           t.Spec.ApplicationName,
+						Image:           t.Spec.ApplicationImage,
 						ImagePullPolicy: "Always",
 						ReadinessProbe: &corev1.Probe{
 							Handler: corev1.Handler{
@@ -347,7 +347,7 @@ func (r *ReconcileJBossWebServer) deploymentConfigForJBossWebServer(t *jwsserver
 									Command: []string{
 										"/bin/bash",
 										"-c",
-										"curl --noproxy '*' -s -u ${JWS_ADMIN_USERNAME}:${JWS_ADMIN_PASSWORD} 'http://localhost:8080/manager/jmxproxy/?get=Catalina%3Atype%3DServer&att=stateName' |grep -iq 'stateName *= *STARTED'",
+										"curl --noproxy '*' -s -u ${JWS_ADMIN_USERNAME}:${JWS_ADMIN_PASSWORD} 'http://localhost:8080/manager/jmxproxy/?get=Catalina%3Atype%3DServer&att=stateName' | grep -iq 'stateName *= *STARTED'",
 									},
 								},
 							},
