@@ -2,6 +2,7 @@ package jbosswebserver
 
 import (
 	"context"
+	"os"
 
 	"k8s.io/apimachinery/pkg/util/intstr"
 
@@ -647,4 +648,4 @@ func createReadinessProbe() *corev1.Probe {
 		}
 	}
 	return nil
-
+}

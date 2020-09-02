@@ -35,7 +35,7 @@ push: image
 ## clean            Remove all generated build files.
 clean:
 	rm -rf build/_output
-	rm deploy/kubernetes_operator.yaml
+	rm -f deploy/kubernetes_operator.yaml
 
 deploy/kubernetes_operator.yaml: deploy/operator.template
 	sed 's|@OP_IMAGE_TAG@|$(IMAGE)|' deploy/operator.template > deploy/kubernetes_operator.yaml
