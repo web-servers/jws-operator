@@ -4,7 +4,6 @@ metadata:
   name: example-jbosswebserver
 spec:
   # Add fields here
-  applicationImage: "registry.redhat.io/jboss-webserver-5/webserver53-openjdk8-tomcat9-openshift-rhel7:latest"
   applicationName: jws-app
   sourceRepositoryUrl: https://github.com/jboss-openshift/openshift-quickstarts.git
   sourceRepositoryRef: "1.2"
@@ -14,7 +13,7 @@ spec:
   githubWebhookSecret: tomcat
   genericWebhookSecret: tomcat
   imageStreamNamespace: openshift
-  imageStreamName: jboss-webserver54-openjdk8-tomcat9-ubi8-openshift:latest
+  imageStreamName: jboss-webserver53-tomcat9-openshift:latest
   hostnameHttp: ""
   mavenMirrorUrl: ""
   artifactDir: ""

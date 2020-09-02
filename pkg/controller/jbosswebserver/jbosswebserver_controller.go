@@ -8,10 +8,10 @@ import (
 	jwsserversv1alpha1 "jws-image-operator/pkg/apis/jwsservers/v1alpha1"
 
 	appsv1 "github.com/openshift/api/apps/v1"
-	kbappsv1 "k8s.io/api/apps/v1"
 	buildv1 "github.com/openshift/api/build/v1"
 	imagev1 "github.com/openshift/api/image/v1"
 	routev1 "github.com/openshift/api/route/v1"
+	kbappsv1 "k8s.io/api/apps/v1"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -62,8 +62,8 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 
 	// Watch for changes to secondary resource Pods and requeue the owner JBossWebServer
 	enqueueRequestForOwner := handler.EnqueueRequestForOwner{
-	IsController: true,
-	OwnerType:    &jwsserversv1alpha1.JBossWebServer{},
+		IsController: true,
+		OwnerType:    &jwsserversv1alpha1.JBossWebServer{},
 	}
 	for _, obj := range [3]runtime.Object{&kbappsv1.StatefulSet{}, &corev1.Service{}, &routev1.Route{}} {
 		if err = c.Watch(&source.Kind{Type: obj}, &enqueueRequestForOwner); err != nil {
@@ -120,7 +120,7 @@ func (r *ReconcileJBossWebServer) Reconcile(request reconcile.Request) (reconcil
 		ser := r.serviceForJBossWebServer(jbosswebserver)
 		reqLogger.Info("Creating a new Service. (route)", "Service.Namespace", ser.Namespace, "Service.Name", ser.Name)
 		err = r.client.Create(context.TODO(), ser)
-		if err != nil && !errors.IsAlreadyExists(err) { 
+		if err != nil && !errors.IsAlreadyExists(err) {
 			reqLogger.Error(err, "Failed to create new Service.", "Service.Namespace", ser.Namespace, "Service.Name", ser.Name)
 			return reconcile.Result{}, err
 		}
@@ -128,7 +128,7 @@ func (r *ReconcileJBossWebServer) Reconcile(request reconcile.Request) (reconcil
 		ser1 := r.serviceForJBossWebServerDNS(jbosswebserver)
 		reqLogger.Info("Creating a new Service. (DNS)", "Service.Namespace", ser1.Namespace, "Service.Name", ser1.Name)
 		err = r.client.Create(context.TODO(), ser1)
-		if err != nil && !errors.IsAlreadyExists(err) { 
+		if err != nil && !errors.IsAlreadyExists(err) {
 			reqLogger.Error(err, "Failed to create new Service.", "Service.Namespace", ser1.Namespace, "Service.Name", ser1.Name)
 			return reconcile.Result{}, err
 		}
@@ -146,7 +146,7 @@ func (r *ReconcileJBossWebServer) Reconcile(request reconcile.Request) (reconcil
 		rou := r.routeForJBossWebServer(jbosswebserver)
 		reqLogger.Info("Creating a new Route.", "Route.Namespace", rou.Namespace, "Route.Name", rou.Name)
 		err = r.client.Create(context.TODO(), rou)
-		if err != nil && !errors.IsAlreadyExists(err) { 
+		if err != nil && !errors.IsAlreadyExists(err) {
 			reqLogger.Error(err, "Failed to create new Route.", "Route.Namespace", rou.Namespace, "Route.Name", rou.Name)
 			return reconcile.Result{}, err
 		}
@@ -157,72 +157,107 @@ func (r *ReconcileJBossWebServer) Reconcile(request reconcile.Request) (reconcil
 		return reconcile.Result{}, err
 	}
 
-	// Check if the ImageStream already exists, if not create a new one
-	err = r.client.Get(context.TODO(), types.NamespacedName{Name: jbosswebserver.Spec.ApplicationName, Namespace: jbosswebserver.Namespace}, &imagev1.ImageStream{})
-	if err != nil && errors.IsNotFound(err) {
-		// Define a new ImageStream
-		img := r.imageStreamForJBossWebServer(jbosswebserver)
-		reqLogger.Info("Creating a new ImageStream.", "ImageStream.Namespace", img.Namespace, "ImageStream.Name", img.Name)
-		err = r.client.Create(context.TODO(), img)
-		if err != nil && !errors.IsAlreadyExists(err) { 
-			reqLogger.Error(err, "Failed to create new ImageStream.", "ImageStream.Namespace", img.Namespace, "ImageStream.Name", img.Name)
-			return reconcile.Result{}, err
-		}
-		// ImageStream created successfully - return and requeue
-		return reconcile.Result{Requeue: true}, nil
-	} else if err != nil {
-		reqLogger.Error(err, "Failed to get ImageStream.")
-		return reconcile.Result{}, err
-	}
+	if jbosswebserver.Spec.ApplicationImage == "" {
 
-	// Check if the BuildConfig already exists, if not create a new one
-	err = r.client.Get(context.TODO(), types.NamespacedName{Name: jbosswebserver.Spec.ApplicationName, Namespace: jbosswebserver.Namespace}, &buildv1.BuildConfig{})
-	if err != nil && errors.IsNotFound(err) {
-		// Define a new BuildConfig
-		bui := r.buildConfigForJBossWebServer(jbosswebserver)
-		reqLogger.Info("Creating a new BuildConfig.", "BuildConfig.Namespace", bui.Namespace, "BuildConfig.Name", bui.Name)
-		err = r.client.Create(context.TODO(), bui)
-		if err != nil && !errors.IsAlreadyExists(err) { 
-			reqLogger.Error(err, "Failed to create new BuildConfig.", "BuildConfig.Namespace", bui.Namespace, "BuildConfig.Name", bui.Name)
+		// Check if the ImageStream already exists, if not create a new one
+		err = r.client.Get(context.TODO(), types.NamespacedName{Name: jbosswebserver.Spec.ApplicationName, Namespace: jbosswebserver.Namespace}, &imagev1.ImageStream{})
+		if err != nil && errors.IsNotFound(err) {
+			// Define a new ImageStream
+			img := r.imageStreamForJBossWebServer(jbosswebserver)
+			reqLogger.Info("Creating a new ImageStream.", "ImageStream.Namespace", img.Namespace, "ImageStream.Name", img.Name)
+			err = r.client.Create(context.TODO(), img)
+			if err != nil && !errors.IsAlreadyExists(err) {
+				reqLogger.Error(err, "Failed to create new ImageStream.", "ImageStream.Namespace", img.Namespace, "ImageStream.Name", img.Name)
+				return reconcile.Result{}, err
+			}
+			// ImageStream created successfully - return and requeue
+			return reconcile.Result{Requeue: true}, nil
+		} else if err != nil {
+			reqLogger.Error(err, "Failed to get ImageStream.")
 			return reconcile.Result{}, err
 		}
-		// BuildConfig created successfully - return and requeue
-		return reconcile.Result{Requeue: true}, nil
-	} else if err != nil {
-		reqLogger.Error(err, "Failed to get Service.")
-		return reconcile.Result{}, err
-	}
 
-	// Check if the DeploymentConfig already exists, if not create a new one
-	foundDeployment := &appsv1.DeploymentConfig{}
-	err = r.client.Get(context.TODO(), types.NamespacedName{Name: jbosswebserver.Spec.ApplicationName, Namespace: jbosswebserver.Namespace}, foundDeployment)
-	if err != nil && errors.IsNotFound(err) {
-		// Define a new DeploymentConfig
-		dep := r.deploymentConfigForJBossWebServer(jbosswebserver)
-		reqLogger.Info("Creating a new DeploymentConfig.", "DeploymentConfig.Namespace", dep.Namespace, "DeploymentConfig.Name", dep.Name)
-		err = r.client.Create(context.TODO(), dep)
-		if err != nil && !errors.IsAlreadyExists(err) { 
-			reqLogger.Error(err, "Failed to create new DeploymentConfig.", "DeploymentConfig.Namespace", dep.Namespace, "DeploymentConfig.Name", dep.Name)
+		// Check if the BuildConfig already exists, if not create a new one
+		err = r.client.Get(context.TODO(), types.NamespacedName{Name: jbosswebserver.Spec.ApplicationName, Namespace: jbosswebserver.Namespace}, &buildv1.BuildConfig{})
+		if err != nil && errors.IsNotFound(err) {
+			// Define a new BuildConfig
+			bui := r.buildConfigForJBossWebServer(jbosswebserver)
+			reqLogger.Info("Creating a new BuildConfig.", "BuildConfig.Namespace", bui.Namespace, "BuildConfig.Name", bui.Name)
+			err = r.client.Create(context.TODO(), bui)
+			if err != nil && !errors.IsAlreadyExists(err) {
+				reqLogger.Error(err, "Failed to create new BuildConfig.", "BuildConfig.Namespace", bui.Namespace, "BuildConfig.Name", bui.Name)
+				return reconcile.Result{}, err
+			}
+			// BuildConfig created successfully - return and requeue
+			return reconcile.Result{Requeue: true}, nil
+		} else if err != nil {
+			reqLogger.Error(err, "Failed to get Service.")
 			return reconcile.Result{}, err
 		}
-		// DeploymentConfig created successfully - return and requeue
-		return reconcile.Result{Requeue: true}, nil
-	} else if err != nil {
-		reqLogger.Error(err, "Failed to get Service.")
-		return reconcile.Result{}, err
-	}
 
-	// Handle Scaling
-	replicas := jbosswebserver.Spec.Replicas
-	if foundDeployment.Spec.Replicas != replicas {
-		foundDeployment.Spec.Replicas = replicas
-		err = r.client.Update(context.TODO(), foundDeployment)
-		if err != nil {
-			reqLogger.Error(err, "Failed to update Deployment.", "Deployment.Namespace", foundDeployment.Namespace, "Deployment.Name", foundDeployment.Name)
+		// Check if the DeploymentConfig already exists, if not create a new one
+		foundDeployment := &appsv1.DeploymentConfig{}
+		err = r.client.Get(context.TODO(), types.NamespacedName{Name: jbosswebserver.Spec.ApplicationName, Namespace: jbosswebserver.Namespace}, foundDeployment)
+		if err != nil && errors.IsNotFound(err) {
+			// Define a new DeploymentConfig
+			dep := r.deploymentConfigForJBossWebServer(jbosswebserver)
+			reqLogger.Info("Creating a new DeploymentConfig.", "DeploymentConfig.Namespace", dep.Namespace, "DeploymentConfig.Name", dep.Name)
+			err = r.client.Create(context.TODO(), dep)
+			if err != nil && !errors.IsAlreadyExists(err) {
+				reqLogger.Error(err, "Failed to create new DeploymentConfig.", "DeploymentConfig.Namespace", dep.Namespace, "DeploymentConfig.Name", dep.Name)
+				return reconcile.Result{}, err
+			}
+			// DeploymentConfig created successfully - return and requeue
+			return reconcile.Result{Requeue: true}, nil
+		} else if err != nil {
+			reqLogger.Error(err, "Failed to get Service.")
 			return reconcile.Result{}, err
 		}
-		// Spec updated - return and requeue
-		return reconcile.Result{Requeue: true}, nil
+
+		// Handle Scaling
+		replicas := jbosswebserver.Spec.Replicas
+		if foundDeployment.Spec.Replicas != replicas {
+			foundDeployment.Spec.Replicas = replicas
+			err = r.client.Update(context.TODO(), foundDeployment)
+			if err != nil {
+				reqLogger.Error(err, "Failed to update Deployment.", "Deployment.Namespace", foundDeployment.Namespace, "Deployment.Name", foundDeployment.Name)
+				return reconcile.Result{}, err
+			}
+			// Spec updated - return and requeue
+			return reconcile.Result{Requeue: true}, nil
+		}
+	} else {
+		// Check if the Deployment already exists, if not create a new one
+		foundDeployment := &kbappsv1.Deployment{}
+		err = r.client.Get(context.TODO(), types.NamespacedName{Name: jbosswebserver.Spec.ApplicationName, Namespace: jbosswebserver.Namespace}, foundDeployment)
+		if err != nil && errors.IsNotFound(err) {
+			// Define a new Deployment
+			dep := r.deploymentForJBossWebServer(jbosswebserver)
+			reqLogger.Info("Creating a new Deployment.", "Deployment.Namespace", dep.Namespace, "Deployment.Name", dep.Name)
+			err = r.client.Create(context.TODO(), dep)
+			if err != nil && !errors.IsAlreadyExists(err) {
+				reqLogger.Error(err, "Failed to create new Deployment.", "Deployment.Namespace", dep.Namespace, "Deployment.Name", dep.Name)
+				return reconcile.Result{}, err
+			}
+			// Deployment created successfully - return and requeue
+			return reconcile.Result{Requeue: true}, nil
+		} else if err != nil {
+			reqLogger.Error(err, "Failed to get Service.")
+			return reconcile.Result{}, err
+		}
+
+		// Handle Scaling
+		replicas := jbosswebserver.Spec.Replicas
+		if foundDeployment.Spec.Replicas != &replicas {
+			foundDeployment.Spec.Replicas = &replicas
+			err = r.client.Update(context.TODO(), foundDeployment)
+			if err != nil {
+				reqLogger.Error(err, "Failed to update Deployment.", "Deployment.Namespace", foundDeployment.Namespace, "Deployment.Name", foundDeployment.Name)
+				return reconcile.Result{}, err
+			}
+			// Spec updated - return and requeue
+			return reconcile.Result{Requeue: true}, nil
+		}
 	}
 
 	return reconcile.Result{}, nil
@@ -376,6 +411,83 @@ func (r *ReconcileJBossWebServer) deploymentConfigForJBossWebServer(t *jwsserver
 
 	controllerutil.SetControllerReference(t, deploymentConfig, r.scheme)
 	return deploymentConfig
+}
+
+func (r *ReconcileJBossWebServer) deploymentForJBossWebServer(t *jwsserversv1alpha1.JBossWebServer) *kbappsv1.Deployment {
+
+	terminationGracePeriodSeconds := int64(60)
+	replicas := int32(1)
+	deployment := &kbappsv1.Deployment{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: "k8s.io/api/apps/v1",
+			Kind:       "Deployment",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      t.Spec.ApplicationName,
+			Namespace: t.Namespace,
+			Labels: map[string]string{
+				"application": t.Spec.ApplicationName,
+			},
+		},
+		Spec: kbappsv1.DeploymentSpec{
+			Strategy: kbappsv1.DeploymentStrategy{
+				Type: kbappsv1.RecreateDeploymentStrategyType,
+			},
+			Replicas: &replicas,
+			Selector: &metav1.LabelSelector{
+				MatchLabels: map[string]string{
+					"deploymentConfig": t.Spec.ApplicationName,
+				},
+			},
+			Template: corev1.PodTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: t.Spec.ApplicationName,
+					Labels: map[string]string{
+						"application":      t.Spec.ApplicationName,
+						"deploymentConfig": t.Spec.ApplicationName,
+					},
+				},
+				Spec: corev1.PodSpec{
+					TerminationGracePeriodSeconds: &terminationGracePeriodSeconds,
+					Containers: []corev1.Container{{
+						Name:            t.Spec.ApplicationName,
+						Image:           t.Spec.ApplicationImage,
+						ImagePullPolicy: "Always",
+						ReadinessProbe: &corev1.Probe{
+							Handler: corev1.Handler{
+								Exec: &corev1.ExecAction{
+									Command: []string{
+										"/bin/bash",
+										"-c",
+										"curl --noproxy '*' -s -u ${JWS_ADMIN_USERNAME}:${JWS_ADMIN_PASSWORD} 'http://localhost:8080/manager/jmxproxy/?get=Catalina%3Atype%3DServer&att=stateName' | grep -iq 'stateName *= *STARTED'",
+									},
+								},
+							},
+						},
+						Ports: []corev1.ContainerPort{{
+							Name:          "jolokia",
+							ContainerPort: 8778,
+							Protocol:      corev1.ProtocolTCP,
+						}, {
+							Name:          "http",
+							ContainerPort: 8080,
+							Protocol:      corev1.ProtocolTCP,
+						}},
+						Env: []corev1.EnvVar{{
+							Name:  "JWS_ADMIN_USERNAME",
+							Value: t.Spec.JwsAdminUsername,
+						}, {
+							Name:  "JWS_ADMIN_PASSWORD",
+							Value: t.Spec.JwsAdminPassword,
+						}},
+					}},
+				},
+			},
+		},
+	}
+
+	controllerutil.SetControllerReference(t, deployment, r.scheme)
+	return deployment
 }
 
 func (r *ReconcileJBossWebServer) routeForJBossWebServer(t *jwsserversv1alpha1.JBossWebServer) *routev1.Route {
