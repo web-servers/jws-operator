@@ -132,7 +132,7 @@ Note that the first *oc delete* deletes what the operator creates for the exampl
 ## Deploy for an existing JWS or Tomcat image
 1. Install the operator as describe before
 
-Note that kubernetes doesn't have templates and you have to ajust deploy/operator.template to have:
+Note that kubernetes doesn't have templates and you have to adjust deploy/operator.template to have:
 
 image: @OP_IMAGE_TAG@ set to right value and then use kubernetes apply -f deploy/operator.template to deploy the operator
 
