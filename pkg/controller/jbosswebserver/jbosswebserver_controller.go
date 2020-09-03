@@ -74,7 +74,7 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 			return err
 		}
 	}
-	if (isOpenShift(mgr.GetConfig())) {
+	if isOpenShift(mgr.GetConfig()) {
 		if err = c.Watch(&source.Kind{Type: &routev1.Route{}}, &enqueueRequestForOwner); err != nil {
 			return err
 		}
@@ -158,21 +158,23 @@ func (r *ReconcileJBossWebServer) Reconcile(request reconcile.Request) (reconcil
 	}
 
 	// Check if the Route already exists, if not create a new one
-	err = r.client.Get(context.TODO(), types.NamespacedName{Name: jbosswebserver.Spec.ApplicationName, Namespace: jbosswebserver.Namespace}, &routev1.Route{})
-	if err != nil && errors.IsNotFound(err) && r.isOpenShift {
-		// Define a new Route
-		rou := r.routeForJBossWebServer(jbosswebserver)
-		reqLogger.Info("Creating a new Route.", "Route.Namespace", rou.Namespace, "Route.Name", rou.Name)
-		err = r.client.Create(context.TODO(), rou)
-		if err != nil && !errors.IsAlreadyExists(err) {
-			reqLogger.Error(err, "Failed to create new Route.", "Route.Namespace", rou.Namespace, "Route.Name", rou.Name)
+	if  r.isOpenShift {
+		err = r.client.Get(context.TODO(), types.NamespacedName{Name: jbosswebserver.Spec.ApplicationName, Namespace: jbosswebserver.Namespace}, &routev1.Route{})
+		if err != nil && errors.IsNotFound(err) {
+			// Define a new Route
+			rou := r.routeForJBossWebServer(jbosswebserver)
+			reqLogger.Info("Creating a new Route.", "Route.Namespace", rou.Namespace, "Route.Name", rou.Name)
+			err = r.client.Create(context.TODO(), rou)
+			if err != nil && !errors.IsAlreadyExists(err) {
+				reqLogger.Error(err, "Failed to create new Route.", "Route.Namespace", rou.Namespace, "Route.Name", rou.Name)
+				return reconcile.Result{}, err
+			}
+			// Route created successfully - return and requeue
+			return reconcile.Result{Requeue: true}, nil
+		} else if err != nil {
+			reqLogger.Error(err, "Failed to get Service.")
 			return reconcile.Result{}, err
 		}
-		// Route created successfully - return and requeue
-		return reconcile.Result{Requeue: true}, nil
-	} else if err != nil {
-		reqLogger.Error(err, "Failed to get Route.")
-		return reconcile.Result{}, err
 	}
 
 	if jbosswebserver.Spec.ApplicationImage == "" {
