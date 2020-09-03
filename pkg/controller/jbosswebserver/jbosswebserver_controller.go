@@ -28,6 +28,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
 	"sigs.k8s.io/controller-runtime/pkg/source"
+	"k8s.io/client-go/discovery"
+	"k8s.io/client-go/rest"
 )
 
 var log = logf.Log.WithName("controller_jbosswebserver")
@@ -45,7 +47,7 @@ func Add(mgr manager.Manager) error {
 
 // newReconciler returns a new reconcile.Reconciler
 func newReconciler(mgr manager.Manager) reconcile.Reconciler {
-	return &ReconcileJBossWebServer{client: mgr.GetClient(), scheme: mgr.GetScheme()}
+	return &ReconcileJBossWebServer{client: mgr.GetClient(), scheme: mgr.GetScheme(), isOpenShift: isOpenShift(mgr.GetConfig())}
 }
 
 // add adds a new Controller to mgr with r as the reconcile.Reconciler
@@ -67,8 +69,13 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 		IsController: true,
 		OwnerType:    &jwsserversv1alpha1.JBossWebServer{},
 	}
-	for _, obj := range [3]runtime.Object{&kbappsv1.StatefulSet{}, &corev1.Service{}, &routev1.Route{}} {
+	for _, obj := range []runtime.Object{&kbappsv1.StatefulSet{}, &corev1.Service{}} {
 		if err = c.Watch(&source.Kind{Type: obj}, &enqueueRequestForOwner); err != nil {
+			return err
+		}
+	}
+	if (isOpenShift(mgr.GetConfig())) {
+		if err = c.Watch(&source.Kind{Type: &routev1.Route{}}, &enqueueRequestForOwner); err != nil {
 			return err
 		}
 	}
@@ -84,6 +91,7 @@ type ReconcileJBossWebServer struct {
 	// that reads objects from the cache and writes to the apiserver
 	client client.Client
 	scheme *runtime.Scheme
+	isOpenShift bool
 }
 
 // Reconcile reads that state of the cluster for a JBossWebServer object and makes changes based on the state read
@@ -151,7 +159,7 @@ func (r *ReconcileJBossWebServer) Reconcile(request reconcile.Request) (reconcil
 
 	// Check if the Route already exists, if not create a new one
 	err = r.client.Get(context.TODO(), types.NamespacedName{Name: jbosswebserver.Spec.ApplicationName, Namespace: jbosswebserver.Namespace}, &routev1.Route{})
-	if err != nil && errors.IsNotFound(err) {
+	if err != nil && errors.IsNotFound(err) && r.isOpenShift {
 		// Define a new Route
 		rou := r.routeForJBossWebServer(jbosswebserver)
 		reqLogger.Info("Creating a new Route.", "Route.Namespace", rou.Namespace, "Route.Name", rou.Name)
@@ -643,4 +651,28 @@ func createReadinessProbe() *corev1.Probe {
 		}
 	}
 	return nil
+}
+
+func isOpenShift(c *rest.Config) bool {
+	var err error
+	var dcclient *discovery.DiscoveryClient
+	dcclient, err = discovery.NewDiscoveryClientForConfig(c)
+	if err != nil {
+		log.Info("isOpenShift discovery.NewDiscoveryClientForConfig problem")
+		return false;
+	}
+	apiList, err := dcclient.ServerGroups()
+	if err != nil {
+		log.Info("isOpenShift client.ServerGroups problem")
+		return false;
+	}
+	for _, v := range apiList.Groups {
+		log.Info(v.Name)
+		if v.Name == "route.openshift.io" {
+
+			log.Info("route.openshift.io found in apis, platform is OpenShift")
+			return true
+		}
+	}
+	return false
 }
