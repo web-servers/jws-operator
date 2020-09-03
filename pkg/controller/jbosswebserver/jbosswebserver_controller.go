@@ -377,8 +377,8 @@ func (r *ReconcileJBossWebServer) deploymentConfigForJBossWebServer(t *jwsserver
 						Name:            t.Spec.ApplicationName,
 						Image:           t.Spec.ApplicationName,
 						ImagePullPolicy: "Always",
-						ReadinessProbe: createReadinessProbe(),
-						LivenessProbe: createLivenessProbe(),
+						ReadinessProbe:  createReadinessProbe(),
+						LivenessProbe:   createLivenessProbe(),
 						Ports: []corev1.ContainerPort{{
 							Name:          "jolokia",
 							ContainerPort: 8778,
@@ -438,8 +438,8 @@ func (r *ReconcileJBossWebServer) deploymentForJBossWebServer(t *jwsserversv1alp
 						Name:            t.Spec.ApplicationName,
 						Image:           t.Spec.ApplicationImage,
 						ImagePullPolicy: "Always",
-						ReadinessProbe: createReadinessProbe(),
-						LivenessProbe: createLivenessProbe(),
+						ReadinessProbe:  createReadinessProbe(),
+						LivenessProbe:   createLivenessProbe(),
 						Ports: []corev1.ContainerPort{{
 							Name:          "jolokia",
 							ContainerPort: 8778,
@@ -477,7 +477,6 @@ func (r *ReconcileJBossWebServer) routeForJBossWebServer(t *jwsserversv1alpha1.J
 			},
 		},
 		Spec: routev1.RouteSpec{
-			Host: t.Spec.HostnameHttp,
 			To: routev1.RouteTargetReference{
 				Name: t.Spec.ApplicationName,
 			},
@@ -584,7 +583,7 @@ func (r *ReconcileJBossWebServer) buildConfigForJBossWebServer(t *jwsserversv1al
 // Otherwise, it creates a HTTPGet probe that checks the /health endpoint on the admin port.
 //
 // If defined, the SERVER_LIVENESS_SCRIPT env var must be the path of a shell script that
-// complies to the Kuberenetes probes requirements.
+// complies to the Kubernetes probes requirements.
 func createLivenessProbe() *corev1.Probe {
 	livenessProbeScript, defined := os.LookupEnv("SERVER_LIVENESS_SCRIPT")
 	if defined {
