@@ -66,7 +66,7 @@ $ docker login docker.io
 $ docker push $IMAGE
 ```
 
-## Deploy to an Openshift Cluster
+## Deploy from sources to an Openshift Cluster
 The operator is pre-built and containerized in a docker image. By default, the deployment has been configured to utilize that image. Therefore, deploying the operator can be done by following these simple steps:
 1. Define a namespace
 ```bash
@@ -128,6 +128,50 @@ Note that the first *oc delete* deletes what the operator creates for the exampl
 10. What is supported?
 
 10.1 changing the number of running replicas for the application: in your Custom Resource change *replicas: 2* to the value you want.
+
+## Deploy for an existing JWS or Tomcat image
+1. Install the operator as describe before
+
+Note that kubernetes doesn't have templates and you have to ajust deploy/operator.template to have:
+
+image: @OP_IMAGE_TAG@ set to right value and then use kubernetes apply -f deploy/operator.template to deploy the operator
+
+2. Prepare your image and push it somewhere
+See https://github.com/jfclere/tomcat-openshift or https://github.com/apache/tomcat/tree/master/modules/stuffed to build the images.
+
+3. Create a Tomcat instance (Custom Resource). An example has been provided in *deploy/crds/jwsservers.web.servers.org_v1alpha1_jbosswebserver_cr.yaml*
+```
+  applicationName: jws-app
+  applicationImage: docker.io/jfclere/tomcat-demo
+  #sourceRepositoryUrl: https://github.com/jboss-openshift/openshift-quickstarts.git
+  #sourceRepositoryRef: "1.2"
+  #contextDir: tomcat-websocket-chat
+  #imageStreamNamespace: openshift
+  #imageStreamName: jboss-webserver53-tomcat9-openshift:latest
+```
+Make sure imageStreamName is commented out otherwise the operator will try to build from the sources
+
+4. Then deploy your webapp.
+```bash
+$ oc apply -f deploy/crds/jwsservers.web.servers.org_v1alpha1_jbosswebserver_cr.yaml
+```
+
+5. If you are on OpenShift the operator will create the route for you and you can use it
+```bash
+oc get routes
+NAME      HOST/PORT                                            PATH      SERVICES   PORT      TERMINATION   WILDCARD
+jws-app   jws-app-jws-operator.apps.jclere.rhmw-runtimes.net             jws-app    <all>                   None
+```
+Then go to http://jws-app-jws-operator.apps.jclere.rhmw-runtimes.net/demo-1.0/demo using a browser.
+
+6. On kubernetes you have to create a balancer to expose the service and later something depending on your cloud to expose the application
+```bash
+kubectl expose deployment jws-app --type=LoadBalancer --name=jws-balancer
+kubectl kubectl get svc
+NAME              TYPE           CLUSTER-IP      EXTERNAL-IP   PORT(S)          AGE
+jws-balancer      LoadBalancer   10.100.57.140   <pending>     8080:32567/TCP   4m6s
+```
+The service jws-balancer then can be used to expose the application.
 
 ## What to do next?
 Below are some features that may be relevant to add in the near future.
