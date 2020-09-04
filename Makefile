@@ -37,17 +37,26 @@ clean:
 	rm -rf build/_output
 	rm -f deploy/kubernetes_operator.yaml
 
-deploy/kubernetes_operator.yaml: deploy/operator.template
-	sed 's|@OP_IMAGE_TAG@|$(IMAGE)|' deploy/operator.template > deploy/kubernetes_operator.yaml
-
+generate-kubernetes_operator.yaml:
+	sed 's|@OP_IMAGE_TAG@|$(IMAGE)|' deploy/kubernetes_operator.template > deploy/kubernetes_operator.yaml
 
 ## run-openshift    Run the JWS operator on OpenShift.
 run-openshift:
-	./build/run-openshift.sh
+	oc create -f deploy/crds/jwsservers.web.servers.org_v1alpha1_jbosswebserver_crd.yaml
+	oc create -f deploy/service_account.yaml
+	oc create -f deploy/role.yaml
+	oc create -f deploy/role_binding.yaml
+	oc process -f deploy/openshift_operator.template IMAGE=${IMAGE} | oc create -f -
+
 
 ## run-kubernetes    Run the Tomcat operator on kubernetes.
-run-kubernetes: deploy/kubernetes_operator.yaml
-	./build/run-kubernetes.sh
+run-kubernetes: generate-kubernetes_operator.yaml
+	kubectl create -f deploy/crds/jwsservers.web.servers.org_v1alpha1_jbosswebserver_crd.yaml
+	kubectl create -f deploy/service_account.yaml
+	kubectl create -f deploy/role.yaml
+	kubectl create -f deploy/role_binding.yaml
+	kubectl apply -f deploy/kubernetes_operator.yaml
+
 
 help : Makefile
 	@sed -n 's/^##//p' $<
