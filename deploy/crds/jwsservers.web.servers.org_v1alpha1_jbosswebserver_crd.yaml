@@ -43,8 +43,6 @@ spec:
               type: string
             githubWebhookSecret:
               type: string
-            hostnameHttp:
-              type: string
             imageStreamNamespace:
               type: string
             imageStreamName:
@@ -61,10 +59,6 @@ spec:
           required:
             - applicationName
             - replicas
-            - hostnameHttp
-            - sourceRepositoryUrl
-            - sourceRepositoryRef
-            - contextDir
             - githubWebhookSecret
             - genericWebhookSecret
             - mavenMirrorUrl

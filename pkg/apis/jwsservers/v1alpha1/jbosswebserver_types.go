@@ -16,7 +16,6 @@ type JBossWebServerSpec struct {
 	// ApplicationImage is the name of the application image to be deployed
 	ApplicationImage     string `json:"applicationImage"`
 	ApplicationName      string `json:"applicationName"`
-	HostnameHttp         string `json:"hostnameHttp"`
 	SourceRepositoryUrl  string `json:"sourceRepositoryUrl"`
 	SourceRepositoryRef  string `json:"sourceRepositoryRef"`
 	ContextDir           string `json:"contextDir"`

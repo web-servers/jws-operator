@@ -15,7 +15,6 @@ spec:
       serviceAccountName: jws-image-operator
       containers:
         - name: jws-image-operator
-          # Replace this with the built image name
           image: @OP_IMAGE_TAG@
           command:
           - jws-image-operator
