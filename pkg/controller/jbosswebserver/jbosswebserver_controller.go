@@ -388,6 +388,10 @@ func (r *ReconcileJBossWebServer) deploymentConfigForJBossWebServer(t *jwsserver
 							ContainerPort: 8080,
 							Protocol:      corev1.ProtocolTCP,
 						}},
+						Env: []corev1.EnvVar{{
+							Name:		"KUBERNETES_NAMESPACE",
+							Value:		t.Spec.ApplicationName,
+						}},
 					}},
 				},
 			},
@@ -448,6 +452,10 @@ func (r *ReconcileJBossWebServer) deploymentForJBossWebServer(t *jwsserversv1alp
 							Name:          "http",
 							ContainerPort: 8080,
 							Protocol:      corev1.ProtocolTCP,
+						}},
+						Env: []corev1.EnvVar{{
+							Name:		"KUBERNETES_NAMESPACE",
+							Value:		t.Spec.ApplicationName,
 						}},
 					}},
 				},
