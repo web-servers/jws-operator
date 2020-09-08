@@ -390,7 +390,7 @@ func (r *ReconcileJBossWebServer) deploymentConfigForJBossWebServer(t *jwsserver
 						}},
 						Env: []corev1.EnvVar{{
 							Name:		"KUBERNETES_NAMESPACE",
-							Value:		t.Spec.ApplicationName,
+							Value:		"jbosswebserver",
 						}},
 					}},
 				},
@@ -455,7 +455,7 @@ func (r *ReconcileJBossWebServer) deploymentForJBossWebServer(t *jwsserversv1alp
 						}},
 						Env: []corev1.EnvVar{{
 							Name:		"KUBERNETES_NAMESPACE",
-							Value:		t.Spec.ApplicationName,
+							Value:		"jbosswebserver",
 						}},
 					}},
 				},
@@ -626,8 +626,9 @@ func createReadinessProbe() *corev1.Probe {
 		/* Use the default one */
 		return &corev1.Probe{
 			Handler: corev1.Handler{
-				Exec: &corev1.ExecAction{
-					Command: []string{"/bin/bash", "-c", "curl --noproxy '*' -s http://localhost:8080/health"},
+				HTTPGet: &corev1.HTTPGetAction{
+					Path: "/health",
+					Port:  intstr.FromInt(8080),
 				},
 			},
 		}
