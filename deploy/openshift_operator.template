@@ -37,6 +37,8 @@ objects:
                      fieldPath: metadata.name
                - name: OPERATOR_NAME
                  value: "jws-image-operator"
+#               - name: SERVER_READINESS_SCRIPT
+#                 value: "/bin/busybox wget http://localhost:8080/health -O /dev/null"
 parameters:
   - name: IMAGE
     displayName: Docker image URL

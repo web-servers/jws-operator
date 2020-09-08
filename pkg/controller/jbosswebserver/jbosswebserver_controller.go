@@ -3,6 +3,7 @@ package jbosswebserver
 import (
 	"context"
 	"os"
+	"strings"
 
 	"k8s.io/apimachinery/pkg/util/intstr"
 
@@ -606,7 +607,7 @@ func createLivenessProbe() *corev1.Probe {
 		return &corev1.Probe{
 			Handler: corev1.Handler{
 				Exec: &corev1.ExecAction{
-					Command: []string{"/bin/bash", "-c", livenessProbeScript},
+					Command: strings.Split(livenessProbeScript, " "),
 				},
 			},
 			InitialDelaySeconds: 60,
@@ -626,7 +627,7 @@ func createReadinessProbe() *corev1.Probe {
 		return &corev1.Probe{
 			Handler: corev1.Handler{
 				Exec: &corev1.ExecAction{
-					Command: []string{"/bin/bash", "-c", readinessProbeScript},
+					Command: strings.Split(readinessProbeScript, " "),
 				},
 			},
 		}
