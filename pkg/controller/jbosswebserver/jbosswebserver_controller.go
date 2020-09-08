@@ -112,22 +112,30 @@ func (r *ReconcileJBossWebServer) Reconcile(request reconcile.Request) (reconcil
 		return reconcile.Result{}, err
 	}
 
-	// Check if the Service already exists, if not create a new one
-	list := &corev1.ServiceList{}
-	opts := &client.ListOptions{}
-	err = r.client.List(context.TODO(), opts, list)
-	if (err != nil && errors.IsNotFound(err)) || len(list.Items) == 1 {
-		// Define the Service for the route.
-		ser := r.serviceForJBossWebServer(jbosswebserver)
-		reqLogger.Info("Creating a new Service. (route)", "Service.Namespace", ser.Namespace, "Service.Name", ser.Name)
+	ser := r.serviceForJBossWebServer(jbosswebserver)
+	// Check if the Service for the Route exists
+	err = r.client.Get(context.TODO(), types.NamespacedName{Name: ser.Name, Namespace: ser.Namespace}, &corev1.Service{})
+	if err != nil && errors.IsNotFound(err) {
+		// Define a new Service
+		reqLogger.Info("Creating a new Service.", "Service.Namespace", ser.Namespace, "Service.Name", ser.Name)
 		err = r.client.Create(context.TODO(), ser)
 		if err != nil && !errors.IsAlreadyExists(err) {
 			reqLogger.Error(err, "Failed to create new Service.", "Service.Namespace", ser.Namespace, "Service.Name", ser.Name)
 			return reconcile.Result{}, err
 		}
-		// Define the Service for DNSPing
-		ser1 := r.serviceForJBossWebServerDNS(jbosswebserver)
-		reqLogger.Info("Creating a new Service. (DNS)", "Service.Namespace", ser1.Namespace, "Service.Name", ser1.Name)
+		// Service created successfully - return and requeue
+		return reconcile.Result{Requeue: true}, nil
+	} else if err != nil {
+		reqLogger.Error(err, "Failed to get Service.")
+		return reconcile.Result{}, err
+	}
+
+	ser1 := r.serviceForJBossWebServerDNS(jbosswebserver)
+	// Check if the Service for DNSPing exists
+	err = r.client.Get(context.TODO(), types.NamespacedName{Name: ser1.Name, Namespace: ser1.Namespace}, &corev1.Service{})
+	if err != nil && errors.IsNotFound(err) {
+		// Define a new Service
+		reqLogger.Info("Creating a new Service.", "Service.Namespace", ser1.Namespace, "Service.Name", ser1.Name)
 		err = r.client.Create(context.TODO(), ser1)
 		if err != nil && !errors.IsAlreadyExists(err) {
 			reqLogger.Error(err, "Failed to create new Service.", "Service.Namespace", ser1.Namespace, "Service.Name", ser1.Name)
@@ -154,7 +162,7 @@ func (r *ReconcileJBossWebServer) Reconcile(request reconcile.Request) (reconcil
 		// Route created successfully - return and requeue
 		return reconcile.Result{Requeue: true}, nil
 	} else if err != nil {
-		reqLogger.Error(err, "Failed to get Service.")
+		reqLogger.Error(err, "Failed to get Route.")
 		return reconcile.Result{}, err
 	}
 
@@ -192,7 +200,7 @@ func (r *ReconcileJBossWebServer) Reconcile(request reconcile.Request) (reconcil
 			// BuildConfig created successfully - return and requeue
 			return reconcile.Result{Requeue: true}, nil
 		} else if err != nil {
-			reqLogger.Error(err, "Failed to get Service.")
+			reqLogger.Error(err, "Failed to get BuildConfig.")
 			return reconcile.Result{}, err
 		}
 
@@ -211,7 +219,7 @@ func (r *ReconcileJBossWebServer) Reconcile(request reconcile.Request) (reconcil
 			// DeploymentConfig created successfully - return and requeue
 			return reconcile.Result{Requeue: true}, nil
 		} else if err != nil {
-			reqLogger.Error(err, "Failed to get Service.")
+			reqLogger.Error(err, "Failed to get DeploymentConfig.")
 			return reconcile.Result{}, err
 		}
 
@@ -243,7 +251,7 @@ func (r *ReconcileJBossWebServer) Reconcile(request reconcile.Request) (reconcil
 			// Deployment created successfully - return and requeue
 			return reconcile.Result{Requeue: true}, nil
 		} else if err != nil {
-			reqLogger.Error(err, "Failed to get Service.")
+			reqLogger.Error(err, "Failed to get Deployment.")
 			return reconcile.Result{}, err
 		}
 
