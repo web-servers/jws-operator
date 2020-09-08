@@ -134,9 +134,9 @@ Note that the first *oc delete* deletes what the operator creates for the exampl
 ## Deploy for an existing JWS or Tomcat image
 1. Install the operator as describe before
 
-Note that kubernetes doesn't have templates and you have to adjust deploy/operator.template to have:
+Note that kubernetes doesn't have templates and you have to adjust deploy/kubernetes_operator.template to have:
 
-image: @OP_IMAGE_TAG@ set to right value and then use kubernetes apply -f deploy/operator.template to deploy the operator
+image: @OP_IMAGE_TAG@ set to right value and then use kubernetes apply -f deploy/kubernetes_operator.template to deploy the operator.
 
 2. Prepare your image and push it somewhere
 See https://github.com/jfclere/tomcat-openshift or https://github.com/apache/tomcat/tree/master/modules/stuffed to build the images.
@@ -190,6 +190,6 @@ __Handling Image Updates__
 
 This may be tricky depending on how we decide to handle Tomcat updates. We may need to implement data migration along with backups to ensure the reliability of the process.
 
-__Adding Support for Kubernetes Clusters__
+__Adding Full Support for Kubernetes Clusters__
 
-This Operator prototype is currently using some Openshift specific resources such as DeploymentConfigs, Routes, and ImageStreams. In order to run on Kubernetes Clusters, equivalent resources available on Kubernetes have to be implemented or skipped.
+This Operator prototype is currently using some Openshift specific resources such as DeploymentConfigs, Routes, and ImageStreams. In order to build from sources on Kubernetes Clusters, equivalent resources available on Kubernetes have to be implemented.
