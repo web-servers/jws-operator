@@ -2,7 +2,6 @@ package jbosswebserver
 
 import (
 	"context"
-	"os"
 	"strings"
 
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -20,6 +19,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/discovery"
+	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -28,8 +29,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
 	"sigs.k8s.io/controller-runtime/pkg/source"
-	"k8s.io/client-go/discovery"
-	"k8s.io/client-go/rest"
 )
 
 var log = logf.Log.WithName("controller_jbosswebserver")
@@ -89,8 +88,8 @@ var _ reconcile.Reconciler = &ReconcileJBossWebServer{}
 type ReconcileJBossWebServer struct {
 	// This client, initialized using mgr.Client() above, is a split client
 	// that reads objects from the cache and writes to the apiserver
-	client client.Client
-	scheme *runtime.Scheme
+	client      client.Client
+	scheme      *runtime.Scheme
 	isOpenShift bool
 }
 
@@ -158,7 +157,7 @@ func (r *ReconcileJBossWebServer) Reconcile(request reconcile.Request) (reconcil
 	}
 
 	// Check if the Route already exists, if not create a new one
-	if  r.isOpenShift {
+	if r.isOpenShift {
 		err = r.client.Get(context.TODO(), types.NamespacedName{Name: jbosswebserver.Spec.ApplicationName, Namespace: jbosswebserver.Namespace}, &routev1.Route{})
 		if err != nil && errors.IsNotFound(err) {
 			// Define a new Route
@@ -396,8 +395,8 @@ func (r *ReconcileJBossWebServer) deploymentConfigForJBossWebServer(t *jwsserver
 						Name:            t.Spec.ApplicationName,
 						Image:           t.Spec.ApplicationName,
 						ImagePullPolicy: "Always",
-						ReadinessProbe:  createReadinessProbe(),
-						LivenessProbe:   createLivenessProbe(),
+						ReadinessProbe:  createReadinessProbe(t),
+						LivenessProbe:   createLivenessProbe(t),
 						Ports: []corev1.ContainerPort{{
 							Name:          "jolokia",
 							ContainerPort: 8778,
@@ -408,8 +407,14 @@ func (r *ReconcileJBossWebServer) deploymentConfigForJBossWebServer(t *jwsserver
 							Protocol:      corev1.ProtocolTCP,
 						}},
 						Env: []corev1.EnvVar{{
-							Name:		"KUBERNETES_NAMESPACE",
-							Value:		"jbosswebserver",
+							Name:  "KUBERNETES_NAMESPACE",
+							Value: "jbosswebserver",
+						}, {
+							Name:  "JWS_ADMIN_USERNAME",
+							Value: t.Spec.JwsAdminUsername,
+						}, {
+							Name:  "JWS_ADMIN_PASSWORD",
+							Value: t.Spec.JwsAdminPassword,
 						}},
 					}},
 				},
@@ -461,8 +466,8 @@ func (r *ReconcileJBossWebServer) deploymentForJBossWebServer(t *jwsserversv1alp
 						Name:            t.Spec.ApplicationName,
 						Image:           t.Spec.ApplicationImage,
 						ImagePullPolicy: "Always",
-						ReadinessProbe:  createReadinessProbe(),
-						LivenessProbe:   createLivenessProbe(),
+						ReadinessProbe:  createReadinessProbe(t),
+						LivenessProbe:   createLivenessProbe(t),
 						Ports: []corev1.ContainerPort{{
 							Name:          "jolokia",
 							ContainerPort: 8778,
@@ -473,8 +478,14 @@ func (r *ReconcileJBossWebServer) deploymentForJBossWebServer(t *jwsserversv1alp
 							Protocol:      corev1.ProtocolTCP,
 						}},
 						Env: []corev1.EnvVar{{
-							Name:		"KUBERNETES_NAMESPACE",
-							Value:		"jbosswebserver",
+							Name:  "KUBERNETES_NAMESPACE",
+							Value: "jbosswebserver",
+						}, {
+							Name:  "JWS_ADMIN_USERNAME",
+							Value: t.Spec.JwsAdminUsername,
+						}, {
+							Name:  "JWS_ADMIN_PASSWORD",
+							Value: t.Spec.JwsAdminPassword,
 						}},
 					}},
 				},
@@ -606,38 +617,57 @@ func (r *ReconcileJBossWebServer) buildConfigForJBossWebServer(t *jwsserversv1al
 	return buildConfig
 }
 
-// createLivenessProbe create a Exec probe if the SERVER_LIVENESS_SCRIPT env var is present.
-// Otherwise, it creates a HTTPGet probe that checks the /health endpoint on the admin port.
+// createLivenessProbe returns a custom probe if the serverLivenessScript string is defined and not empty in the Custom Resource.
+// Otherwise, it returns nil
 //
-// If defined, the SERVER_LIVENESS_SCRIPT env var must be the path of a shell script that
-// complies to the Kubernetes probes requirements.
-func createLivenessProbe() *corev1.Probe {
-	livenessProbeScript, defined := os.LookupEnv("SERVER_LIVENESS_SCRIPT")
-	if defined {
+// If defined, serverLivenessScript must be a shell script that
+// complies to the Kubernetes probes requirements and use the following format
+// shell -c "command"
+func createLivenessProbe(t *jwsserversv1alpha1.JBossWebServer) *corev1.Probe {
+	livenessProbeScript := t.Spec.ServerLivenessScript
+	if livenessProbeScript != "" {
+		livenessProbeScriptSlice := make([]string, 0)
+		pos := strings.Index(livenessProbeScript, "\"")
+		if pos == -1 {
+			livenessProbeScriptSlice = strings.Split(livenessProbeScript, " ")
+		} else {
+			livenessProbeScriptFirstPart := strings.Split(livenessProbeScript[0:pos], " ")
+			livenessProbeScriptSecondPart := livenessProbeScript[pos:]
+			livenessProbeScriptSlice = append(livenessProbeScriptFirstPart, livenessProbeScriptSecondPart)
+		}
 		return &corev1.Probe{
 			Handler: corev1.Handler{
 				Exec: &corev1.ExecAction{
-					Command: strings.Split(livenessProbeScript, " "),
+					Command: livenessProbeScriptSlice,
 				},
 			},
-			InitialDelaySeconds: 60,
 		}
 	}
 	return nil
 }
 
-// createReadinessProbe create a Exec probe if the SERVER_READINESS_SCRIPT env var is present.
+// createReadinessProbe returns a custom probe if the serverReadinessScript string is defined and not empty in the Custom Resource.
 // Otherwise, it use the default /health Valve via curl.
 //
-// If defined, the SERVER_READINESS_SCRIPT env var must be the path of a shell script that
-// complies to the Kuberenetes probes requirements.
-func createReadinessProbe() *corev1.Probe {
-	readinessProbeScript, defined := os.LookupEnv("SERVER_READINESS_SCRIPT")
-	if defined {
+// If defined, serverReadinessScript must be a shell script that
+// complies to the Kubernetes probes requirements and use the following format
+// shell -c "command"
+func createReadinessProbe(t *jwsserversv1alpha1.JBossWebServer) *corev1.Probe {
+	readinessProbeScript := t.Spec.ServerReadinessScript
+	if readinessProbeScript != "" {
+		readinessProbeScriptSlice := make([]string, 0)
+		pos := strings.Index(readinessProbeScript, "\"")
+		if pos == -1 {
+			readinessProbeScriptSlice = strings.Split(readinessProbeScript, " ")
+		} else {
+			readinessProbeScriptFirstPart := strings.Split(readinessProbeScript[0:pos], " ")
+			readinessProbeScriptSecondPart := readinessProbeScript[pos:]
+			readinessProbeScriptSlice = append(readinessProbeScriptFirstPart, readinessProbeScriptSecondPart)
+		}
 		return &corev1.Probe{
 			Handler: corev1.Handler{
 				Exec: &corev1.ExecAction{
-					Command: strings.Split(readinessProbeScript, " "),
+					Command: readinessProbeScriptSlice,
 				},
 			},
 		}
@@ -647,12 +677,11 @@ func createReadinessProbe() *corev1.Probe {
 			Handler: corev1.Handler{
 				HTTPGet: &corev1.HTTPGetAction{
 					Path: "/health",
-					Port:  intstr.FromInt(8080),
+					Port: intstr.FromInt(8080),
 				},
 			},
 		}
 	}
-	return nil
 }
 
 func isOpenShift(c *rest.Config) bool {
@@ -661,12 +690,12 @@ func isOpenShift(c *rest.Config) bool {
 	dcclient, err = discovery.NewDiscoveryClientForConfig(c)
 	if err != nil {
 		log.Info("isOpenShift discovery.NewDiscoveryClientForConfig problem")
-		return false;
+		return false
 	}
 	apiList, err := dcclient.ServerGroups()
 	if err != nil {
 		log.Info("isOpenShift client.ServerGroups problem")
-		return false;
+		return false
 	}
 	for _, v := range apiList.Groups {
 		log.Info(v.Name)

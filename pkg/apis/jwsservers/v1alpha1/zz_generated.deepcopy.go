@@ -40,7 +40,7 @@ func (in *JBossWebServer) DeepCopyObject() runtime.Object {
 func (in *JBossWebServerList) DeepCopyInto(out *JBossWebServerList) {
 	*out = *in
 	out.TypeMeta = in.TypeMeta
-	out.ListMeta = in.ListMeta
+	in.ListMeta.DeepCopyInto(&out.ListMeta)
 	if in.Items != nil {
 		in, out := &in.Items, &out.Items
 		*out = make([]JBossWebServer, len(*in))
