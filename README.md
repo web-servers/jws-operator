@@ -24,6 +24,11 @@ $ operator-sdk generate k8s
 $ operator-sdk add controller --api-version=web.servers.org --help/v1alpha1 --kind=JBossWebServer
 ```
 6. Write the Controller logic and adapt roles to give permissions to necessary resources
+7. Generate the CR and CVS doing the following (adjust the version when needed):
+```bash
+$ operator-sdk generate crds
+$ operator-sdk generate csv --csv-version 0.1.0
+```
 
 ## Building the Operator
 ### Requirements
