@@ -626,22 +626,7 @@ func (r *ReconcileJBossWebServer) buildConfigForJBossWebServer(t *jwsserversv1al
 func createLivenessProbe(t *jwsserversv1alpha1.JBossWebServer) *corev1.Probe {
 	livenessProbeScript := t.Spec.ServerLivenessScript
 	if livenessProbeScript != "" {
-		livenessProbeScriptSlice := make([]string, 0)
-		pos := strings.Index(livenessProbeScript, "\"")
-		if pos == -1 {
-			livenessProbeScriptSlice = strings.Split(livenessProbeScript, " ")
-		} else {
-			livenessProbeScriptFirstPart := strings.Split(livenessProbeScript[0:pos], " ")
-			livenessProbeScriptSecondPart := livenessProbeScript[pos:]
-			livenessProbeScriptSlice = append(livenessProbeScriptFirstPart, livenessProbeScriptSecondPart)
-		}
-		return &corev1.Probe{
-			Handler: corev1.Handler{
-				Exec: &corev1.ExecAction{
-					Command: livenessProbeScriptSlice,
-				},
-			},
-		}
+		return createCustomProbe(t, livenessProbeScript)
 	}
 	return nil
 }
@@ -655,22 +640,7 @@ func createLivenessProbe(t *jwsserversv1alpha1.JBossWebServer) *corev1.Probe {
 func createReadinessProbe(t *jwsserversv1alpha1.JBossWebServer) *corev1.Probe {
 	readinessProbeScript := t.Spec.ServerReadinessScript
 	if readinessProbeScript != "" {
-		readinessProbeScriptSlice := make([]string, 0)
-		pos := strings.Index(readinessProbeScript, "\"")
-		if pos == -1 {
-			readinessProbeScriptSlice = strings.Split(readinessProbeScript, " ")
-		} else {
-			readinessProbeScriptFirstPart := strings.Split(readinessProbeScript[0:pos], " ")
-			readinessProbeScriptSecondPart := readinessProbeScript[pos:]
-			readinessProbeScriptSlice = append(readinessProbeScriptFirstPart, readinessProbeScriptSecondPart)
-		}
-		return &corev1.Probe{
-			Handler: corev1.Handler{
-				Exec: &corev1.ExecAction{
-					Command: readinessProbeScriptSlice,
-				},
-			},
-		}
+		return createCustomProbe(t, readinessProbeScript)
 	} else {
 		/* Use the default one */
 		return &corev1.Probe{
@@ -684,24 +654,43 @@ func createReadinessProbe(t *jwsserversv1alpha1.JBossWebServer) *corev1.Probe {
 	}
 }
 
+func createCustomProbe(t *jwsserversv1alpha1.JBossWebServer, probeScript string) *corev1.Probe {
+	// If the script has the following format: shell -c "command"
+	// we create the slice ["shell", "-c", "command"]
+	probeScriptSlice := make([]string, 0)
+	pos := strings.Index(probeScript, "\"")
+	if pos != -1 {
+		probeScriptSlice = append(strings.Split(probeScript[0:pos], " "), probeScript[pos:])
+	} else {
+		probeScriptSlice = strings.Split(probeScript, " ")
+	}
+	return &corev1.Probe{
+		Handler: corev1.Handler{
+			Exec: &corev1.ExecAction{
+				Command: probeScriptSlice,
+			},
+		},
+	}
+}
+
 func isOpenShift(c *rest.Config) bool {
 	var err error
 	var dcclient *discovery.DiscoveryClient
 	dcclient, err = discovery.NewDiscoveryClientForConfig(c)
 	if err != nil {
-		log.Info("isOpenShift discovery.NewDiscoveryClientForConfig problem")
+		log.Info("isOpenShift discovery.NewDiscoveryClientForConfig has encountered a problem")
 		return false
 	}
 	apiList, err := dcclient.ServerGroups()
 	if err != nil {
-		log.Info("isOpenShift client.ServerGroups problem")
+		log.Info("isOpenShift client.ServerGroups has encountered a problem")
 		return false
 	}
 	for _, v := range apiList.Groups {
 		log.Info(v.Name)
 		if v.Name == "route.openshift.io" {
 
-			log.Info("route.openshift.io found in apis, platform is OpenShift")
+			log.Info("route.openshift.io was found in apis, platform is OpenShift")
 			return true
 		}
 	}
