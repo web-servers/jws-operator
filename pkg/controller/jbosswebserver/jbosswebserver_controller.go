@@ -345,8 +345,6 @@ func (r *ReconcileJBossWebServer) serviceForJBossWebServerDNS(t *jwsserversv1alp
 
 func (r *ReconcileJBossWebServer) deploymentConfigForJBossWebServer(t *jwsserversv1alpha1.JBossWebServer) *appsv1.DeploymentConfig {
 
-	terminationGracePeriodSeconds := int64(60)
-
 	deploymentConfig := &appsv1.DeploymentConfig{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: "apps.openshift.io/v1",
@@ -389,35 +387,7 @@ func (r *ReconcileJBossWebServer) deploymentConfigForJBossWebServer(t *jwsserver
 						"deploymentConfig": t.Spec.ApplicationName,
 					},
 				},
-				Spec: corev1.PodSpec{
-					TerminationGracePeriodSeconds: &terminationGracePeriodSeconds,
-					Containers: []corev1.Container{{
-						Name:            t.Spec.ApplicationName,
-						Image:           t.Spec.ApplicationName,
-						ImagePullPolicy: "Always",
-						ReadinessProbe:  createReadinessProbe(t),
-						LivenessProbe:   createLivenessProbe(t),
-						Ports: []corev1.ContainerPort{{
-							Name:          "jolokia",
-							ContainerPort: 8778,
-							Protocol:      corev1.ProtocolTCP,
-						}, {
-							Name:          "http",
-							ContainerPort: 8080,
-							Protocol:      corev1.ProtocolTCP,
-						}},
-						Env: []corev1.EnvVar{{
-							Name:  "KUBERNETES_NAMESPACE",
-							Value: "jbosswebserver",
-						}, {
-							Name:  "JWS_ADMIN_USERNAME",
-							Value: t.Spec.JwsAdminUsername,
-						}, {
-							Name:  "JWS_ADMIN_PASSWORD",
-							Value: t.Spec.JwsAdminPassword,
-						}},
-					}},
-				},
+				Spec: podSpecForJBossWebServer(t, t.Spec.ApplicationName),
 			},
 		},
 	}
@@ -428,7 +398,6 @@ func (r *ReconcileJBossWebServer) deploymentConfigForJBossWebServer(t *jwsserver
 
 func (r *ReconcileJBossWebServer) deploymentForJBossWebServer(t *jwsserversv1alpha1.JBossWebServer) *kbappsv1.Deployment {
 
-	terminationGracePeriodSeconds := int64(60)
 	replicas := int32(1)
 	deployment := &kbappsv1.Deployment{
 		TypeMeta: metav1.TypeMeta{
@@ -460,41 +429,46 @@ func (r *ReconcileJBossWebServer) deploymentForJBossWebServer(t *jwsserversv1alp
 						"deploymentConfig": t.Spec.ApplicationName,
 					},
 				},
-				Spec: corev1.PodSpec{
-					TerminationGracePeriodSeconds: &terminationGracePeriodSeconds,
-					Containers: []corev1.Container{{
-						Name:            t.Spec.ApplicationName,
-						Image:           t.Spec.ApplicationImage,
-						ImagePullPolicy: "Always",
-						ReadinessProbe:  createReadinessProbe(t),
-						LivenessProbe:   createLivenessProbe(t),
-						Ports: []corev1.ContainerPort{{
-							Name:          "jolokia",
-							ContainerPort: 8778,
-							Protocol:      corev1.ProtocolTCP,
-						}, {
-							Name:          "http",
-							ContainerPort: 8080,
-							Protocol:      corev1.ProtocolTCP,
-						}},
-						Env: []corev1.EnvVar{{
-							Name:  "KUBERNETES_NAMESPACE",
-							Value: "jbosswebserver",
-						}, {
-							Name:  "JWS_ADMIN_USERNAME",
-							Value: t.Spec.JwsAdminUsername,
-						}, {
-							Name:  "JWS_ADMIN_PASSWORD",
-							Value: t.Spec.JwsAdminPassword,
-						}},
-					}},
-				},
+				Spec: podSpecForJBossWebServer(t, t.Spec.ApplicationImage),
 			},
 		},
 	}
 
 	controllerutil.SetControllerReference(t, deployment, r.scheme)
 	return deployment
+}
+
+func podSpecForJBossWebServer(t *jwsserversv1alpha1.JBossWebServer, image string) corev1.PodSpec {
+	terminationGracePeriodSeconds := int64(60)
+	return corev1.PodSpec{
+		TerminationGracePeriodSeconds: &terminationGracePeriodSeconds,
+		Containers: []corev1.Container{{
+			Name:            t.Spec.ApplicationName,
+			Image:           image,
+			ImagePullPolicy: "Always",
+			ReadinessProbe:  createReadinessProbe(t),
+			LivenessProbe:   createLivenessProbe(t),
+			Ports: []corev1.ContainerPort{{
+				Name:          "jolokia",
+				ContainerPort: 8778,
+				Protocol:      corev1.ProtocolTCP,
+			}, {
+				Name:          "http",
+				ContainerPort: 8080,
+				Protocol:      corev1.ProtocolTCP,
+			}},
+			Env: []corev1.EnvVar{{
+				Name:  "KUBERNETES_NAMESPACE",
+				Value: "jbosswebserver",
+			}, {
+				Name:  "JWS_ADMIN_USERNAME",
+				Value: t.Spec.JwsAdminUsername,
+			}, {
+				Name:  "JWS_ADMIN_PASSWORD",
+				Value: t.Spec.JwsAdminPassword,
+			}},
+		}},
+	}
 }
 
 func (r *ReconcileJBossWebServer) routeForJBossWebServer(t *jwsserversv1alpha1.JBossWebServer) *routev1.Route {
