@@ -34,13 +34,14 @@ To build the operator, you will first need to install both of these tools:
 ### Procedure
 Now that the tools are installed, follow these few steps to build it up:
 
-1. clone the repo in $GOPATH/src/github.com
+1. clone the repo in $GOPATH/src/github.com/web-servers
 2. Start by building the project dependencies using `dep ensure` from the root directory of this project.
 3. Then, simply run `operator-sdk build <imagetag>` to build the operator.
 
 You will need to push it to a Docker Registry accessible by your Openshift Server in order to deploy it. I used docker.io:
 ```bash
-$ cd $GOPATH/src/github.com
+$ mkdir -p $GOPATH/src/github.com/web-servers
+$ cd $GOPATH/src/github.com/web-servers
 $ git clone https://github.com/web-servers/jws-image-operator.git
 $ export IMAGE=docker.io/${USER}/jws-image-operator:v0.0.1
 $ cd jws-image-operator
