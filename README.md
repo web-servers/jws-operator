@@ -94,7 +94,6 @@ $ oc create -f deploy/role_binding.yaml -n $NAMESPACE
 ```bash
 $ oc process -f deploy/openshift_operator.template IMAGE=${IMAGE} | oc create -f -
 ```
-Note that you can adjust *SERVER_READINESS_SCRIPT* and *SERVER_LIVENESS_SCRIPT* in the template before (the *SERVER_READINESS_SCRIPT* commented out is for a tomcat image).
 
 6. Create a Tomcat instance (Custom Resource). An example has been provided in *deploy/crds/jwsservers.web.servers.org_v1alpha1_jbosswebserver_cr.yaml*
 make sure you adjust sourceRepositoryUrl, sourceRepositoryRef (branch) and contextDir (subdirectory) to you webapp sources, branch and context.
