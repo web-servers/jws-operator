@@ -174,6 +174,23 @@ jws-balancer      LoadBalancer   10.100.57.140   <pending>     8080:32567/TCP   
 ```
 The service jws-balancer then can be used to expose the application.
 
+## Configuring Readyness or Liveness probes:
+In case you don't use the HealthCheckValve you have to configure at least a serverReadinessScript
+For example if you are using the JWS 5.3 images you need the following:
+```
+  # For pre JWS-5.4 image you need to set username/password and use the following health check.
+  jwsAdminUsername: tomcat
+  jwsAdminPassword: tomcat
+  serverReadinessScript: /bin/bash -c "/usr/bin/curl --noproxy '*' -s -u ${JWS_ADMIN_USERNAME}:${JWS_ADMIN_PASSWORD} 'http://localhost:8080/manager/jmxproxy/?get=Catalina%3Atype%3DServer&att=stateName' | /usr/bin/grep -iq 'stateName *= *STARTED'"
+```
+Yes the 5.3 are using the manager webapp and jmx to figure if the server is started.
+
+For example if you are using a openjdk:8-jre-alpine based image and the valve is on /test
+```
+  serverReadinessScript: /bin/busybox wget http://localhost:8080/test -O /dev/null
+```
+Note that HealthCheckValve requires tomcat 9.0.38+ or 10.0.0-M8 to work as expected and it was introducted in 9.0.15.
+
 ## What to do next?
 Below are some features that may be relevant to add in the near future.
 
