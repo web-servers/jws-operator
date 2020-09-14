@@ -14,8 +14,8 @@ import (
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 	"k8s.io/client-go/rest"
 
-	"jws-image-operator/pkg/apis"
-	"jws-image-operator/pkg/controller"
+	"github.com/web-servers/jws-image-operator/pkg/apis"
+	"github.com/web-servers/jws-image-operator/pkg/controller"
 
 	"github.com/operator-framework/operator-sdk/pkg/k8sutil"
 	kubemetrics "github.com/operator-framework/operator-sdk/pkg/kube-metrics"

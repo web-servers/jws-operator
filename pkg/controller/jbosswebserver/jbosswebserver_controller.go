@@ -6,7 +6,7 @@ import (
 
 	"k8s.io/apimachinery/pkg/util/intstr"
 
-	jwsserversv1alpha1 "jws-image-operator/pkg/apis/jwsservers/v1alpha1"
+	jwsserversv1alpha1 "github.com/web-servers/jws-image-operator/pkg/apis/jwsservers/v1alpha1"
 
 	appsv1 "github.com/openshift/api/apps/v1"
 	buildv1 "github.com/openshift/api/build/v1"
