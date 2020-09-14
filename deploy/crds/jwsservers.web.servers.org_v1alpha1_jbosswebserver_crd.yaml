@@ -47,6 +47,14 @@ spec:
               type: string
             imageStreamName:
               type: string
+            jwsAdminPassword:
+              type: string
+            jwsAdminUsername:
+              type: string
+            serverReadinessScript:
+              type: string
+            serverLivenessScript:
+              type: string
             mavenMirrorUrl:
               type: string
             replicas:
@@ -59,10 +67,6 @@ spec:
           required:
             - applicationName
             - replicas
-            - githubWebhookSecret
-            - genericWebhookSecret
-            - mavenMirrorUrl
-            - artifactDir
           type: object
         status:
           type: object

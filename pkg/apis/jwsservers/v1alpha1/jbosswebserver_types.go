@@ -14,17 +14,23 @@ type JBossWebServerSpec struct {
 	// Add custom validation using kubebuilder tags: https://book-v1.book.kubebuilder.io/beyond_basics/generating_crd.html
 
 	// ApplicationImage is the name of the application image to be deployed
-	ApplicationImage     string `json:"applicationImage"`
-	ApplicationName      string `json:"applicationName"`
-	SourceRepositoryUrl  string `json:"sourceRepositoryUrl"`
-	SourceRepositoryRef  string `json:"sourceRepositoryRef"`
-	ContextDir           string `json:"contextDir"`
-	GithubWebhookSecret  string `json:"githubWebhookSecret"`
-	GenericWebhookSecret string `json:"genericWebhookSecret"`
-	ImageStreamNamespace string `json:"imageStreamNamespace"`
-	ImageStreamName      string `json:"imageStreamName"`
-	MavenMirrorUrl       string `json:"mavenMirrorUrl"`
-	ArtifactDir          string `json:"artifactDir"`
+	ApplicationImage    string `json:"applicationImage"`
+	ApplicationName     string `json:"applicationName"`
+	SourceRepositoryUrl string `json:"sourceRepositoryUrl"`
+	SourceRepositoryRef string `json:"sourceRepositoryRef"`
+	ContextDir          string `json:"contextDir"`
+	// Username and Password are for pre 5.4 images
+	JwsAdminUsername string `json:"jwsAdminUsername"`
+	JwsAdminPassword string `json:"jwsAdminPassword"`
+	// Corresponding Strings from the health check logics
+	ServerReadinessScript string `json:"serverReadinessScript"`
+	ServerLivenessScript  string `json:"serverLivenessScript"`
+	GithubWebhookSecret   string `json:"githubWebhookSecret"`
+	GenericWebhookSecret  string `json:"genericWebhookSecret"`
+	ImageStreamNamespace  string `json:"imageStreamNamespace"`
+	ImageStreamName       string `json:"imageStreamName"`
+	MavenMirrorUrl        string `json:"mavenMirrorUrl"`
+	ArtifactDir           string `json:"artifactDir"`
 	// Replicas is the desired number of replicas for the application
 	Replicas int32 `json:"replicas"`
 }
