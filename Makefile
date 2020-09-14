@@ -28,7 +28,7 @@ build/_output/bin/:
 
 ## build/_output/bin/jws-image-operator     Compiles the operator
 build/_output/bin/jws-image-operator: $(shell find pkg) $(shell find cmd) vendor | build/_output/bin/
-	CGO_ENABLED=0 go build -mod=vendor -a -o build/_output/bin/jws-image-operator jws-image-operator/cmd/manager
+	CGO_ENABLED=0 go build -mod=vendor -a -o build/_output/bin/jws-image-operator github.com/web-servers/jws-image-operator/cmd/manager
 
 .PHONY: build
 

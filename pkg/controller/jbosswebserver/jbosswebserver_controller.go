@@ -6,7 +6,7 @@ import (
 
 	"k8s.io/apimachinery/pkg/util/intstr"
 
-	jwsserversv1alpha1 "jws-image-operator/pkg/apis/jwsservers/v1alpha1"
+	jwsserversv1alpha1 "github.com/web-servers/jws-image-operator/pkg/apis/jwsservers/v1alpha1"
 
 	appsv1 "github.com/openshift/api/apps/v1"
 	buildv1 "github.com/openshift/api/build/v1"
@@ -345,8 +345,6 @@ func (r *ReconcileJBossWebServer) serviceForJBossWebServerDNS(t *jwsserversv1alp
 
 func (r *ReconcileJBossWebServer) deploymentConfigForJBossWebServer(t *jwsserversv1alpha1.JBossWebServer) *appsv1.DeploymentConfig {
 
-	terminationGracePeriodSeconds := int64(60)
-
 	deploymentConfig := &appsv1.DeploymentConfig{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: "apps.openshift.io/v1",
@@ -389,35 +387,7 @@ func (r *ReconcileJBossWebServer) deploymentConfigForJBossWebServer(t *jwsserver
 						"deploymentConfig": t.Spec.ApplicationName,
 					},
 				},
-				Spec: corev1.PodSpec{
-					TerminationGracePeriodSeconds: &terminationGracePeriodSeconds,
-					Containers: []corev1.Container{{
-						Name:            t.Spec.ApplicationName,
-						Image:           t.Spec.ApplicationName,
-						ImagePullPolicy: "Always",
-						ReadinessProbe:  createReadinessProbe(t),
-						LivenessProbe:   createLivenessProbe(t),
-						Ports: []corev1.ContainerPort{{
-							Name:          "jolokia",
-							ContainerPort: 8778,
-							Protocol:      corev1.ProtocolTCP,
-						}, {
-							Name:          "http",
-							ContainerPort: 8080,
-							Protocol:      corev1.ProtocolTCP,
-						}},
-						Env: []corev1.EnvVar{{
-							Name:  "KUBERNETES_NAMESPACE",
-							Value: "jbosswebserver",
-						}, {
-							Name:  "JWS_ADMIN_USERNAME",
-							Value: t.Spec.JwsAdminUsername,
-						}, {
-							Name:  "JWS_ADMIN_PASSWORD",
-							Value: t.Spec.JwsAdminPassword,
-						}},
-					}},
-				},
+				Spec: podSpecForJBossWebServer(t, t.Spec.ApplicationName),
 			},
 		},
 	}
@@ -428,7 +398,6 @@ func (r *ReconcileJBossWebServer) deploymentConfigForJBossWebServer(t *jwsserver
 
 func (r *ReconcileJBossWebServer) deploymentForJBossWebServer(t *jwsserversv1alpha1.JBossWebServer) *kbappsv1.Deployment {
 
-	terminationGracePeriodSeconds := int64(60)
 	replicas := int32(1)
 	deployment := &kbappsv1.Deployment{
 		TypeMeta: metav1.TypeMeta{
@@ -460,41 +429,46 @@ func (r *ReconcileJBossWebServer) deploymentForJBossWebServer(t *jwsserversv1alp
 						"deploymentConfig": t.Spec.ApplicationName,
 					},
 				},
-				Spec: corev1.PodSpec{
-					TerminationGracePeriodSeconds: &terminationGracePeriodSeconds,
-					Containers: []corev1.Container{{
-						Name:            t.Spec.ApplicationName,
-						Image:           t.Spec.ApplicationImage,
-						ImagePullPolicy: "Always",
-						ReadinessProbe:  createReadinessProbe(t),
-						LivenessProbe:   createLivenessProbe(t),
-						Ports: []corev1.ContainerPort{{
-							Name:          "jolokia",
-							ContainerPort: 8778,
-							Protocol:      corev1.ProtocolTCP,
-						}, {
-							Name:          "http",
-							ContainerPort: 8080,
-							Protocol:      corev1.ProtocolTCP,
-						}},
-						Env: []corev1.EnvVar{{
-							Name:  "KUBERNETES_NAMESPACE",
-							Value: "jbosswebserver",
-						}, {
-							Name:  "JWS_ADMIN_USERNAME",
-							Value: t.Spec.JwsAdminUsername,
-						}, {
-							Name:  "JWS_ADMIN_PASSWORD",
-							Value: t.Spec.JwsAdminPassword,
-						}},
-					}},
-				},
+				Spec: podSpecForJBossWebServer(t, t.Spec.ApplicationImage),
 			},
 		},
 	}
 
 	controllerutil.SetControllerReference(t, deployment, r.scheme)
 	return deployment
+}
+
+func podSpecForJBossWebServer(t *jwsserversv1alpha1.JBossWebServer, image string) corev1.PodSpec {
+	terminationGracePeriodSeconds := int64(60)
+	return corev1.PodSpec{
+		TerminationGracePeriodSeconds: &terminationGracePeriodSeconds,
+		Containers: []corev1.Container{{
+			Name:            t.Spec.ApplicationName,
+			Image:           image,
+			ImagePullPolicy: "Always",
+			ReadinessProbe:  createReadinessProbe(t),
+			LivenessProbe:   createLivenessProbe(t),
+			Ports: []corev1.ContainerPort{{
+				Name:          "jolokia",
+				ContainerPort: 8778,
+				Protocol:      corev1.ProtocolTCP,
+			}, {
+				Name:          "http",
+				ContainerPort: 8080,
+				Protocol:      corev1.ProtocolTCP,
+			}},
+			Env: []corev1.EnvVar{{
+				Name:  "KUBERNETES_NAMESPACE",
+				Value: "jbosswebserver",
+			}, {
+				Name:  "JWS_ADMIN_USERNAME",
+				Value: t.Spec.JwsAdminUsername,
+			}, {
+				Name:  "JWS_ADMIN_PASSWORD",
+				Value: t.Spec.JwsAdminPassword,
+			}},
+		}},
+	}
 }
 
 func (r *ReconcileJBossWebServer) routeForJBossWebServer(t *jwsserversv1alpha1.JBossWebServer) *routev1.Route {
@@ -626,22 +600,7 @@ func (r *ReconcileJBossWebServer) buildConfigForJBossWebServer(t *jwsserversv1al
 func createLivenessProbe(t *jwsserversv1alpha1.JBossWebServer) *corev1.Probe {
 	livenessProbeScript := t.Spec.ServerLivenessScript
 	if livenessProbeScript != "" {
-		livenessProbeScriptSlice := make([]string, 0)
-		pos := strings.Index(livenessProbeScript, "\"")
-		if pos == -1 {
-			livenessProbeScriptSlice = strings.Split(livenessProbeScript, " ")
-		} else {
-			livenessProbeScriptFirstPart := strings.Split(livenessProbeScript[0:pos], " ")
-			livenessProbeScriptSecondPart := livenessProbeScript[pos:]
-			livenessProbeScriptSlice = append(livenessProbeScriptFirstPart, livenessProbeScriptSecondPart)
-		}
-		return &corev1.Probe{
-			Handler: corev1.Handler{
-				Exec: &corev1.ExecAction{
-					Command: livenessProbeScriptSlice,
-				},
-			},
-		}
+		return createCustomProbe(t, livenessProbeScript)
 	}
 	return nil
 }
@@ -655,22 +614,7 @@ func createLivenessProbe(t *jwsserversv1alpha1.JBossWebServer) *corev1.Probe {
 func createReadinessProbe(t *jwsserversv1alpha1.JBossWebServer) *corev1.Probe {
 	readinessProbeScript := t.Spec.ServerReadinessScript
 	if readinessProbeScript != "" {
-		readinessProbeScriptSlice := make([]string, 0)
-		pos := strings.Index(readinessProbeScript, "\"")
-		if pos == -1 {
-			readinessProbeScriptSlice = strings.Split(readinessProbeScript, " ")
-		} else {
-			readinessProbeScriptFirstPart := strings.Split(readinessProbeScript[0:pos], " ")
-			readinessProbeScriptSecondPart := readinessProbeScript[pos:]
-			readinessProbeScriptSlice = append(readinessProbeScriptFirstPart, readinessProbeScriptSecondPart)
-		}
-		return &corev1.Probe{
-			Handler: corev1.Handler{
-				Exec: &corev1.ExecAction{
-					Command: readinessProbeScriptSlice,
-				},
-			},
-		}
+		return createCustomProbe(t, readinessProbeScript)
 	} else {
 		/* Use the default one */
 		return &corev1.Probe{
@@ -684,24 +628,43 @@ func createReadinessProbe(t *jwsserversv1alpha1.JBossWebServer) *corev1.Probe {
 	}
 }
 
+func createCustomProbe(t *jwsserversv1alpha1.JBossWebServer, probeScript string) *corev1.Probe {
+	// If the script has the following format: shell -c "command"
+	// we create the slice ["shell", "-c", "command"]
+	probeScriptSlice := make([]string, 0)
+	pos := strings.Index(probeScript, "\"")
+	if pos != -1 {
+		probeScriptSlice = append(strings.Split(probeScript[0:pos], " "), probeScript[pos:])
+	} else {
+		probeScriptSlice = strings.Split(probeScript, " ")
+	}
+	return &corev1.Probe{
+		Handler: corev1.Handler{
+			Exec: &corev1.ExecAction{
+				Command: probeScriptSlice,
+			},
+		},
+	}
+}
+
 func isOpenShift(c *rest.Config) bool {
 	var err error
 	var dcclient *discovery.DiscoveryClient
 	dcclient, err = discovery.NewDiscoveryClientForConfig(c)
 	if err != nil {
-		log.Info("isOpenShift discovery.NewDiscoveryClientForConfig problem")
+		log.Info("isOpenShift discovery.NewDiscoveryClientForConfig has encountered a problem")
 		return false
 	}
 	apiList, err := dcclient.ServerGroups()
 	if err != nil {
-		log.Info("isOpenShift client.ServerGroups problem")
+		log.Info("isOpenShift client.ServerGroups has encountered a problem")
 		return false
 	}
 	for _, v := range apiList.Groups {
 		log.Info(v.Name)
 		if v.Name == "route.openshift.io" {
 
-			log.Info("route.openshift.io found in apis, platform is OpenShift")
+			log.Info("route.openshift.io was found in apis, platform is OpenShift")
 			return true
 		}
 	}

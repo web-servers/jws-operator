@@ -1,7 +1,7 @@
 package controller
 
 import (
-	"jws-image-operator/pkg/controller/jbosswebserver"
+	"github.com/web-servers/jws-image-operator/pkg/controller/jbosswebserver"
 )
 
 func init() {

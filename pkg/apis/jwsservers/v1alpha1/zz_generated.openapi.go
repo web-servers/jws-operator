@@ -13,9 +13,9 @@ import (
 
 func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenAPIDefinition {
 	return map[string]common.OpenAPIDefinition{
-		"github.com/jws-image-operator/pkg/apis/jwsservers/v1alpha1.JBossWebServer":       schema_pkg_apis_jwsservers_v1alpha1_JBossWebServer(ref),
-		"github.com/jws-image-operator/pkg/apis/jwsservers/v1alpha1.JBossWebServerSpec":   schema_pkg_apis_jwsservers_v1alpha1_JBossWebServerSpec(ref),
-		"github.com/jws-image-operator/pkg/apis/jwsservers/v1alpha1.JBossWebServerStatus": schema_pkg_apis_jwsservers_v1alpha1_JBossWebServerStatus(ref),
+		"github.com/web-servers/jws-image-operator/pkg/apis/jwsservers/v1alpha1.JBossWebServer":       schema_pkg_apis_jwsservers_v1alpha1_JBossWebServer(ref),
+		"github.com/web-servers/jws-image-operator/pkg/apis/jwsservers/v1alpha1.JBossWebServerSpec":   schema_pkg_apis_jwsservers_v1alpha1_JBossWebServerSpec(ref),
+		"github.com/web-servers/jws-image-operator/pkg/apis/jwsservers/v1alpha1.JBossWebServerStatus": schema_pkg_apis_jwsservers_v1alpha1_JBossWebServerStatus(ref),
 	}
 }
 
@@ -46,19 +46,19 @@ func schema_pkg_apis_jwsservers_v1alpha1_JBossWebServer(ref common.ReferenceCall
 					},
 					"spec": {
 						SchemaProps: spec.SchemaProps{
-							Ref: ref("github.com/jws-image-operator/pkg/apis/jwsservers/v1alpha1.JBossWebServerSpec"),
+							Ref: ref("github.com/web-servers/jws-image-operator/pkg/apis/jwsservers/v1alpha1.JBossWebServerSpec"),
 						},
 					},
 					"status": {
 						SchemaProps: spec.SchemaProps{
-							Ref: ref("github.com/jws-image-operator/pkg/apis/jwsservers/v1alpha1.JBossWebServerStatus"),
+							Ref: ref("github.com/web-servers/jws-image-operator/pkg/apis/jwsservers/v1alpha1.JBossWebServerStatus"),
 						},
 					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"github.com/jws-image-operator/pkg/apis/jwsservers/v1alpha1.JBossWebServerSpec", "github.com/jws-image-operator/pkg/apis/jwsservers/v1alpha1.JBossWebServerStatus", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
+			"github.com/web-servers/jws-image-operator/pkg/apis/jwsservers/v1alpha1.JBossWebServerSpec", "github.com/web-servers/jws-image-operator/pkg/apis/jwsservers/v1alpha1.JBossWebServerStatus", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
 	}
 }
 
