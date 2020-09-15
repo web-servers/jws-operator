@@ -8,6 +8,6 @@ spec:
   applicationName: jws-app
   replicas: 2
   # For pre JWS-5.4 image you need to set username/password and use the following health check.
-  #jwsAdminUsername: tomcat
-  #jwsAdminPassword: tomcat
-  #serverReadinessScript: /bin/bash -c "/usr/bin/curl --noproxy '*' -s -u ${JWS_ADMIN_USERNAME}:${JWS_ADMIN_PASSWORD} 'http://localhost:8080/manager/jmxproxy/?get=Catalina%3Atype%3DServer&att=stateName' | /usr/bin/grep -iq 'stateName *= *STARTED'"
+  jwsAdminUsername: tomcat
+  jwsAdminPassword: tomcat
+  serverReadinessScript: /bin/bash -c "/usr/bin/curl --noproxy '*' -s -u ${JWS_ADMIN_USERNAME}:${JWS_ADMIN_PASSWORD} 'http://localhost:8080/manager/jmxproxy/?get=Catalina%3Atype%3DServer&att=stateName' | /usr/bin/grep -iq 'stateName *= *STARTED'"
