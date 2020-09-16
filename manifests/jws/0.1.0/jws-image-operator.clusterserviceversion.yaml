@@ -11,7 +11,7 @@ metadata:
             "name": "example-jbosswebserver"
           },
           "spec": {
-            "applicationImage": "registry.redhat.io/jboss-webserver-5/webserver53-openjdk8-tomcat9-openshift-rhel7:latest",
+            "applicationImage": "docker.io/jfclere/jws-image:5.4",
             "applicationName": "jws-app",
             "replicas": 2
           }
@@ -51,7 +51,7 @@ spec:
     owned:
     - description: JBossWebServer is the Schema for the jbosswebservers API
       kind: JBossWebServer
-      name: jbosswebservers.jwsservers.web.servers.org
+      name: jwsservers.web.servers.org
       version: v1alpha1
       displayName: JWS
   description: JWS is based on the ASF Tomcat project.
