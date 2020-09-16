@@ -41,6 +41,8 @@ metadata:
         }
       ]
     capabilities: Basic Install
+    description: Operator that creates and manages Java applications running on JWS
+      or Tomcat
   name: jws-image-operator.v0.1.0
   namespace: placeholder
 spec:
@@ -51,10 +53,8 @@ spec:
       kind: JBossWebServer
       name: jbosswebservers.jwsservers.web.servers.org
       version: v1alpha1
-    - description: JBossWebServer is the Schema for the jbosswebservers API
-      kind: JBossWebServer
-      name: jwsservers.web.servers.org
-      version: v1alpha1
+      displayName: JWS
+  description: JWS is based on the ASF Tomcat project.
   displayName: Jws Image Operator
   icon:
   - base64data: ""
@@ -155,9 +155,13 @@ spec:
   - supported: true
     type: AllNamespaces
   keywords:
-  - ""
+  - jws
+  - java
+  - open source
+  - application runtime
   maintainers:
   - {}
   maturity: alpha
-  provider: {}
+  provider:
+    name: Red Hat
   version: 0.1.0
