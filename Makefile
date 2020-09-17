@@ -1,5 +1,5 @@
-IMAGE ?= docker.io/${USER}/jws-image-operator:latest
-PROG  := jws-image-operator
+IMAGE ?= docker.io/${USER}/jws-operator:latest
+PROG  := jws-operator
 
 .DEFAULT_GOAL := help
 
@@ -26,14 +26,14 @@ codegen: setup
 build/_output/bin/:
 	mkdir -p build/_output/bin/
 
-## build/_output/bin/jws-image-operator     Compiles the operator
-build/_output/bin/jws-image-operator: $(shell find pkg) $(shell find cmd) vendor | build/_output/bin/
-	CGO_ENABLED=0 go build -mod=vendor -a -o build/_output/bin/jws-image-operator github.com/web-servers/jws-image-operator/cmd/manager
+## build/_output/bin/jws-operator     Compiles the operator
+build/_output/bin/jws-operator: $(shell find pkg) $(shell find cmd) vendor | build/_output/bin/
+	CGO_ENABLED=0 go build -mod=vendor -a -o build/_output/bin/jws-operator github.com/web-servers/jws-operator/cmd/manager
 
 .PHONY: build
 
 ## build                                    Builds the operator
-build: tidy build/_output/bin/jws-image-operator
+build: tidy build/_output/bin/jws-operator
 
 ## image                                    Builds the operator's image
 image: build

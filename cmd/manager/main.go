@@ -14,8 +14,8 @@ import (
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 	"k8s.io/client-go/rest"
 
-	"github.com/web-servers/jws-image-operator/pkg/apis"
-	"github.com/web-servers/jws-image-operator/pkg/controller"
+	"github.com/web-servers/jws-operator/pkg/apis"
+	"github.com/web-servers/jws-operator/pkg/controller"
 
 	"github.com/operator-framework/operator-sdk/pkg/k8sutil"
 	kubemetrics "github.com/operator-framework/operator-sdk/pkg/kube-metrics"
@@ -32,8 +32,8 @@ import (
 
 // Change below variables to serve metrics on different host or port.
 var (
-	metricsHost       = "0.0.0.0"
-	metricsPort int32 = 8383
+	metricsHost               = "0.0.0.0"
+	metricsPort         int32 = 8383
 	operatorMetricsPort int32 = 8686
 )
 var log = logf.Log.WithName("cmd")
@@ -83,7 +83,7 @@ func main() {
 	ctx := context.TODO()
 
 	// Become the leader before proceeding
-	err = leader.Become(ctx, "jws-image-operator-lock")
+	err = leader.Become(ctx, "jws-operator-lock")
 	if err != nil {
 		log.Error(err, "")
 		os.Exit(1)

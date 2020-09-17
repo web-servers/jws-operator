@@ -1,23 +1,23 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: jws-image-operator
+  name: jws-operator
 spec:
   replicas: 1
   selector:
     matchLabels:
-      name: jws-image-operator
+      name: jws-operator
   template:
     metadata:
       labels:
-        name: jws-image-operator
+        name: jws-operator
     spec:
-      serviceAccountName: jws-image-operator
+      serviceAccountName: jws-operator
       containers:
-        - name: jws-image-operator
+        - name: jws-operator
           image: @OP_IMAGE_TAG@
           command:
-          - jws-image-operator
+          - jws-operator
           imagePullPolicy: IfNotPresent
           env:
             - name: WATCH_NAMESPACE
@@ -29,4 +29,4 @@ spec:
                 fieldRef:
                   fieldPath: metadata.name
             - name: OPERATOR_NAME
-              value: "jws-image-operator"
+              value: "jws-operator"
