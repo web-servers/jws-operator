@@ -4,7 +4,7 @@ metadata:
   annotations:
     capabilities: Basic Install
     categories: Application Runtime
-    containerImage: quay.io/repository/web-servers/jws-operator:jws-operator.v0.1.0
+    containerImage: quay.io/web-servers/jws-operator:v0.1.0
     createdAt: 2020-09-17T13:51:50Z
     support: Red Hat
     repository: https://github.com/web-servers/jws-operator
