@@ -8,6 +8,7 @@ metadata:
     createdAt: 2020-09-17T13:51:50Z
     support: Red Hat
     repository: https://github.com/web-servers/jws-operator
+    certified: "false"
     alm-examples: |-
       [
         {
