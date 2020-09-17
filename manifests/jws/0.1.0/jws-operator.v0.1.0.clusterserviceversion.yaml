@@ -5,7 +5,7 @@ metadata:
     capabilities: Basic Install
     categories: Application Runtime
     containerImage: quay.io/web-servers/jws-operator:v0.1.0
-    createdAt: 2020-09-17T13:51:50Z
+    createdAt: 2020-09-17T10:21:24Z
     support: Red Hat
     repository: https://github.com/web-servers/jws-operator
     certified: "false"
@@ -15,7 +15,7 @@ metadata:
           "apiVersion": "web.servers.org/v1alpha1",
           "kind": "JBossWebServer",
           "metadata": {
-            "name": "example-jbosswebserver"
+            "name": "example-image-jbosswebserver"
           },
           "spec": {
             "applicationImage": "docker.io/jfclere/jws-image:5.4",
@@ -27,7 +27,7 @@ metadata:
           "apiVersion": "web.servers.org/v1alpha1",
           "kind": "JBossWebServer",
           "metadata": {
-            "name": "example-jbosswebserver"
+            "name": "example-imagestream-jbosswebserver"
           },
           "spec": {
             "applicationName": "jws-app",
@@ -68,7 +68,38 @@ spec:
       mediatype: image/svg+xml
   install:
     spec:
-      deployments: []
+      deployments:
+      - name: jws-operator
+        spec:
+          replicas: 1
+          selector:
+            matchLabels:
+              name: jws-operator
+          strategy: {}
+          template:
+            metadata:
+              labels:
+                name: jws-operator
+            spec:
+              containers:
+              - command:
+                - jws-operator
+                env:
+                - name: WATCH_NAMESPACE
+                  valueFrom:
+                    fieldRef:
+                      fieldPath: metadata.annotations['olm.targetNamespaces']
+                - name: POD_NAME
+                  valueFrom:
+                    fieldRef:
+                      fieldPath: metadata.name
+                - name: OPERATOR_NAME
+                  value: jws-operator
+                image: quay.io/web-servers/jws-operator:v0.1.0
+                imagePullPolicy: Always
+                name: jws-operator
+                resources: {}
+              serviceAccountName: jws-operator
       permissions:
         - rules:
             - apiGroups:

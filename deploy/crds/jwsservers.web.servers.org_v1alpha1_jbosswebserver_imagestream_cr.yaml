@@ -1,7 +1,7 @@
 apiVersion: web.servers.org/v1alpha1
 kind: JBossWebServer
 metadata:
-  name: example-jbosswebserver
+  name: example-imagestream-jbosswebserver
 spec:
   # Add fields here
   applicationName: jws-app
