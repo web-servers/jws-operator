@@ -1,4 +1,4 @@
 channels:
 - currentCSV: jws-operator.v0.1.0
   name: alpha
-packageName: jws
+packageName: jws-operator

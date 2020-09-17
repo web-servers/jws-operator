@@ -1,4 +1,4 @@
-module github.com/web-servers/jws-image-operator
+module github.com/web-servers/jws-operator
 
 go 1.13
 
