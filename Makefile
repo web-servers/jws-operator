@@ -38,6 +38,7 @@ build: tidy build/_output/bin/jws-operator
 ## image                                    Builds the operator's image
 image: build
 	docker build -t "$(IMAGE)" . -f build/Dockerfile
+	$(MAKE) generate-operator.yaml
 
 ## push                                     Push Docker image to the docker.io repository.
 push: image
@@ -45,12 +46,11 @@ push: image
 
 ## clean                                    Remove all generated build files.
 clean:
-	rm -rf build/_output
-	rm -f deploy/kubernetes_operator.yaml
+	rm -rf build/_output/
 
 ## generate-kubernetes_operator.yaml        Generates the deployment file for Kubernetes
-generate-kubernetes_operator.yaml:
-	sed 's|@OP_IMAGE_TAG@|$(IMAGE)|' deploy/kubernetes_operator.template > deploy/kubernetes_operator.yaml
+generate-operator.yaml:
+	sed 's|@OP_IMAGE_TAG@|$(IMAGE)|' deploy/operator.template > deploy/operator.yaml
 
 ## run-openshift                            Run the JWS operator on OpenShift.
 run-openshift:
@@ -58,16 +58,16 @@ run-openshift:
 	oc create -f deploy/service_account.yaml
 	oc create -f deploy/role.yaml
 	oc create -f deploy/role_binding.yaml
-	oc process -f deploy/openshift_operator.template IMAGE=${IMAGE} | oc create -f -
+	oc apply -f deploy/operator.yaml
 
 
 ## run-kubernetes                           Run the Tomcat operator on kubernetes.
-run-kubernetes: generate-kubernetes_operator.yaml
+run-kubernetes:
 	kubectl create -f deploy/crds/jwsservers.web.servers.org_v1alpha1_jbosswebserver_crd.yaml
 	kubectl create -f deploy/service_account.yaml
 	kubectl create -f deploy/role.yaml
 	kubectl create -f deploy/role_binding.yaml
-	kubectl apply -f deploy/kubernetes_operator.yaml
+	kubectl apply -f deploy/operator.yaml
 
 
 help : Makefile

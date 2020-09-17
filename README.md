@@ -1,6 +1,6 @@
-# JWS Image Operator
+# JWS Operator
 
-This repository contains the source code a simple Openshift Operator to manage JWS Images.
+This repository contains the source code a simple Openshift Operator to manage JWS.
 
 ## What does it provide?
 

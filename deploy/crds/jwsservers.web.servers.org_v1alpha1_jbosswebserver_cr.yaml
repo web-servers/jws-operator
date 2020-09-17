@@ -1,7 +1,7 @@
 apiVersion: web.servers.org/v1alpha1
 kind: JBossWebServer
 metadata:
-  name: example-jbosswebserver
+  name: example-image-jbosswebserver
 spec:
   # Add fields here
   applicationImage: docker.io/jfclere/jws-image:5.4

@@ -15,10 +15,10 @@ spec:
       serviceAccountName: jws-operator
       containers:
         - name: jws-operator
-          image: @OP_IMAGE_TAG@
+          image: quay.io/web-servers/jws-operator:v0.1.0
           command:
-          - jws-operator
-          imagePullPolicy: IfNotPresent
+            - jws-operator
+          imagePullPolicy: Always
           env:
             - name: WATCH_NAMESPACE
               valueFrom:
