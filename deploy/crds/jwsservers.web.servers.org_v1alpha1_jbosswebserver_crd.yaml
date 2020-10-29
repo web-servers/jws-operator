@@ -39,10 +39,6 @@ spec:
               type: string
             contextDir:
               type: string
-            genericWebhookSecret:
-              type: string
-            githubWebhookSecret:
-              type: string
             imageStreamNamespace:
               type: string
             imageStreamName:

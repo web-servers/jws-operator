@@ -25,8 +25,6 @@ type JBossWebServerSpec struct {
 	// Corresponding Strings from the health check logics
 	ServerReadinessScript string `json:"serverReadinessScript"`
 	ServerLivenessScript  string `json:"serverLivenessScript"`
-	GithubWebhookSecret   string `json:"githubWebhookSecret"`
-	GenericWebhookSecret  string `json:"genericWebhookSecret"`
 	ImageStreamNamespace  string `json:"imageStreamNamespace"`
 	ImageStreamName       string `json:"imageStreamName"`
 	MavenMirrorUrl        string `json:"mavenMirrorUrl"`

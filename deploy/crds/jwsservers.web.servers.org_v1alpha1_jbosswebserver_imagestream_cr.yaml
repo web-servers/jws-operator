@@ -10,8 +10,6 @@ spec:
   sourceRepositoryUrl: https://github.com/jboss-openshift/openshift-quickstarts.git
   sourceRepositoryRef: "1.2"
   contextDir: tomcat-websocket-chat
-  githubWebhookSecret: tomcat
-  genericWebhookSecret: tomcat
   imageStreamNamespace: openshift
   imageStreamName: jboss-webserver53-tomcat9-openshift:latest
   mavenMirrorUrl: ""

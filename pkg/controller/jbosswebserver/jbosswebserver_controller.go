@@ -527,16 +527,6 @@ func (r *ReconcileJBossWebServer) buildConfigForJBossWebServer(t *jwsserversv1al
 				},
 			},
 			Triggers: []buildv1.BuildTriggerPolicy{{
-				Type: "Github",
-				GitHubWebHook: &buildv1.WebHookTrigger{
-					Secret: t.Spec.GithubWebhookSecret,
-				},
-			}, {
-				Type: "Generic",
-				GenericWebHook: &buildv1.WebHookTrigger{
-					Secret: t.Spec.GenericWebhookSecret,
-				},
-			}, {
 				Type:        "ImageChange",
 				ImageChange: &buildv1.ImageChangeTrigger{},
 			}, {
