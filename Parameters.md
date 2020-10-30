@@ -12,6 +12,11 @@ to that application.
 ```
   applicationName: test
  ```
+# applicationImage
+That is the URL to find the image you want to use with the operator. For example:
+```
+applicationImage: docker.io/jfclere/tomcat-demo
+```
 
 # imageStreamName
 
