@@ -37,9 +37,9 @@ imagestream.image.openshift.io/jboss-webserver53-tomcat9-openshift created
 ```
 Here: imageStreamNamespace: jfc
 
-# githubWebhookSecret
+# genericWebhookSecret
 
-That is the secret github will use to trigger a build.
+That is a secret for a webhook to trigger a build.
 Create a secret.yaml like:
 ```
 kind: Secret
@@ -59,7 +59,7 @@ And run base64
 base64 secret.txt
 cXdlcnR5Cg==
 ```
-Here: githubWebhookSecret=qwerty
+Here: genericWebhookSecret=qwerty
 
 To test it:
 1 - get the URL:
@@ -88,13 +88,13 @@ curl -H "X-GitHub-Event: push" -H "Content-Type: application/json" -k -X POST --
 ```
 The build is triggered.
 
+# githubWebhookSecret
+That is a web hook specific to GitHub, it works like `genericWebhookSecret`
+```
+githubWebhookSecret: qwerty
+```
 JFC needs to add the github part here....
 
-# genericWebhookSecret
-That is for any other web hook you want to use, it works like `githubWebhookSecret`
-```
-genericWebhookSecret: qwerty
-```
 # jwsAdminUsername
 That is the admin user created in /opt/jws-5.3/tomcat/conf/tomcat-users.xml for the JWS-5.3 health check only.
 ```
