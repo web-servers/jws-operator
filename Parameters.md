@@ -36,6 +36,7 @@ Here: imageStreamNamespace: jfc
 
 That is the secret github will use to trigger a build.
 Create a secret.yaml like:
+```
 kind: Secret
 apiVersion: v1
 metadata:
