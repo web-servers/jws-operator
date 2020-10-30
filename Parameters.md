@@ -87,6 +87,8 @@ curl -H "X-GitHub-Event: push" -H "Content-Type: application/json" -k -X POST --
 }
 ```
 The build is triggered.
+4 - Use it in github
+Go to Setting+Webhooks+Add webhook in your github project and add the URL in the Payload URL, set Content type: application/json, Disable SSL verification if needed and click Add webhook. See https://docs.openshift.com/container-platform/4.6/builds/triggering-builds-build-hooks.html for more details.
 
 # githubWebhookSecret
 That is a web hook specific to GitHub, it works like `genericWebhookSecret`
