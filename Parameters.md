@@ -59,7 +59,7 @@ And run base64
 base64 secret.txt
 cXdlcnR5Cg==
 ```
-Here: genericWebhookSecret=qwerty
+Here: genericWebhookSecret: qwerty
 
 To test it:
 1 - get the URL:
