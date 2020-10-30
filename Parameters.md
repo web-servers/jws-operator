@@ -102,7 +102,8 @@ That is the password of the user created in /opt/jws-5.3/tomcat/conf/tomcat-user
   jwsAdminPassword: tomcat
 ```
 # serverReadinessScript
-That is the script used to check if the POD is ready. The default is to check http://localhost:8080/health using OpenShift internal.
+That is the script used to check if a pod is ready. That is only mandary for JWS-5.3 iamges.
+An empty or not existing is the default. The default is to check http://localhost:8080/health using OpenShift internal.
 For example the JWS-5.3 is:
 ```
   serverReadinessScript: >-
@@ -114,7 +115,7 @@ For example the JWS-5.3 is:
 For the formats see the README.md.
 
 # serverLivenessScript
-That is the script to check that the POD is alive. That is NOT mandatory.
+That is the script to check that a pod is alive. That is NOT mandatory.
 
 # sourceRepositoryUrl
 That the URL were the sources are located, the source should have a maven pom.xml to allow a maven build, the produced war is put
