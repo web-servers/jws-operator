@@ -32,7 +32,7 @@ The operator will deploy 2 pods running the image docker.io/jfclere/tomcat-demo,
 
 The route is something like http://jws-app-jws-operator.example.[cluster base name]/
 
-## Build a image and deploy it
+## Build a image base on JWS-5.4 and deploy it
 You have to create an ImageStream, use a file with something like in the following file:
 https://github.com/web-servers/jws-operator/blob/master/xpaas-streams/jws54-tomcat9-image-stream.json
 
@@ -63,3 +63,10 @@ oc create -f minimal.yaml
 The operator will compile and build an image using the war mvn install creates in target. The image is stored in an Image Stream. The operator creates a ReplicaSet 2 service and router. It deploys 2 pods.
 
 The route is something like http://jws-app-jws-operator.example.[cluster base name]/
+
+Note the minimal.yaml DOES NOT work for JWS-5.3. For JWS-5.3 you need to add:
+```
+  jwsAdminUsername: tomcat
+  jwsAdminPassword: tomcat
+  serverReadinessScript: /bin/bash -c "/usr/bin/curl --noproxy '*' -s -u ${JWS_ADMIN_USERNAME}:${JWS_ADMIN_PASSWORD} 'http://localhost:8080/manager/jmxproxy/?get=Catalina%3Atype%3DServer&att=stateName' | /usr/bin/grep -iq 'stateName *= *STARTED'"
+```
