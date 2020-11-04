@@ -56,6 +56,10 @@ spec:
   contextDir: /
   genericWebhookSecret: " "
 ```
+In cluster just run
+```
+oc create -f minimal.yaml
+```
 The operator will compile and build an image using the war mvn install creates in target. The image is stored in an Image Stream. The operator creates a ReplicaSet 2 service and router. It deploys 2 pods.
 
 The route is something like http://jws-app-jws-operator.example.[cluster base name]/
