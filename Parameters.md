@@ -125,24 +125,24 @@ For the formats see the README.md.
 # serverLivenessScript
 That is the script to check that a pod is alive. That is NOT mandatory.
 
-# sourceRepositoryUrl
+# sourceRepositoryUrl (Mandatory BuildImage)
 That the URL were the sources are located, the source should have a maven pom.xml to allow a maven build, the produced war is put
 in the webapps directory of image /opt/jws-5.x/tomcat/webapps. See `ARTIFACT_DIR" here too.
 ```
  sourceRepositoryUrl: 'https://github.com/jfclere/demo-webapp.git'
 ```
-# sourceRepositoryRef
+# sourceRepositoryRef (Mandatory BuildImage)
 That is the branch you want to build.
 ```
 sourceRepositoryRef: master
 ```
-# contextDir
+# contextDir (BuildImage only)
 That is the sub directory where the pom.xml is located and where the `mvn install` should be run.
 ```
   contextDir: /
 ```
-# ARTIFACT_DIR
+# ARTIFACT_DIR (BuidImage only)
 The ARTIFACT_DIR is a parameter of SourceBuildStrategy the operator is using. It is the directory were maven put the war it creates for the webapp.
 The contents of ARTIFACT_DIR is copied in the webapps directory of the image /opt/jws-5.x/tomcat/webapps the default value is target.
-# MAVEN_MIRROR_URL
+# MAVEN_MIRROR_URL (BuildImage only)
 The MAVEN_MIRROR_URL is a parameter of SourceBuildStrategy the operator is using. It is the maven proxy URL maven will use to build the webapp. You need it if your cluster has not access to the Internet.
