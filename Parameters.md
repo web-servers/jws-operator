@@ -1,24 +1,24 @@
 ## Parameter to use in CRD
 
-# replicas
+# replicas (mandatory all configuration)
 That is the number of pods of the JWS image you want to run. Use at least 2!
 ```
   replicas: 2
 ```
 
-# applicationName
+# applicationName (mandatory all configuration)
 That is the name of the application, it must be unique in the namespace/project. Note it is used to create the route to access
 to that application.
 ```
   applicationName: test
  ```
-# applicationImage
+# applicationImage (customized images)
 That is the URL to find the image you want to use with the operator. For example:
 ```
 applicationImage: docker.io/jfclere/tomcat-demo
 ```
 
-# imageStreamName
+# imageStreamName (mandatory BuildImage)
 
 That is the ImageStream you created to allow the operator to find the base images:
 
@@ -28,7 +28,7 @@ imagestream.image.openshift.io/jboss-webserver53-tomcat9-openshift created
 ```
 Here: imageStream: `jboss-webserver53-tomcat9-openshift:latest`
 
-# imageStreamNamespace
+# imageStreamNamespace (BuildImage only)
 
 That is the namespace/project in which you create the ImageStream
 ```bash
@@ -37,7 +37,7 @@ imagestream.image.openshift.io/jboss-webserver53-tomcat9-openshift created
 ```
 Here: imageStreamNamespace: jfc
 
-# genericWebhookSecret
+# genericWebhookSecret (BuildImage only)
 
 That is a secret for a webhook to trigger a build.
 Create a secret.yaml like:
@@ -92,19 +92,19 @@ The build is triggered.
 
 Go to Setting+Webhooks+Add webhook in your github project and add the URL in the Payload URL, set Content type: application/json, Disable SSL verification if needed and click Add webhook. See https://docs.openshift.com/container-platform/4.6/builds/triggering-builds-build-hooks.html for more details.
 
-# githubWebhookSecret
+# githubWebhookSecret (BuildImage only)
 That is a web hook specific to GitHub, it works like `genericWebhookSecret`
 ```
 githubWebhookSecret: qwerty
 ```
 
-# jwsAdminUsername
+# jwsAdminUsername (JWS-5.3 images only)
 That is the admin user created in /opt/jws-5.3/tomcat/conf/tomcat-users.xml for the JWS-5.3 health check only.
 ```
 jwsAdminUsername: tomcat
 ```
 
-# jwsAdminPassword
+# jwsAdminPassword (JWS-5.3 images only)
 That is the password of the user created in /opt/jws-5.3/tomcat/conf/tomcat-users.xml for the JWS-5.3 health check only.
 ```
   jwsAdminPassword: tomcat
