@@ -58,9 +58,7 @@ spec:
             mavenMirrorUrl:
               type: string
             replicas:
-              description: Replicas is the desired number of replicas for the application
               format: int32
-              minimum: 0
               type: integer
             sourceRepositoryRef:
               type: string
