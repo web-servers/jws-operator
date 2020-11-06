@@ -36,10 +36,49 @@ type JBossWebServerSpec struct {
 }
 
 // JBossWebServerStatus defines the observed state of JBossWebServer
+// +k8s:openapi-gen=true
 type JBossWebServerStatus struct {
-	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
-	// Important: Run "operator-sdk generate k8s" to regenerate code after modifying this file
-	// Add custom validation using kubebuilder tags: https://book-v1.book.kubebuilder.io/beyond_basics/generating_crd.html
+	// Replicas is the actual number of replicas for the application
+	Replicas int32 `json:"replicas"`
+	// +listType=atomic
+	Pods []PodStatus `json:"pods,omitempty"`
+	// +listType=set
+	Hosts []string `json:"hosts,omitempty"`
+	// Represents the number of pods which are in scaledown process
+	// what particular pod is scaling down can be verified by PodStatus
+	//
+	// Read-only.
+	ScalingdownPods int32 `json:"scalingdownPods"`
+}
+
+const (
+	// PodStateActive represents PodStatus.State when pod is active to serve requests
+	// it's connected in the Service load balancer
+	PodStateActive = "ACTIVE"
+	// PodStateScalingDownRecoveryInvestigation represents the PodStatus.State when pod is in state of scaling down
+	// and is to be verified if it's dirty and if recovery is needed
+	// as the pod is under recovery verification it can't be immediatelly removed
+	// and it needs to be wait until it's marked as clean to be removed
+	PodStateScalingDownRecoveryInvestigation = "SCALING_DOWN_RECOVERY_INVESTIGATION"
+	// PodStateScalingDownRecoveryDirty represents the PodStatus.State when the pod was marked as recovery is needed
+	// because there are some in-doubt transactions.
+	// The app server was restarted with the recovery properties to speed-up recovery nad it's needed to wait
+	// until all ind-doubt transactions are processed.
+	PodStateScalingDownRecoveryDirty = "SCALING_DOWN_RECOVERY_DIRTY"
+	// PodStateScalingDownClean represents the PodStatus.State when pod is not active to serve requests
+	// it's in state of scaling down and it's clean
+	// 'clean' means it's ready to be removed from the kubernetes cluster
+	PodStateScalingDownClean = "SCALING_DOWN_CLEAN"
+)
+
+// PodStatus defines the observed state of pods running the JBossWebServer application
+// +k8s:openapi-gen=true
+type PodStatus struct {
+	Name  string `json:"name"`
+	PodIP string `json:"podIP"`
+	// Represent the state of the Pod, it is used especially during scale down.
+	// +kubebuilder:validation:Enum=ACTIVE;SCALING_DOWN_RECOVERY_INVESTIGATION;SCALING_DOWN_RECOVERY_DIRTY;SCALING_DOWN_CLEAN
+	State string `json:"state"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
