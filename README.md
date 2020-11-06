@@ -127,10 +127,10 @@ $ oc create -f deploy/role.yaml -n $NAMESPACE
 $ oc create -f deploy/role_binding.yaml -n $NAMESPACE
 ```
 
-5. Deploy the operator using the template (IMAGE is something like docker.io/\${USER}/jws-operator:v0.0.1)
+5. Deploy the operator using the deploy/operator.yaml file, make sure the image is what you build (IMAGE is something like docker.io/\${USER}/jws-operator:v0.0.1)
 
 ```bash
-$ oc process -f deploy/openshift_operator.template IMAGE=${IMAGE} | oc create -f -
+$ oc create -f deploy/operator.yaml
 ```
 
 6. Create a Tomcat instance (Custom Resource). An example has been provided in _deploy/crds/jwsservers.web.servers.org_v1alpha1_jbosswebserver_cr.yaml_
