@@ -58,8 +58,10 @@ spec:
             mavenMirrorUrl:
               type: string
             replicas:
+              description: The desired number of replicas for the application
               format: int32
               type: integer
+              minimum: 0
             sourceRepositoryRef:
               type: string
             sourceRepositoryUrl:
