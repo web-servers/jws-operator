@@ -2,6 +2,11 @@ package jbosswebserver
 
 import (
 	"context"
+	//	"os"
+	"reflect"
+	"regexp"
+	"sort"
+	"strconv"
 	"strings"
 
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -31,7 +36,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/source"
 )
 
-var log = logf.Log.WithName("controller_jbosswebserver")
+var (
+	regexpPatternEndsWithNumber = regexp.MustCompile(`[0-9]+$`)
+	log                         = logf.Log.WithName("controller_jbosswebserver")
+)
 
 /**
 * USER ACTION REQUIRED: This is a scaffold file intended for the user to modify with their own Controller
@@ -176,6 +184,29 @@ func (r *ReconcileJBossWebServer) Reconcile(request reconcile.Request) (reconcil
 		}
 	}
 
+	// List of pods which belongs under this jbosswebserver instance
+	podList, err := GetPodsForJBossWebServer(r, jbosswebserver)
+	if err != nil {
+		reqLogger.Error(err, "Failed to list pods.", "JBossWebServer.Namespace", jbosswebserver.Namespace, "JBossWebServer.Name", jbosswebserver.Name)
+		return reconcile.Result{}, err
+	}
+	reqLogger.Info("Reconciling JBossWebServer JFC")
+	numberOfDeployedPods := int32(len(podList.Items))
+	reqLogger.Info(strconv.FormatInt(int64(numberOfDeployedPods), 10))
+
+	// Update the pod status...
+	requeue, podsStatus := getPodStatus(podList.Items, jbosswebserver.Status.Pods)
+	if !reflect.DeepEqual(podsStatus, jbosswebserver.Status.Pods) {
+		jbosswebserver.Status.Pods = podsStatus
+		reqLogger.Info("Updating the pod status with new status", "Pod statuses", podsStatus)
+	}
+
+	serr := UpdateJBossWebServerStatus(jbosswebserver, r.client)
+	if serr != nil {
+		reqLogger.Error(err, "Failed to update JBossWebServer status.")
+		return reconcile.Result{}, serr
+	}
+
 	if jbosswebserver.Spec.ApplicationImage == "" {
 
 		// Check if the ImageStream already exists, if not create a new one
@@ -279,7 +310,7 @@ func (r *ReconcileJBossWebServer) Reconcile(request reconcile.Request) (reconcil
 		}
 	}
 
-	return reconcile.Result{}, nil
+	return reconcile.Result{Requeue: requeue}, nil
 }
 
 func (r *ReconcileJBossWebServer) serviceForJBossWebServer(t *jwsserversv1alpha1.JBossWebServer) *corev1.Service {
@@ -627,4 +658,121 @@ func isOpenShift(c *rest.Config) bool {
 		}
 	}
 	return false
+}
+
+// GetPodsForJBossWebServer lists pods which belongs to the JBossWeb server
+// the pods are differentiated based on the selectors
+func GetPodsForJBossWebServer(r *ReconcileJBossWebServer, j *jwsserversv1alpha1.JBossWebServer) (*corev1.PodList, error) {
+	log.Info(j.Namespace)
+	podList := &corev1.PodList{}
+
+	listOpts := []client.ListOption{
+		client.InNamespace(j.Namespace),
+		client.MatchingLabels(LabelsForJBossWeb(j)),
+	}
+	log.Info("GetPodsForJBossWebServer JFC2")
+	err := r.client.List(context.TODO(), podList, listOpts...)
+
+	if err == nil {
+		// sorting pods by number in the name
+		SortPodListByName(podList)
+		log.Info("GetPodsForJBossWebServer JFC3")
+	} else {
+		log.Info("GetPodsForJBossWebServer JFC3 ERROR!!!")
+	}
+	return podList, err
+}
+
+// LabelsForJBossWeb return a map of labels that are used for identification
+//  of objects belonging to the particular JBossWebServer instance
+func LabelsForJBossWeb(j *jwsserversv1alpha1.JBossWebServer) map[string]string {
+	labels := make(map[string]string)
+	// labels["app.kubernetes.io/name"] = j.Name
+	// labels["app.kubernetes.io/managed-by"] = os.Getenv("LABEL_APP_MANAGED_BY")
+	// labels["app.openshift.io/runtime"] = os.Getenv("LABEL_APP_RUNTIME")
+	if j.Labels != nil {
+		for labelKey, labelValue := range j.Labels {
+			log.Info("labels: ", labelKey, " : ", labelValue)
+			labels[labelKey] = labelValue
+		}
+	}
+	return labels
+}
+
+// SortPodListByName sorts the pod list by number in the name
+//  expecting the format which the StatefulSet works with which is `<podname>-<number>`
+func SortPodListByName(podList *corev1.PodList) *corev1.PodList {
+	sort.SliceStable(podList.Items, func(i, j int) bool {
+		reOut1 := regexpPatternEndsWithNumber.FindStringSubmatch(podList.Items[i].ObjectMeta.Name)
+		if reOut1 == nil {
+			return false
+		}
+		number1, err := strconv.Atoi(reOut1[0])
+		if err != nil {
+			return false
+		}
+		reOut2 := regexpPatternEndsWithNumber.FindStringSubmatch(podList.Items[j].ObjectMeta.Name)
+		if reOut2 == nil {
+			return false
+		}
+		number2, err := strconv.Atoi(reOut2[0])
+		if err != nil {
+			return false
+		}
+
+		return number1 < number2
+	})
+	return podList
+}
+
+// UpdateJBossWebServerStatus updates status of the JBossWebServer resource.
+func UpdateJBossWebServerStatus(j *jwsserversv1alpha1.JBossWebServer, client client.Client) error {
+	logger := log.WithValues("JBossWebServer.Namespace", j.Namespace, "JBossWebServer.Name", j.Name)
+	logger.Info("Updating status of JBossWebServer")
+
+	if err := client.Status().Update(context.Background(), j); err != nil {
+		logger.Error(err, "Failed to update status of JBossWebServer")
+		return err
+	}
+
+	logger.Info("Updated status of JBossWebServer")
+	return nil
+}
+
+func UpdateStatus(j *jwsserversv1alpha1.JBossWebServer, client client.Client, objectDefinition runtime.Object) error {
+	logger := log.WithValues("JBossWebServer.Namespace", j.Namespace, "JBossWebServer.Name", j.Name)
+	logger.Info("Updating status of resource")
+
+	if err := client.Status().Update(context.Background(), objectDefinition); err != nil {
+		logger.Error(err, "Failed to update status of resource")
+		return err
+	}
+
+	logger.Info("Updated status of resource")
+	return nil
+}
+
+// getPodStatus returns the pod names of the array of pods passed in
+func getPodStatus(pods []corev1.Pod, originalPodStatuses []jwsserversv1alpha1.PodStatus) (bool, []jwsserversv1alpha1.PodStatus) {
+	var requeue = false
+	var podStatuses []jwsserversv1alpha1.PodStatus
+	podStatusesOriginalMap := make(map[string]jwsserversv1alpha1.PodStatus)
+	for _, v := range originalPodStatuses {
+		podStatusesOriginalMap[v.Name] = v
+	}
+	for _, pod := range pods {
+		podState := jwsserversv1alpha1.PodStateActive
+		if value, exists := podStatusesOriginalMap[pod.Name]; exists {
+			podState = value.State
+		}
+		podStatuses = append(podStatuses, jwsserversv1alpha1.PodStatus{
+			Name:  pod.Name,
+			PodIP: pod.Status.PodIP,
+			State: podState,
+		})
+		if pod.Status.PodIP == "" {
+			requeue = true
+		}
+	}
+	return requeue, podStatuses
 }
