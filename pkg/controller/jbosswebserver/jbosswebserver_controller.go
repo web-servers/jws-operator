@@ -190,7 +190,6 @@ func (r *ReconcileJBossWebServer) Reconcile(request reconcile.Request) (reconcil
 		reqLogger.Error(err, "Failed to list pods.", "JBossWebServer.Namespace", jbosswebserver.Namespace, "JBossWebServer.Name", jbosswebserver.Name)
 		return reconcile.Result{}, err
 	}
-	reqLogger.Info("Reconciling JBossWebServer JFC")
 	numberOfDeployedPods := int32(len(podList.Items))
 	reqLogger.Info(strconv.FormatInt(int64(numberOfDeployedPods), 10))
 
@@ -199,12 +198,11 @@ func (r *ReconcileJBossWebServer) Reconcile(request reconcile.Request) (reconcil
 	if !reflect.DeepEqual(podsStatus, jbosswebserver.Status.Pods) {
 		jbosswebserver.Status.Pods = podsStatus
 		reqLogger.Info("Updating the pod status with new status", "Pod statuses", podsStatus)
-	}
-
-	serr := UpdateJBossWebServerStatus(jbosswebserver, r.client)
-	if serr != nil {
-		reqLogger.Error(err, "Failed to update JBossWebServer status.")
-		return reconcile.Result{}, serr
+		serr := UpdateJBossWebServerStatus(jbosswebserver, r.client)
+		if serr != nil {
+			reqLogger.Error(err, "Failed to update JBossWebServer status.")
+			return reconcile.Result{}, serr
+		}
 	}
 
 	if jbosswebserver.Spec.ApplicationImage == "" {
@@ -670,15 +668,11 @@ func GetPodsForJBossWebServer(r *ReconcileJBossWebServer, j *jwsserversv1alpha1.
 		client.InNamespace(j.Namespace),
 		client.MatchingLabels(LabelsForJBossWeb(j)),
 	}
-	log.Info("GetPodsForJBossWebServer JFC2")
 	err := r.client.List(context.TODO(), podList, listOpts...)
 
 	if err == nil {
 		// sorting pods by number in the name
 		SortPodListByName(podList)
-		log.Info("GetPodsForJBossWebServer JFC3")
-	} else {
-		log.Info("GetPodsForJBossWebServer JFC3 ERROR!!!")
 	}
 	return podList, err
 }
@@ -730,7 +724,7 @@ func UpdateJBossWebServerStatus(j *jwsserversv1alpha1.JBossWebServer, client cli
 	logger := log.WithValues("JBossWebServer.Namespace", j.Namespace, "JBossWebServer.Name", j.Name)
 	logger.Info("Updating status of JBossWebServer")
 
-	if err := client.Status().Update(context.Background(), j); err != nil {
+	if err := client.Update(context.Background(), j); err != nil {
 		logger.Error(err, "Failed to update status of JBossWebServer")
 		return err
 	}
@@ -743,7 +737,7 @@ func UpdateStatus(j *jwsserversv1alpha1.JBossWebServer, client client.Client, ob
 	logger := log.WithValues("JBossWebServer.Namespace", j.Namespace, "JBossWebServer.Name", j.Name)
 	logger.Info("Updating status of resource")
 
-	if err := client.Status().Update(context.Background(), objectDefinition); err != nil {
+	if err := client.Update(context.Background(), objectDefinition); err != nil {
 		logger.Error(err, "Failed to update status of resource")
 		return err
 	}
