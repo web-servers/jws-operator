@@ -681,6 +681,7 @@ func GetPodsForJBossWebServer(r *ReconcileJBossWebServer, j *jwsserversv1alpha1.
 //  of objects belonging to the particular JBossWebServer instance
 func LabelsForJBossWeb(j *jwsserversv1alpha1.JBossWebServer) map[string]string {
 	labels := make(map[string]string)
+	labels["deploymentConfig"] = j.Spec.ApplicationName
 	// labels["app.kubernetes.io/name"] = j.Name
 	// labels["app.kubernetes.io/managed-by"] = os.Getenv("LABEL_APP_MANAGED_BY")
 	// labels["app.openshift.io/runtime"] = os.Getenv("LABEL_APP_RUNTIME")
