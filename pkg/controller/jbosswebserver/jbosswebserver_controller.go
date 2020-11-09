@@ -184,23 +184,7 @@ func (r *ReconcileJBossWebServer) Reconcile(request reconcile.Request) (reconcil
 		}
 	}
 
-	// List of pods which belongs under this jbosswebserver instance
-	podList, err := GetPodsForJBossWebServer(r, jbosswebserver)
-	if err != nil {
-		reqLogger.Error(err, "Failed to list pods.", "JBossWebServer.Namespace", jbosswebserver.Namespace, "JBossWebServer.Name", jbosswebserver.Name)
-		return reconcile.Result{}, err
-	}
-	// numberOfDeployedPods := int32(len(podList.Items))
-
-	// Update the pod status...
-	updateJBossWebServer := false
-	requeue, podsStatus := getPodStatus(podList.Items, jbosswebserver.Status.Pods)
-	if !reflect.DeepEqual(podsStatus, jbosswebserver.Status.Pods) {
-		jbosswebserver.Status.Pods = podsStatus
-		reqLogger.Info("Will update the pod status with new status", "Pod statuses", podsStatus)
-		updateJBossWebServer = true
-	}
-
+	requeue := false
 	foundreplicas := int32(-1) // we need the foundDeployment.Spec.Replicas which is &appsv1.DeploymentConfig{} or &kbappsv1.Deployment{}
 	if jbosswebserver.Spec.ApplicationImage == "" {
 
@@ -309,8 +293,31 @@ func (r *ReconcileJBossWebServer) Reconcile(request reconcile.Request) (reconcil
 		}
 	}
 
+	// List of pods which belongs under this jbosswebserver instance
+	podList, err := GetPodsForJBossWebServer(r, jbosswebserver)
+	if err != nil {
+		reqLogger.Error(err, "Failed to list pods.", "JBossWebServer.Namespace", jbosswebserver.Namespace, "JBossWebServer.Name", jbosswebserver.Name)
+		return reconcile.Result{}, err
+	}
+	numberOfDeployedPods := int32(len(podList.Items))
+	if numberOfDeployedPods != foundreplicas {
+		reqLogger.Info("numberOfDeployedPods != foundreplicas requeueing")
+		return reconcile.Result{Requeue: true}, nil
+	}
+
+	// Update the pod status...
+	updateJBossWebServer := false
+	requeue, podsStatus := getPodStatus(podList.Items, jbosswebserver.Status.Pods)
+	reqLogger.Info("pod status with new status", "Pod statuses", podsStatus)
+	if !reflect.DeepEqual(podsStatus, jbosswebserver.Status.Pods) {
+		jbosswebserver.Status.Pods = podsStatus
+		reqLogger.Info("Will update the pod status with new status", "Pod statuses", podsStatus)
+		updateJBossWebServer = true
+	}
+
 	// Update the replicas
 	if jbosswebserver.Status.Replicas != foundreplicas {
+		reqLogger.Info("Will update the Replicas")
 		jbosswebserver.Status.Replicas = foundreplicas
 		updateJBossWebServer = true
 	}
@@ -325,9 +332,11 @@ func (r *ReconcileJBossWebServer) Reconcile(request reconcile.Request) (reconcil
 		serr := UpdateJBossWebServerStatus(jbosswebserver, r.client)
 		if serr != nil {
 			reqLogger.Error(err, "Failed to update JBossWebServer status.")
-			return reconcile.Result{}, serr
+			// return reconcile.Result{}, serr
 		}
+		requeue = true
 	}
+	reqLogger.Info("Reconciling JBossWebServer DONE!!!")
 	return reconcile.Result{Requeue: requeue}, nil
 }
 
@@ -681,7 +690,6 @@ func isOpenShift(c *rest.Config) bool {
 // GetPodsForJBossWebServer lists pods which belongs to the JBossWeb server
 // the pods are differentiated based on the selectors
 func GetPodsForJBossWebServer(r *ReconcileJBossWebServer, j *jwsserversv1alpha1.JBossWebServer) (*corev1.PodList, error) {
-	log.Info(j.Namespace)
 	podList := &corev1.PodList{}
 
 	listOpts := []client.ListOption{
