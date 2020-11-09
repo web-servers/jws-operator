@@ -190,21 +190,18 @@ func (r *ReconcileJBossWebServer) Reconcile(request reconcile.Request) (reconcil
 		reqLogger.Error(err, "Failed to list pods.", "JBossWebServer.Namespace", jbosswebserver.Namespace, "JBossWebServer.Name", jbosswebserver.Name)
 		return reconcile.Result{}, err
 	}
-	numberOfDeployedPods := int32(len(podList.Items))
-	reqLogger.Info(strconv.FormatInt(int64(numberOfDeployedPods), 10))
+	// numberOfDeployedPods := int32(len(podList.Items))
 
 	// Update the pod status...
+	updateJBossWebServer := false
 	requeue, podsStatus := getPodStatus(podList.Items, jbosswebserver.Status.Pods)
 	if !reflect.DeepEqual(podsStatus, jbosswebserver.Status.Pods) {
 		jbosswebserver.Status.Pods = podsStatus
-		reqLogger.Info("Updating the pod status with new status", "Pod statuses", podsStatus)
-		serr := UpdateJBossWebServerStatus(jbosswebserver, r.client)
-		if serr != nil {
-			reqLogger.Error(err, "Failed to update JBossWebServer status.")
-			return reconcile.Result{}, serr
-		}
+		reqLogger.Info("Will update the pod status with new status", "Pod statuses", podsStatus)
+		updateJBossWebServer = true
 	}
 
+	foundreplicas := int32(-1) // we need the foundDeployment.Spec.Replicas which is &appsv1.DeploymentConfig{} or &kbappsv1.Deployment{}
 	if jbosswebserver.Spec.ApplicationImage == "" {
 
 		// Check if the ImageStream already exists, if not create a new one
@@ -237,6 +234,7 @@ func (r *ReconcileJBossWebServer) Reconcile(request reconcile.Request) (reconcil
 				return reconcile.Result{}, err
 			}
 			// BuildConfig created successfully - return and requeue
+			// XXX really return here?
 			return reconcile.Result{Requeue: true}, nil
 		} else if err != nil {
 			reqLogger.Error(err, "Failed to get BuildConfig.")
@@ -256,6 +254,7 @@ func (r *ReconcileJBossWebServer) Reconcile(request reconcile.Request) (reconcil
 				return reconcile.Result{}, err
 			}
 			// DeploymentConfig created successfully - return and requeue
+			// XXX really return here?
 			return reconcile.Result{Requeue: true}, nil
 		} else if err != nil {
 			reqLogger.Error(err, "Failed to get DeploymentConfig.")
@@ -263,6 +262,7 @@ func (r *ReconcileJBossWebServer) Reconcile(request reconcile.Request) (reconcil
 		}
 
 		// Handle Scaling
+		foundreplicas = foundDeployment.Spec.Replicas
 		replicas := jbosswebserver.Spec.Replicas
 		if foundDeployment.Spec.Replicas != replicas {
 			foundDeployment.Spec.Replicas = replicas
@@ -271,8 +271,8 @@ func (r *ReconcileJBossWebServer) Reconcile(request reconcile.Request) (reconcil
 				reqLogger.Error(err, "Failed to update Deployment.", "Deployment.Namespace", foundDeployment.Namespace, "Deployment.Name", foundDeployment.Name)
 				return reconcile.Result{}, err
 			}
-			// Spec updated - return and requeue
-			return reconcile.Result{Requeue: true}, nil
+			// Spec updated - requeue
+			requeue = true
 		}
 	} else {
 		// Check if the Deployment already exists, if not create a new one
@@ -287,14 +287,15 @@ func (r *ReconcileJBossWebServer) Reconcile(request reconcile.Request) (reconcil
 				reqLogger.Error(err, "Failed to create new Deployment.", "Deployment.Namespace", dep.Namespace, "Deployment.Name", dep.Name)
 				return reconcile.Result{}, err
 			}
-			// Deployment created successfully - return and requeue
-			return reconcile.Result{Requeue: true}, nil
+			// Deployment created successfully - requeue
+			requeue = true
 		} else if err != nil {
 			reqLogger.Error(err, "Failed to get Deployment.")
 			return reconcile.Result{}, err
 		}
 
 		// Handle Scaling
+		foundreplicas = *foundDeployment.Spec.Replicas
 		replicas := jbosswebserver.Spec.Replicas
 		if foundDeployment.Spec.Replicas != &replicas {
 			foundDeployment.Spec.Replicas = &replicas
@@ -303,11 +304,30 @@ func (r *ReconcileJBossWebServer) Reconcile(request reconcile.Request) (reconcil
 				reqLogger.Error(err, "Failed to update Deployment.", "Deployment.Namespace", foundDeployment.Namespace, "Deployment.Name", foundDeployment.Name)
 				return reconcile.Result{}, err
 			}
-			// Spec updated - return and requeue
-			return reconcile.Result{Requeue: true}, nil
+			// Spec updated - requeue
+			requeue = true
 		}
 	}
 
+	// Update the replicas
+	if jbosswebserver.Status.Replicas != foundreplicas {
+		jbosswebserver.Status.Replicas = foundreplicas
+		updateJBossWebServer = true
+	}
+	// Update the scaledown
+	numberOfPodsToScaleDown := foundreplicas - jbosswebserver.Spec.Replicas
+	if jbosswebserver.Status.ScalingdownPods != numberOfPodsToScaleDown {
+		jbosswebserver.Status.ScalingdownPods = numberOfPodsToScaleDown
+		updateJBossWebServer = true
+	}
+	// Update if needed.
+	if updateJBossWebServer {
+		serr := UpdateJBossWebServerStatus(jbosswebserver, r.client)
+		if serr != nil {
+			reqLogger.Error(err, "Failed to update JBossWebServer status.")
+			return reconcile.Result{}, serr
+		}
+	}
 	return reconcile.Result{Requeue: requeue}, nil
 }
 
