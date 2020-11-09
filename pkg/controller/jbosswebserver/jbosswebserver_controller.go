@@ -76,7 +76,7 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 		IsController: true,
 		OwnerType:    &jwsserversv1alpha1.JBossWebServer{},
 	}
-	for _, obj := range []runtime.Object{&kbappsv1.StatefulSet{}, &corev1.Service{}} {
+	for _, obj := range []runtime.Object{&appsv1.DeploymentConfig{}, &kbappsv1.Deployment{}, &corev1.Service{}} {
 		if err = c.Watch(&source.Kind{Type: obj}, &enqueueRequestForOwner); err != nil {
 			return err
 		}
@@ -147,6 +147,7 @@ func (r *ReconcileJBossWebServer) Reconcile(request reconcile.Request) (reconcil
 	}
 
 	ser1 := r.serviceForJBossWebServerDNS(jbosswebserver)
+	requeue := false
 	// Check if the Service for DNSPing exists
 	err = r.client.Get(context.TODO(), types.NamespacedName{Name: ser1.Name, Namespace: ser1.Namespace}, &corev1.Service{})
 	if err != nil && errors.IsNotFound(err) {
@@ -157,8 +158,8 @@ func (r *ReconcileJBossWebServer) Reconcile(request reconcile.Request) (reconcil
 			reqLogger.Error(err, "Failed to create new Service.", "Service.Namespace", ser1.Namespace, "Service.Name", ser1.Name)
 			return reconcile.Result{}, err
 		}
-		// Service created successfully - return and requeue
-		return reconcile.Result{Requeue: true}, nil
+		// Service created successfully - requeue
+		requeue = true
 	} else if err != nil {
 		reqLogger.Error(err, "Failed to get Service.")
 		return reconcile.Result{}, err
@@ -176,15 +177,14 @@ func (r *ReconcileJBossWebServer) Reconcile(request reconcile.Request) (reconcil
 				reqLogger.Error(err, "Failed to create new Route.", "Route.Namespace", rou.Namespace, "Route.Name", rou.Name)
 				return reconcile.Result{}, err
 			}
-			// Route created successfully - return and requeue
-			return reconcile.Result{Requeue: true}, nil
+			// Route created successfully - requeue
+			requeue = true
 		} else if err != nil {
 			reqLogger.Error(err, "Failed to get Service.")
 			return reconcile.Result{}, err
 		}
 	}
 
-	requeue := false
 	foundreplicas := int32(-1) // we need the foundDeployment.Spec.Replicas which is &appsv1.DeploymentConfig{} or &kbappsv1.Deployment{}
 	if jbosswebserver.Spec.ApplicationImage == "" {
 
@@ -199,8 +199,8 @@ func (r *ReconcileJBossWebServer) Reconcile(request reconcile.Request) (reconcil
 				reqLogger.Error(err, "Failed to create new ImageStream.", "ImageStream.Namespace", img.Namespace, "ImageStream.Name", img.Name)
 				return reconcile.Result{}, err
 			}
-			// ImageStream created successfully - return and requeue
-			return reconcile.Result{Requeue: true}, nil
+			// ImageStream created successfully - requeue
+			requeue = true
 		} else if err != nil {
 			reqLogger.Error(err, "Failed to get ImageStream.")
 			return reconcile.Result{}, err
@@ -218,8 +218,7 @@ func (r *ReconcileJBossWebServer) Reconcile(request reconcile.Request) (reconcil
 				return reconcile.Result{}, err
 			}
 			// BuildConfig created successfully - return and requeue
-			// XXX really return here?
-			return reconcile.Result{Requeue: true}, nil
+			requeue = true
 		} else if err != nil {
 			reqLogger.Error(err, "Failed to get BuildConfig.")
 			return reconcile.Result{}, err
@@ -238,8 +237,7 @@ func (r *ReconcileJBossWebServer) Reconcile(request reconcile.Request) (reconcil
 				return reconcile.Result{}, err
 			}
 			// DeploymentConfig created successfully - return and requeue
-			// XXX really return here?
-			return reconcile.Result{Requeue: true}, nil
+			requeue = true
 		} else if err != nil {
 			reqLogger.Error(err, "Failed to get DeploymentConfig.")
 			return reconcile.Result{}, err
@@ -302,7 +300,7 @@ func (r *ReconcileJBossWebServer) Reconcile(request reconcile.Request) (reconcil
 	numberOfDeployedPods := int32(len(podList.Items))
 	if numberOfDeployedPods != foundreplicas {
 		reqLogger.Info("numberOfDeployedPods != foundreplicas requeueing")
-		return reconcile.Result{Requeue: true}, nil
+		requeue = true
 	}
 
 	// Update the pod status...
