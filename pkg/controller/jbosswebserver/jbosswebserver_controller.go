@@ -8,6 +8,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"time"
 
 	"k8s.io/apimachinery/pkg/util/intstr"
 
@@ -298,9 +299,11 @@ func (r *ReconcileJBossWebServer) Reconcile(request reconcile.Request) (reconcil
 		return reconcile.Result{}, err
 	}
 	numberOfDeployedPods := int32(len(podList.Items))
-	if numberOfDeployedPods != foundreplicas {
-		reqLogger.Info("numberOfDeployedPods != foundreplicas requeueing")
-		requeue = true
+	if numberOfDeployedPods != jbosswebserver.Spec.Replicas {
+		reqLogger.Info("numberOfDeployedPods != jbosswebserver.Spec.Replicas requeueing")
+		// requeue = true
+		// return reconcile.Result{Requeue: true}, nil
+		return reconcile.Result{RequeueAfter: (40 * time.Millisecond)}, nil
 	}
 
 	// Update the pod status...
