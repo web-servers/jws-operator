@@ -15,7 +15,7 @@ spec:
       serviceAccountName: jws-operator
       containers:
         - name: jws-operator
-          image: quay.io/web-servers/jws-operator:v0.1.0
+          image: quay.io/jfclere/jws-operator:latest
           command:
             - jws-operator
           imagePullPolicy: Always

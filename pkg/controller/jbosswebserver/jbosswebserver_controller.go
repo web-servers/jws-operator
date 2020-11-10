@@ -354,6 +354,7 @@ func (r *ReconcileJBossWebServer) serviceForJBossWebServer(t *jwsserversv1alpha1
 			}},
 			Selector: map[string]string{
 				"deploymentConfig": t.Spec.ApplicationName,
+				"JBossWebServer":   t.Name,
 			},
 		},
 	}
@@ -418,6 +419,7 @@ func (r *ReconcileJBossWebServer) deploymentConfigForJBossWebServer(t *jwsserver
 			Replicas: replicas,
 			Selector: map[string]string{
 				"deploymentConfig": t.Spec.ApplicationName,
+				"JBossWebServer":   t.Name,
 			},
 			Template: &podTemplateSpec,
 		},
@@ -445,6 +447,7 @@ func (r *ReconcileJBossWebServer) deploymentForJBossWebServer(t *jwsserversv1alp
 			Selector: &metav1.LabelSelector{
 				MatchLabels: map[string]string{
 					"deploymentConfig": t.Spec.ApplicationName,
+					"JBossWebServer":   t.Name,
 				},
 			},
 			Template: podTemplateSpec,
@@ -468,6 +471,7 @@ func objectMetaForJBossWebServer(t *jwsserversv1alpha1.JBossWebServer, name stri
 func podTemplateSpecForJBossWebServer(t *jwsserversv1alpha1.JBossWebServer, image string) corev1.PodTemplateSpec {
 	objectMeta := objectMetaForJBossWebServer(t, t.Spec.ApplicationName)
 	objectMeta.Labels["deploymentConfig"] = t.Spec.ApplicationName
+	objectMeta.Labels["JBossWebServer"] = t.Name
 	terminationGracePeriodSeconds := int64(60)
 	return corev1.PodTemplateSpec{
 		ObjectMeta: objectMeta,
@@ -708,6 +712,7 @@ func GetPodsForJBossWebServer(r *ReconcileJBossWebServer, j *jwsserversv1alpha1.
 func LabelsForJBossWeb(j *jwsserversv1alpha1.JBossWebServer) map[string]string {
 	labels := make(map[string]string)
 	labels["deploymentConfig"] = j.Spec.ApplicationName
+	labels["JBossWebServer"] = j.Name
 	// labels["app.kubernetes.io/name"] = j.Name
 	// labels["app.kubernetes.io/managed-by"] = os.Getenv("LABEL_APP_MANAGED_BY")
 	// labels["app.openshift.io/runtime"] = os.Getenv("LABEL_APP_RUNTIME")
