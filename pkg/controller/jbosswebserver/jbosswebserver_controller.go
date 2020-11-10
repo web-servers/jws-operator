@@ -330,7 +330,7 @@ func (r *ReconcileJBossWebServer) Reconcile(request reconcile.Request) (reconcil
 		serr := UpdateJBossWebServerStatus(jbosswebserver, r.client)
 		if serr != nil {
 			reqLogger.Error(err, "Failed to update JBossWebServer status.")
-			// return reconcile.Result{}, serr
+			return reconcile.Result{}, serr
 		}
 		requeue = true
 	}
