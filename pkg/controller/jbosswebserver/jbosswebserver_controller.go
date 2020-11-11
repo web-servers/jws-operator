@@ -247,7 +247,8 @@ func (r *ReconcileJBossWebServer) Reconcile(request reconcile.Request) (reconcil
 		// Handle Scaling
 		foundreplicas = foundDeployment.Spec.Replicas
 		replicas := jbosswebserver.Spec.Replicas
-		if foundDeployment.Spec.Replicas != replicas {
+		if foundreplicas != replicas {
+			reqLogger.Info("DeploymentConfig foundreplicas != replicas requeueing")
 			foundDeployment.Spec.Replicas = replicas
 			err = r.client.Update(context.TODO(), foundDeployment)
 			if err != nil {
@@ -280,7 +281,8 @@ func (r *ReconcileJBossWebServer) Reconcile(request reconcile.Request) (reconcil
 		// Handle Scaling
 		foundreplicas = *foundDeployment.Spec.Replicas
 		replicas := jbosswebserver.Spec.Replicas
-		if foundDeployment.Spec.Replicas != &replicas {
+		if foundreplicas != replicas {
+			reqLogger.Info("Deployment foundreplicas != replicas requeueing")
 			foundDeployment.Spec.Replicas = &replicas
 			err = r.client.Update(context.TODO(), foundDeployment)
 			if err != nil {
@@ -301,18 +303,16 @@ func (r *ReconcileJBossWebServer) Reconcile(request reconcile.Request) (reconcil
 	numberOfDeployedPods := int32(len(podList.Items))
 	if numberOfDeployedPods != jbosswebserver.Spec.Replicas {
 		reqLogger.Info("numberOfDeployedPods != jbosswebserver.Spec.Replicas requeueing")
-		// requeue = true
-		// return reconcile.Result{Requeue: true}, nil
-		return reconcile.Result{RequeueAfter: (40 * time.Millisecond)}, nil
+		return reconcile.Result{RequeueAfter: (50 * time.Millisecond)}, nil
 	}
 
 	// Update the pod status...
-	updateJBossWebServer := false
-	requeue, podsStatus := getPodStatus(podList.Items, jbosswebserver.Status.Pods)
+	updateJBossWebServer, podsStatus := getPodStatus(podList.Items, jbosswebserver.Status.Pods)
 	reqLogger.Info("pod status with new status", "Pod statuses", podsStatus)
 	if !reflect.DeepEqual(podsStatus, jbosswebserver.Status.Pods) {
-		jbosswebserver.Status.Pods = podsStatus
 		reqLogger.Info("Will update the pod status with new status", "Pod statuses", podsStatus)
+		reqLogger.Info("Will update the pod status with new status", "Pod statuses", jbosswebserver.Status.Pods)
+		jbosswebserver.Status.Pods = podsStatus
 		updateJBossWebServer = true
 	}
 
@@ -337,8 +337,12 @@ func (r *ReconcileJBossWebServer) Reconcile(request reconcile.Request) (reconcil
 		}
 		requeue = true
 	}
+	if requeue {
+		reqLogger.Info("Reconciling JBossWebServer (requeueing) DONE!!!")
+		return reconcile.Result{RequeueAfter: (50 * time.Millisecond)}, nil
+	}
 	reqLogger.Info("Reconciling JBossWebServer DONE!!!")
-	return reconcile.Result{Requeue: requeue}, nil
+	return reconcile.Result{}, nil
 }
 
 func (r *ReconcileJBossWebServer) serviceForJBossWebServer(t *jwsserversv1alpha1.JBossWebServer) *corev1.Service {
