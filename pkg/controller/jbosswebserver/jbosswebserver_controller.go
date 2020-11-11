@@ -4,9 +4,7 @@ import (
 	"context"
 	//	"os"
 	"reflect"
-	"regexp"
 	"sort"
-	"strconv"
 	"strings"
 	"time"
 
@@ -38,7 +36,6 @@ import (
 )
 
 var (
-	regexpPatternEndsWithNumber = regexp.MustCompile(`[0-9]+$`)
 	log                         = logf.Log.WithName("controller_jbosswebserver")
 )
 
@@ -734,24 +731,9 @@ func LabelsForJBossWeb(j *jwsserversv1alpha1.JBossWebServer) map[string]string {
 //  expecting the format which the StatefulSet works with which is `<podname>-<number>`
 func SortPodListByName(podList *corev1.PodList) *corev1.PodList {
 	sort.SliceStable(podList.Items, func(i, j int) bool {
-		reOut1 := regexpPatternEndsWithNumber.FindStringSubmatch(podList.Items[i].ObjectMeta.Name)
-		if reOut1 == nil {
-			return false
-		}
-		number1, err := strconv.Atoi(reOut1[0])
-		if err != nil {
-			return false
-		}
-		reOut2 := regexpPatternEndsWithNumber.FindStringSubmatch(podList.Items[j].ObjectMeta.Name)
-		if reOut2 == nil {
-			return false
-		}
-		number2, err := strconv.Atoi(reOut2[0])
-		if err != nil {
-			return false
-		}
-
-		return number1 < number2
+		sort.SliceStable(podList.Items, func(i, j int) bool {
+			return podList.Items[i].ObjectMeta.Name < podList.Items[j].ObjectMeta.Name
+		})
 	})
 	return podList
 }
