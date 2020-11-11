@@ -148,7 +148,6 @@ func (r *ReconcileJBossWebServer) Reconcile(request reconcile.Request) (reconcil
 	}
 
 	ser1 := r.serviceForJBossWebServerDNS(jbosswebserver)
-	requeue := false
 	// Check if the Service for DNSPing exists
 	err = r.client.Get(context.TODO(), types.NamespacedName{Name: ser1.Name, Namespace: ser1.Namespace}, &corev1.Service{})
 	if err != nil && errors.IsNotFound(err) {
@@ -159,8 +158,8 @@ func (r *ReconcileJBossWebServer) Reconcile(request reconcile.Request) (reconcil
 			reqLogger.Error(err, "Failed to create new Service.", "Service.Namespace", ser1.Namespace, "Service.Name", ser1.Name)
 			return reconcile.Result{}, err
 		}
-		// Service created successfully - requeue
-		requeue = true
+		// Service created successfully - return and requeue
+		return reconcile.Result{Requeue: true}, nil
 	} else if err != nil {
 		reqLogger.Error(err, "Failed to get Service.")
 		return reconcile.Result{}, err
@@ -178,8 +177,8 @@ func (r *ReconcileJBossWebServer) Reconcile(request reconcile.Request) (reconcil
 				reqLogger.Error(err, "Failed to create new Route.", "Route.Namespace", rou.Namespace, "Route.Name", rou.Name)
 				return reconcile.Result{}, err
 			}
-			// Route created successfully - requeue
-			requeue = true
+			// Route created successfully - return and requeue
+			return reconcile.Result{Requeue: true}, nil
 		} else if err != nil {
 			reqLogger.Error(err, "Failed to get Service.")
 			return reconcile.Result{}, err
@@ -200,8 +199,8 @@ func (r *ReconcileJBossWebServer) Reconcile(request reconcile.Request) (reconcil
 				reqLogger.Error(err, "Failed to create new ImageStream.", "ImageStream.Namespace", img.Namespace, "ImageStream.Name", img.Name)
 				return reconcile.Result{}, err
 			}
-			// ImageStream created successfully - requeue
-			requeue = true
+			// ImageStream created successfully - return and requeue
+			return reconcile.Result{Requeue: true}, nil
 		} else if err != nil {
 			reqLogger.Error(err, "Failed to get ImageStream.")
 			return reconcile.Result{}, err
@@ -219,7 +218,7 @@ func (r *ReconcileJBossWebServer) Reconcile(request reconcile.Request) (reconcil
 				return reconcile.Result{}, err
 			}
 			// BuildConfig created successfully - return and requeue
-			requeue = true
+			return reconcile.Result{Requeue: true}, nil
 		} else if err != nil {
 			reqLogger.Error(err, "Failed to get BuildConfig.")
 			return reconcile.Result{}, err
@@ -238,7 +237,7 @@ func (r *ReconcileJBossWebServer) Reconcile(request reconcile.Request) (reconcil
 				return reconcile.Result{}, err
 			}
 			// DeploymentConfig created successfully - return and requeue
-			requeue = true
+			return reconcile.Result{Requeue: true}, nil
 		} else if err != nil {
 			reqLogger.Error(err, "Failed to get DeploymentConfig.")
 			return reconcile.Result{}, err
@@ -255,8 +254,8 @@ func (r *ReconcileJBossWebServer) Reconcile(request reconcile.Request) (reconcil
 				reqLogger.Error(err, "Failed to update Deployment.", "Deployment.Namespace", foundDeployment.Namespace, "Deployment.Name", foundDeployment.Name)
 				return reconcile.Result{}, err
 			}
-			// Spec updated - requeue
-			requeue = true
+			// Spec updated - return and requeue
+			return reconcile.Result{Requeue: true}, nil
 		}
 	} else {
 		// Check if the Deployment already exists, if not create a new one
@@ -271,8 +270,8 @@ func (r *ReconcileJBossWebServer) Reconcile(request reconcile.Request) (reconcil
 				reqLogger.Error(err, "Failed to create new Deployment.", "Deployment.Namespace", dep.Namespace, "Deployment.Name", dep.Name)
 				return reconcile.Result{}, err
 			}
-			// Deployment created successfully - requeue
-			requeue = true
+			// Deployment created successfully - return and requeue
+			return reconcile.Result{Requeue: true}, nil
 		} else if err != nil {
 			reqLogger.Error(err, "Failed to get Deployment.")
 			return reconcile.Result{}, err
@@ -289,8 +288,8 @@ func (r *ReconcileJBossWebServer) Reconcile(request reconcile.Request) (reconcil
 				reqLogger.Error(err, "Failed to update Deployment.", "Deployment.Namespace", foundDeployment.Namespace, "Deployment.Name", foundDeployment.Name)
 				return reconcile.Result{}, err
 			}
-			// Spec updated - requeue
-			requeue = true
+			// Spec updated - return and requeue
+			return reconcile.Result{Requeue: true}, nil
 		}
 	}
 
@@ -300,11 +299,6 @@ func (r *ReconcileJBossWebServer) Reconcile(request reconcile.Request) (reconcil
 		reqLogger.Error(err, "Failed to list pods.", "JBossWebServer.Namespace", jbosswebserver.Namespace, "JBossWebServer.Name", jbosswebserver.Name)
 		return reconcile.Result{}, err
 	}
-	numberOfDeployedPods := int32(len(podList.Items))
-	if numberOfDeployedPods != jbosswebserver.Spec.Replicas {
-		reqLogger.Info("numberOfDeployedPods != jbosswebserver.Spec.Replicas requeueing")
-		return reconcile.Result{RequeueAfter: (50 * time.Millisecond)}, nil
-	}
 
 	// Update the pod status...
 	updateJBossWebServer, podsStatus := getPodStatus(podList.Items, jbosswebserver.Status.Pods)
@@ -313,6 +307,13 @@ func (r *ReconcileJBossWebServer) Reconcile(request reconcile.Request) (reconcil
 		reqLogger.Info("Will update the pod status with new status", "Pod statuses", podsStatus)
 		reqLogger.Info("Will update the pod status with new status", "Pod statuses", jbosswebserver.Status.Pods)
 		jbosswebserver.Status.Pods = podsStatus
+		updateJBossWebServer = true
+	}
+
+	// Make sure the number of active pods is the desired replica size.
+	numberOfDeployedPods := int32(len(podList.Items))
+	if numberOfDeployedPods != jbosswebserver.Spec.Replicas {
+		reqLogger.Info("numberOfDeployedPods != jbosswebserver.Spec.Replicas requeueing")
 		updateJBossWebServer = true
 	}
 
@@ -335,11 +336,8 @@ func (r *ReconcileJBossWebServer) Reconcile(request reconcile.Request) (reconcil
 			reqLogger.Error(err, "Failed to update JBossWebServer status.")
 			return reconcile.Result{}, serr
 		}
-		requeue = true
-	}
-	if requeue {
 		reqLogger.Info("Reconciling JBossWebServer (requeueing) DONE!!!")
-		return reconcile.Result{RequeueAfter: (50 * time.Millisecond)}, nil
+		return reconcile.Result{RequeueAfter: (500 * time.Millisecond)}, nil
 	}
 	reqLogger.Info("Reconciling JBossWebServer DONE!!!")
 	return reconcile.Result{}, nil
