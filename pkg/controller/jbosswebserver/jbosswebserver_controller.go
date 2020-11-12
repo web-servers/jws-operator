@@ -36,7 +36,7 @@ import (
 )
 
 var (
-	log                         = logf.Log.WithName("controller_jbosswebserver")
+	log = logf.Log.WithName("controller_jbosswebserver")
 )
 
 /**
@@ -731,9 +731,7 @@ func LabelsForJBossWeb(j *jwsserversv1alpha1.JBossWebServer) map[string]string {
 //  expecting the format which the StatefulSet works with which is `<podname>-<number>`
 func SortPodListByName(podList *corev1.PodList) *corev1.PodList {
 	sort.SliceStable(podList.Items, func(i, j int) bool {
-		sort.SliceStable(podList.Items, func(i, j int) bool {
-			return podList.Items[i].ObjectMeta.Name < podList.Items[j].ObjectMeta.Name
-		})
+		return podList.Items[i].ObjectMeta.Name < podList.Items[j].ObjectMeta.Name
 	})
 	return podList
 }
