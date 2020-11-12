@@ -306,6 +306,26 @@ func (r *ReconcileJBossWebServer) Reconcile(request reconcile.Request) (reconcil
 		updateJBossWebServer = true
 	}
 
+	if r.isOpenShift {
+		route := &routev1.Route{}
+		err = r.client.Get(context.TODO(), types.NamespacedName{Name: jbosswebserver.Spec.ApplicationName, Namespace: jbosswebserver.Namespace}, route)
+		if err != nil {
+			reqLogger.Error(err, "Failed to get Route.", "Route.Namespace", route.Namespace, "Route.Name", route.Name)
+			return reconcile.Result{}, err
+		}
+
+		hosts := make([]string, len(route.Status.Ingress))
+		for i, ingress := range route.Status.Ingress {
+			hosts[i] = ingress.Host
+		}
+		sort.Strings(hosts)
+		if !reflect.DeepEqual(hosts, jbosswebserver.Status.Hosts) {
+			updateJBossWebServer = true
+			jbosswebserver.Status.Hosts = hosts
+			reqLogger.Info("Will update Status.Hosts")
+		}
+	}
+
 	// Make sure the number of active pods is the desired replica size.
 	numberOfDeployedPods := int32(len(podList.Items))
 	if numberOfDeployedPods != jbosswebserver.Spec.Replicas {
