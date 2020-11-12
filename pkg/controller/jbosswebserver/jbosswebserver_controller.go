@@ -177,12 +177,12 @@ func (r *ReconcileJBossWebServer) Reconcile(request reconcile.Request) (reconcil
 			// Route created successfully - return and requeue
 			return reconcile.Result{Requeue: true}, nil
 		} else if err != nil {
-			reqLogger.Error(err, "Failed to get Service.")
+			reqLogger.Error(err, "Failed to get Route.")
 			return reconcile.Result{}, err
 		}
 	}
 
-	foundreplicas := int32(-1) // we need the foundDeployment.Spec.Replicas which is &appsv1.DeploymentConfig{} or &kbappsv1.Deployment{}
+	foundReplicas := int32(-1) // we need the foundDeployment.Spec.Replicas which is &appsv1.DeploymentConfig{} or &kbappsv1.Deployment{}
 	if jbosswebserver.Spec.ApplicationImage == "" {
 
 		// Check if the ImageStream already exists, if not create a new one
@@ -241,10 +241,10 @@ func (r *ReconcileJBossWebServer) Reconcile(request reconcile.Request) (reconcil
 		}
 
 		// Handle Scaling
-		foundreplicas = foundDeployment.Spec.Replicas
+		foundReplicas = foundDeployment.Spec.Replicas
 		replicas := jbosswebserver.Spec.Replicas
-		if foundreplicas != replicas {
-			reqLogger.Info("DeploymentConfig foundreplicas != replicas requeueing")
+		if foundReplicas != replicas {
+			reqLogger.Info("Deployment replicas number does not match the JBossWebServer specification")
 			foundDeployment.Spec.Replicas = replicas
 			err = r.client.Update(context.TODO(), foundDeployment)
 			if err != nil {
@@ -275,10 +275,10 @@ func (r *ReconcileJBossWebServer) Reconcile(request reconcile.Request) (reconcil
 		}
 
 		// Handle Scaling
-		foundreplicas = *foundDeployment.Spec.Replicas
+		foundReplicas = *foundDeployment.Spec.Replicas
 		replicas := jbosswebserver.Spec.Replicas
-		if foundreplicas != replicas {
-			reqLogger.Info("Deployment foundreplicas != replicas requeueing")
+		if foundReplicas != replicas {
+			reqLogger.Info("Deployment replicas number does not match the JBossWebServer specification")
 			foundDeployment.Spec.Replicas = &replicas
 			err = r.client.Update(context.TODO(), foundDeployment)
 			if err != nil {
@@ -299,10 +299,9 @@ func (r *ReconcileJBossWebServer) Reconcile(request reconcile.Request) (reconcil
 
 	// Update the pod status...
 	updateJBossWebServer, podsStatus := getPodStatus(podList.Items, jbosswebserver.Status.Pods)
-	reqLogger.Info("pod status with new status", "Pod statuses", podsStatus)
 	if !reflect.DeepEqual(podsStatus, jbosswebserver.Status.Pods) {
-		reqLogger.Info("Will update the pod status with new status", "Pod statuses", podsStatus)
-		reqLogger.Info("Will update the pod status with new status", "Pod statuses", jbosswebserver.Status.Pods)
+		reqLogger.Info("Will update the JBossWebServer pod status", "New pod status list", podsStatus)
+		reqLogger.Info("Will update the JBossWebServer pod status", "Existing pod status list", jbosswebserver.Status.Pods)
 		jbosswebserver.Status.Pods = podsStatus
 		updateJBossWebServer = true
 	}
@@ -310,19 +309,20 @@ func (r *ReconcileJBossWebServer) Reconcile(request reconcile.Request) (reconcil
 	// Make sure the number of active pods is the desired replica size.
 	numberOfDeployedPods := int32(len(podList.Items))
 	if numberOfDeployedPods != jbosswebserver.Spec.Replicas {
-		reqLogger.Info("numberOfDeployedPods != jbosswebserver.Spec.Replicas requeueing")
+		reqLogger.Info("Number of deployed pods does not match the JBossWebServer specification")
 		updateJBossWebServer = true
 	}
 
 	// Update the replicas
-	if jbosswebserver.Status.Replicas != foundreplicas {
-		reqLogger.Info("Will update the Replicas")
-		jbosswebserver.Status.Replicas = foundreplicas
+	if jbosswebserver.Status.Replicas != foundReplicas {
+		reqLogger.Info("Will update Status.Replicas")
+		jbosswebserver.Status.Replicas = foundReplicas
 		updateJBossWebServer = true
 	}
 	// Update the scaledown
-	numberOfPodsToScaleDown := foundreplicas - jbosswebserver.Spec.Replicas
+	numberOfPodsToScaleDown := foundReplicas - jbosswebserver.Spec.Replicas
 	if jbosswebserver.Status.ScalingdownPods != numberOfPodsToScaleDown {
+		reqLogger.Info("Will update Status.ScalingdownPods")
 		jbosswebserver.Status.ScalingdownPods = numberOfPodsToScaleDown
 		updateJBossWebServer = true
 	}
