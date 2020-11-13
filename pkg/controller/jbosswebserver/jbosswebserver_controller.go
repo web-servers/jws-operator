@@ -298,7 +298,12 @@ func (r *ReconcileJBossWebServer) Reconcile(request reconcile.Request) (reconcil
 	}
 
 	// Update the pod status...
-	updateJBossWebServer, podsStatus := getPodStatus(podList.Items, jbosswebserver.Status.Pods)
+	updateJBossWebServer := false
+	podsMissingIP, podsStatus := getPodStatus(podList.Items, jbosswebserver.Status.Pods)
+	if podsMissingIP{
+		reqLogger.Info("Some pods don't have an IP, will requeue")
+		updateJBossWebServer = true
+	}
 	if !reflect.DeepEqual(podsStatus, jbosswebserver.Status.Pods) {
 		reqLogger.Info("Will update the JBossWebServer pod status", "New pod status list", podsStatus)
 		reqLogger.Info("Will update the JBossWebServer pod status", "Existing pod status list", jbosswebserver.Status.Pods)
