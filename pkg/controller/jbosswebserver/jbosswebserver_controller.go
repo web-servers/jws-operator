@@ -109,6 +109,7 @@ type ReconcileJBossWebServer struct {
 func (r *ReconcileJBossWebServer) Reconcile(request reconcile.Request) (reconcile.Result, error) {
 	reqLogger := log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
 	reqLogger.Info("Reconciling JBossWebServer")
+	updateJBossWebServer := false
 
 	// Fetch the JBossWebServer tomcat
 	jbosswebserver := &jwsserversv1alpha1.JBossWebServer{}
@@ -240,6 +241,10 @@ func (r *ReconcileJBossWebServer) Reconcile(request reconcile.Request) (reconcil
 			return reconcile.Result{}, err
 		}
 
+		if int(foundDeployment.Status.LatestVersion) == 0 {
+			reqLogger.Info("The deployment has not finished deploying the pods yet")
+		}
+
 		// Handle Scaling
 		foundReplicas = foundDeployment.Spec.Replicas
 		replicas := jbosswebserver.Spec.Replicas
@@ -298,9 +303,8 @@ func (r *ReconcileJBossWebServer) Reconcile(request reconcile.Request) (reconcil
 	}
 
 	// Update the pod status...
-	updateJBossWebServer := false
 	podsMissingIP, podsStatus := getPodStatus(podList.Items, jbosswebserver.Status.Pods)
-	if podsMissingIP{
+	if podsMissingIP {
 		reqLogger.Info("Some pods don't have an IP, will requeue")
 		updateJBossWebServer = true
 	}
@@ -797,10 +801,21 @@ func getPodStatus(pods []corev1.Pod, originalPodStatuses []jwsserversv1alpha1.Po
 		podStatusesOriginalMap[v.Name] = v
 	}
 	for _, pod := range pods {
-		podState := jwsserversv1alpha1.PodStateActive
-		if value, exists := podStatusesOriginalMap[pod.Name]; exists {
-			podState = value.State
+		podState := ""
+
+		// if value, exists := podStatusesOriginalMap[pod.Name]; exists {
+		// 	podState = value.State
+		// }
+
+		switch pod.Status.Phase {
+		case "Pending":
+			podState = "PENDING"
+		case "Failed":
+			podState = "FAILED"
+		default:
+			podState = jwsserversv1alpha1.PodStateActive
 		}
+
 		podStatuses = append(podStatuses, jwsserversv1alpha1.PodStatus{
 			Name:  pod.Name,
 			PodIP: pod.Status.PodIP,

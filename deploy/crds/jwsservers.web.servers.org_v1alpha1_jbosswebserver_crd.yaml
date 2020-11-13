@@ -92,9 +92,8 @@ spec:
                       during scale down.
                     enum:
                     - ACTIVE
-                    - SCALING_DOWN_RECOVERY_INVESTIGATION
-                    - SCALING_DOWN_RECOVERY_DIRTY
-                    - SCALING_DOWN_CLEAN
+                    - FAILED
+                    - PENDING
                     type: string
                 required:
                 - name
