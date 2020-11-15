@@ -801,19 +801,17 @@ func getPodStatus(pods []corev1.Pod, originalPodStatuses []jwsserversv1alpha1.Po
 		podStatusesOriginalMap[v.Name] = v
 	}
 	for _, pod := range pods {
-		podState := ""
-
-		// if value, exists := podStatusesOriginalMap[pod.Name]; exists {
-		// 	podState = value.State
-		// }
+		podState := jwsserversv1alpha1.PodStateFailed
 
 		switch pod.Status.Phase {
-		case "Pending":
-			podState = "PENDING"
-		case "Failed":
-			podState = "FAILED"
-		default:
+		case corev1.PodPending:
+			podState = jwsserversv1alpha1.PodStatePending
+		case corev1.PodRunning:
 			podState = jwsserversv1alpha1.PodStateActive
+		}
+
+		if value, exists := podStatusesOriginalMap[pod.Name]; exists {
+			podState = value.State
 		}
 
 		podStatuses = append(podStatuses, jwsserversv1alpha1.PodStatus{
