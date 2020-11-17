@@ -233,10 +233,10 @@ func (r *ReconcileJBossWebServer) Reconcile(request reconcile.Request) (reconcil
 
 		switch build.Status.Phase {
 		case buildv1.BuildPhaseFailed:
-			reqLogger.Info("BUILD Failed "+build.Status.Message)
+			reqLogger.Info("BUILD Failed " + build.Status.Message)
 			return reconcile.Result{}, nil
 		case buildv1.BuildPhaseError:
-			reqLogger.Info("BUILD Failed "+build.Status.Message)
+			reqLogger.Info("BUILD Failed " + build.Status.Message)
 			return reconcile.Result{}, nil
 		case buildv1.BuildPhaseCancelled:
 			reqLogger.Info("BUILD Canceled")
@@ -324,7 +324,7 @@ func (r *ReconcileJBossWebServer) Reconcile(request reconcile.Request) (reconcil
 	}
 
 	// Update the pod status...
-	podsMissingIP, podsStatus := getPodStatus(podList.Items, jbosswebserver.Status.Pods)
+	podsMissingIP, podsStatus := getPodStatus(podList.Items)
 	if podsMissingIP {
 		reqLogger.Info("Some pods don't have an IP, will requeue")
 		updateJBossWebServer = true
@@ -814,13 +814,9 @@ func UpdateStatus(j *jwsserversv1alpha1.JBossWebServer, client client.Client, ob
 }
 
 // getPodStatus returns the pod names of the array of pods passed in
-func getPodStatus(pods []corev1.Pod, originalPodStatuses []jwsserversv1alpha1.PodStatus) (bool, []jwsserversv1alpha1.PodStatus) {
+func getPodStatus(pods []corev1.Pod) (bool, []jwsserversv1alpha1.PodStatus) {
 	var requeue = false
 	var podStatuses []jwsserversv1alpha1.PodStatus
-	podStatusesOriginalMap := make(map[string]jwsserversv1alpha1.PodStatus)
-	for _, v := range originalPodStatuses {
-		podStatusesOriginalMap[v.Name] = v
-	}
 	for _, pod := range pods {
 		podState := jwsserversv1alpha1.PodStateFailed
 
@@ -829,10 +825,6 @@ func getPodStatus(pods []corev1.Pod, originalPodStatuses []jwsserversv1alpha1.Po
 			podState = jwsserversv1alpha1.PodStatePending
 		case corev1.PodRunning:
 			podState = jwsserversv1alpha1.PodStateActive
-		}
-
-		if value, exists := podStatusesOriginalMap[pod.Name]; exists {
-			podState = value.State
 		}
 
 		podStatuses = append(podStatuses, jwsserversv1alpha1.PodStatus{
