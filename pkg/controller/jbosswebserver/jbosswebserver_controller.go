@@ -233,10 +233,10 @@ func (r *ReconcileJBossWebServer) Reconcile(request reconcile.Request) (reconcil
 
 		switch build.Status.Phase {
 		case buildv1.BuildPhaseFailed:
-			reqLogger.Info("BUILD Failed " + build.Status.Message)
+			reqLogger.Info("BUILD Failed: " + build.Status.Message)
 			return reconcile.Result{}, nil
 		case buildv1.BuildPhaseError:
-			reqLogger.Info("BUILD Failed " + build.Status.Message)
+			reqLogger.Info("BUILD Failed: " + build.Status.Message)
 			return reconcile.Result{}, nil
 		case buildv1.BuildPhaseCancelled:
 			reqLogger.Info("BUILD Canceled")
