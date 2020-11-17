@@ -36,10 +36,39 @@ type JBossWebServerSpec struct {
 }
 
 // JBossWebServerStatus defines the observed state of JBossWebServer
+// +k8s:openapi-gen=true
 type JBossWebServerStatus struct {
-	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
-	// Important: Run "operator-sdk generate k8s" to regenerate code after modifying this file
-	// Add custom validation using kubebuilder tags: https://book-v1.book.kubebuilder.io/beyond_basics/generating_crd.html
+	// Replicas is the actual number of replicas for the application
+	Replicas int32 `json:"replicas"`
+	// +listType=atomic
+	Pods []PodStatus `json:"pods,omitempty"`
+	// +listType=set
+	Hosts []string `json:"hosts,omitempty"`
+	// Represents the number of pods which are in scaledown process
+	// what particular pod is scaling down can be verified by PodStatus
+	//
+	// Read-only.
+	ScalingdownPods int32 `json:"scalingdownPods"`
+}
+
+const (
+	// PodStateActive represents PodStatus.State when pod is active to serve requests
+	// it's connected in the Service load balancer
+	PodStateActive = "ACTIVE"
+	// PodStatePending represents PodStatus.State when pod is pending
+	PodStatePending = "PENDING"
+	// PodStateFailed represents PodStatus.State when pod has failed
+	PodStateFailed = "FAILED"
+)
+
+// PodStatus defines the observed state of pods running the JBossWebServer application
+// +k8s:openapi-gen=true
+type PodStatus struct {
+	Name  string `json:"name"`
+	PodIP string `json:"podIP"`
+	// Represent the state of the Pod, it is used especially during scale down.
+	// +kubebuilder:validation:Enum=ACTIVE;PENDING;FAILED
+	State string `json:"state"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

@@ -49,6 +49,7 @@ rules:
       - build.openshift.io
     resources:
       - buildconfigs
+      - builds
     verbs:
       - "*"
   - apiGroups:
