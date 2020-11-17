@@ -2,6 +2,8 @@ package jbosswebserver
 
 import (
 	"context"
+	"strconv"
+
 	//	"os"
 	"reflect"
 	"sort"
@@ -204,15 +206,16 @@ func (r *ReconcileJBossWebServer) Reconcile(request reconcile.Request) (reconcil
 			return reconcile.Result{}, err
 		}
 
+		buildConfig := &buildv1.BuildConfig{}
 		// Check if the BuildConfig already exists, if not create a new one
-		err = r.client.Get(context.TODO(), types.NamespacedName{Name: jbosswebserver.Spec.ApplicationName, Namespace: jbosswebserver.Namespace}, &buildv1.BuildConfig{})
+		err = r.client.Get(context.TODO(), types.NamespacedName{Name: jbosswebserver.Spec.ApplicationName, Namespace: jbosswebserver.Namespace}, buildConfig)
 		if err != nil && errors.IsNotFound(err) {
 			// Define a new BuildConfig
-			bui := r.buildConfigForJBossWebServer(jbosswebserver)
-			reqLogger.Info("Creating a new BuildConfig.", "BuildConfig.Namespace", bui.Namespace, "BuildConfig.Name", bui.Name)
-			err = r.client.Create(context.TODO(), bui)
+			buildConfig = r.buildConfigForJBossWebServer(jbosswebserver)
+			reqLogger.Info("Creating a new BuildConfig.", "BuildConfig.Namespace", buildConfig.Namespace, "BuildConfig.Name", buildConfig.Name)
+			err = r.client.Create(context.TODO(), buildConfig)
 			if err != nil && !errors.IsAlreadyExists(err) {
-				reqLogger.Error(err, "Failed to create new BuildConfig.", "BuildConfig.Namespace", bui.Namespace, "BuildConfig.Name", bui.Name)
+				reqLogger.Error(err, "Failed to create new BuildConfig.", "BuildConfig.Namespace", buildConfig.Namespace, "BuildConfig.Name", buildConfig.Name)
 				return reconcile.Result{}, err
 			}
 			// BuildConfig created successfully - return and requeue
@@ -220,6 +223,24 @@ func (r *ReconcileJBossWebServer) Reconcile(request reconcile.Request) (reconcil
 		} else if err != nil {
 			reqLogger.Error(err, "Failed to get BuildConfig.")
 			return reconcile.Result{}, err
+		}
+
+		build := &buildv1.Build{}
+		err = r.client.Get(context.TODO(), types.NamespacedName{Name: jbosswebserver.Spec.ApplicationName + "-" + strconv.FormatInt(buildConfig.Status.LastVersion, 10), Namespace: jbosswebserver.Namespace}, build)
+		if err != nil && !errors.IsNotFound(err) {
+			reqLogger.Error(err, "Failed to get Build")
+		}
+
+		switch build.Status.Phase {
+		case buildv1.BuildPhaseFailed:
+			reqLogger.Info("BUILD Failed "+build.Status.Message)
+			return reconcile.Result{}, nil
+		case buildv1.BuildPhaseError:
+			reqLogger.Info("BUILD Failed "+build.Status.Message)
+			return reconcile.Result{}, nil
+		case buildv1.BuildPhaseCancelled:
+			reqLogger.Info("BUILD Canceled")
+			return reconcile.Result{}, nil
 		}
 
 		// Check if the DeploymentConfig already exists, if not create a new one
