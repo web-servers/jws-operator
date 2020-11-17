@@ -71,7 +71,52 @@ spec:
             - replicas
           type: object
         status:
+          description: JBossWebServerStatus defines the observed state of JBossWebServer
+          properties:
+            hosts:
+              items:
+                type: string
+              type: array
+              x-kubernetes-list-type: set
+            pods:
+              items:
+                description: PodStatus defines the observed state of pods running
+                  the JBossWebServer application
+                properties:
+                  name:
+                    type: string
+                  podIP:
+                    type: string
+                  state:
+                    description: Represent the state of the Pod, it is used especially
+                      during scale down.
+                    enum:
+                    - ACTIVE
+                    - FAILED
+                    - PENDING
+                    type: string
+                required:
+                - name
+                - podIP
+                - state
+                type: object
+              type: array
+              x-kubernetes-list-type: atomic
+            replicas:
+              description: Replicas is the actual number of replicas for the application
+              format: int32
+              type: integer
+            scalingdownPods:
+              description: "Represents the number of pods which are in scaledown process
+                what particular pod is scaling down can be verified by PodStatus \n
+                Read-only."
+              format: int32
+              type: integer
+          required:
+          - replicas
+          - scalingdownPods
           type: object
+      type: object
   version: v1alpha1
   versions:
     - name: v1alpha1
