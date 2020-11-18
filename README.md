@@ -12,33 +12,45 @@ The prototype has been written in Golang. it uses [dep](https://golang.github.io
 
 The development workflow used in this prototype is standard to all Operator development:
 
-1. Build the operator-sdk version we need and add a Custom Resource Definition
+1. Build the operator-sdk version we need
 
 ```bash
 $ make setup
-$ operator-sdk add api --api-version=web.servers.org/v1alpha1 --kind=JBossWebServer
 ```
 
-2. Define its attributes (by editing the generated file _jbosswebserver_types.go_)
-3. Update the generated code. This needs to be done every time CRDs are altered
+2 . Add a Custom Resource Definition
+
+```bash
+$ operator-sdk add api --api-version=web.servers.org/v1alpha1 --kind=JbossWebServer
+```
+
+3. Define its attributes (by editing the generated file _jbosswebserver_types.go_)
+4. Update the generated code. This needs to be done every time CRDs are altered
 
 ```bash
 $ operator-sdk generate k8s
 ```
 
-4. Define the specifications of the CRD (by editing the generated file _deploy/crds/jwsservers.web.servers.org_v1alpha1_jbosswebserver_crd.yaml_) and update the generated code
-5. Add a Controller for that Custom Resource
+5. Define the specifications of the CRD (by editing the generated file _deploy/crds/web.servers.org_jbosswebservers_crd.yaml_) and update the generated code
+
+6. Add a Controller for that Custom Resource
 
 ```bash
-$ operator-sdk add controller --api-version=web.servers.org --help/v1alpha1 --kind=JBossWebServer
+$ operator-sdk add controller --api-version=web.servers.org/v1alpha1 --kind=JbossWebServer
 ```
 
-6. Write the Controller logic and adapt roles to give permissions to necessary resources
-7. Generate the CR and CVS doing the following (adjust the version when needed):
+7. Write the Controller logic and adapt roles to give permissions to necessary resources
+8. Generate the CR and CVS doing the following (adjust the version when needed):
 
 ```bash
 $ operator-sdk generate crds
 $ operator-sdk generate csv --csv-version 0.1.0
+```
+
+9. Generate the OLM and catalog (in deploy/olm-catalog).
+
+```bash
+$ olm-catalog gen-csv --csv-version 0.1.0
 ```
 
 ## Building the Operator
@@ -121,7 +133,7 @@ If you don't use the **-n openshift** or use another ImageStream name you will h
 4. Create the necessary resources
 
 ```bash
-$ oc create -f deploy/crds/jwsservers.web.servers.org_v1alpha1_jbosswebserver_crd.yaml -n $NAMESPACE
+$ oc create -f deploy/crds/web.servers.org_v1alpha1_jbosswebserver_crd.yaml -n $NAMESPACE
 $ oc create -f deploy/service_account.yaml -n $NAMESPACE
 $ oc create -f deploy/role.yaml -n $NAMESPACE
 $ oc create -f deploy/role_binding.yaml -n $NAMESPACE
@@ -133,22 +145,24 @@ $ oc create -f deploy/role_binding.yaml -n $NAMESPACE
 $ oc create -f deploy/operator.yaml
 ```
 
-6. Create a Tomcat instance (Custom Resource). An example has been provided in _deploy/crds/jwsservers.web.servers.org_v1alpha1_jbosswebserver_cr.yaml_
+6. Create a Tomcat instance (Custom Resource). An example has been provided in _deploy/crds/web.servers.org_v1alpha1_jbosswebserver_cr.yaml_
    make sure you adjust sourceRepositoryUrl, sourceRepositoryRef (branch) and contextDir (subdirectory) to you webapp sources, branch and context.
    like:
 
 ```
-  sourceRepositoryUrl: https://github.com/jfclere/demo-webapp.git
-  sourceRepositoryRef: "master"
-  contextDir: /
-  imageStreamNamespace: openshift
-  imageStreamName: jboss-webserver54-openjdk8-tomcat9-ubi8-openshift:latest
+  JbossWebSources:
+    sourceRepositoryUrl: https://github.com/jfclere/demo-webapp.git
+    sourceRepositoryRef: "master"
+    contextDir: /
+  JbossWebImageStream:
+    imageStreamNamespace: openshift
+    imageStreamName: jboss-webserver54-openjdk8-tomcat9-ubi8-openshift:latest
 ```
 
 Then deploy your webapp.
 
 ```bash
-$ oc apply -f deploy/crds/jwsservers.web.servers.org_v1alpha1_jbosswebserver_cr.yaml
+$ oc apply -f deploy/crds/web.servers.org_v1alpha1_jbosswebserver_cr.yaml
 ```
 
 7. If the DNS is not setup in your Openshift installation, you will need to add the resulting route to your local `/etc/hosts` file in order to resolve the URL. It has point to the IP address of the node running the router. You can determine this address by running `oc get endpoints` with a cluster-admin user.
@@ -187,16 +201,11 @@ image: @OP_IMAGE_TAG@ set to right value and then use kubernetes apply -f deploy
 2. Prepare your image and push it somewhere
    See https://github.com/jfclere/tomcat-openshift or https://github.com/apache/tomcat/tree/master/modules/stuffed to build the images.
 
-3. Create a Tomcat instance (Custom Resource). An example has been provided in _deploy/crds/jwsservers.web.servers.org_v1alpha1_jbosswebserver_cr.yaml_
+3. Create a Tomcat instance (Custom Resource). An example has been provided in _deploy/crds/web.servers.org_v1alpha1_jbosswebserver_cr.yaml_
 
 ```
   applicationName: jws-app
   applicationImage: docker.io/jfclere/tomcat-demo
-  #sourceRepositoryUrl: https://github.com/jboss-openshift/openshift-quickstarts.git
-  #sourceRepositoryRef: "1.2"
-  #contextDir: tomcat-websocket-chat
-  #imageStreamNamespace: openshift
-  #imageStreamName: jboss-webserver53-tomcat9-openshift:latest
 ```
 
 Make sure imageStreamName is commented out otherwise the operator will try to build from the sources
@@ -204,7 +213,7 @@ Make sure imageStreamName is commented out otherwise the operator will try to bu
 4. Then deploy your webapp.
 
 ```bash
-$ oc apply -f deploy/crds/jwsservers.web.servers.org_v1alpha1_jbosswebserver_cr.yaml
+$ oc apply -f deploy/crds/web.servers.org_v1alpha1_jbosswebserver_cr.yaml
 ```
 
 5. If you are on OpenShift the operator will create the route for you and you can use it
@@ -245,9 +254,11 @@ For example if you are using the JWS 5.3 images you need the following:
 
 ```
   # For pre JWS-5.4 image you need to set username/password and use the following health check.
-  jwsAdminUsername: tomcat
-  jwsAdminPassword: tomcat
-  serverReadinessScript: /bin/bash -c "/usr/bin/curl --noproxy '*' -s -u ${JWS_ADMIN_USERNAME}:${JWS_ADMIN_PASSWORD} 'http://localhost:8080/manager/jmxproxy/?get=Catalina%3Atype%3DServer&att=stateName' | /usr/bin/grep -iq 'stateName *= *STARTED'"
+  JbossWebServerHealthCheck:
+    serverReadinessScript: /bin/bash -c "/usr/bin/curl --noproxy '*' -s -u ${JWS_ADMIN_USERNAME}:${JWS_ADMIN_PASSWORD} 'http://localhost:8080/manager/jmxproxy/?get=Catalina%3Atype%3DServer&att=stateName' | /usr/bin/grep -iq 'stateName *= *STARTED'"
+    JbossWebServer53HealthCheck:
+      jwsAdminUsername: tomcat
+      jwsAdminPassword: tomcat
 ```
 
 The 5.3 are using the manager webapp and jmx to figure if the server is started.
