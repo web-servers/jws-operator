@@ -13,17 +13,17 @@ import (
 
 func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenAPIDefinition {
 	return map[string]common.OpenAPIDefinition{
-		"github.com/web-servers/jws-operator/pkg/apis/jwsservers/v1alpha1.JBossWebServer":       schema_pkg_apis_jwsservers_v1alpha1_JBossWebServer(ref),
-		"github.com/web-servers/jws-operator/pkg/apis/jwsservers/v1alpha1.JBossWebServerSpec":   schema_pkg_apis_jwsservers_v1alpha1_JBossWebServerSpec(ref),
-		"github.com/web-servers/jws-operator/pkg/apis/jwsservers/v1alpha1.JBossWebServerStatus": schema_pkg_apis_jwsservers_v1alpha1_JBossWebServerStatus(ref),
+		"github.com/web-servers/jws-operator/pkg/apis/jbosswebservers/v1alpha1.JbossWebServer":       schema_pkg_apis_jbosswebservers_v1alpha1_JbossWebServer(ref),
+		"github.com/web-servers/jws-operator/pkg/apis/jbosswebservers/v1alpha1.JbossWebServerSpec":   schema_pkg_apis_jbosswebservers_v1alpha1_JbossWebServerSpec(ref),
+		"github.com/web-servers/jws-operator/pkg/apis/jbosswebservers/v1alpha1.JbossWebServerStatus": schema_pkg_apis_jbosswebservers_v1alpha1_JbossWebServerStatus(ref),
 	}
 }
 
-func schema_pkg_apis_jwsservers_v1alpha1_JBossWebServer(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_pkg_apis_jbosswebservers_v1alpha1_JbossWebServer(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "JBossWebServer is the Schema for the JBossWebServers API",
+				Description: "JbossWebServer is the Schema for the JbossWebServers API",
 				Properties: map[string]spec.Schema{
 					"kind": {
 						SchemaProps: spec.SchemaProps{
@@ -46,27 +46,27 @@ func schema_pkg_apis_jwsservers_v1alpha1_JBossWebServer(ref common.ReferenceCall
 					},
 					"spec": {
 						SchemaProps: spec.SchemaProps{
-							Ref: ref("github.com/web-servers/jws-operator/pkg/apis/jwsservers/v1alpha1.JBossWebServerSpec"),
+							Ref: ref("github.com/web-servers/jws-operator/pkg/apis/jbosswebservers/v1alpha1.JbossWebServerSpec"),
 						},
 					},
 					"status": {
 						SchemaProps: spec.SchemaProps{
-							Ref: ref("github.com/web-servers/jws-operator/pkg/apis/jwsservers/v1alpha1.JBossWebServerStatus"),
+							Ref: ref("github.com/web-servers/jws-operator/pkg/apis/jbosswebservers/v1alpha1.JbossWebServerStatus"),
 						},
 					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"github.com/web-servers/jws-operator/pkg/apis/jwsservers/v1alpha1.JBossWebServerSpec", "github.com/web-servers/jws-operator/pkg/apis/jwsservers/v1alpha1.JBossWebServerStatus", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
+			"github.com/web-servers/jws-operator/pkg/apis/jbosswebservers/v1alpha1.JbossWebServerSpec", "github.com/web-servers/jws-operator/pkg/apis/jbosswebservers/v1alpha1.JbossWebServerStatus", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
 	}
 }
 
-func schema_pkg_apis_jwsservers_v1alpha1_JBossWebServerSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_pkg_apis_jbosswebservers_v1alpha1_JbossWebServerSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "JBossWebServerSpec defines the desired state of JBossWebServer",
+				Description: "JbossWebServerSpec defines the desired state of JbossWebServer",
 				Properties:  map[string]spec.Schema{},
 			},
 		},
@@ -74,11 +74,11 @@ func schema_pkg_apis_jwsservers_v1alpha1_JBossWebServerSpec(ref common.Reference
 	}
 }
 
-func schema_pkg_apis_jwsservers_v1alpha1_JBossWebServerStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_pkg_apis_jbosswebservers_v1alpha1_JbossWebServerStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "JBossWebServerStatus defines the observed state of JBossWebServer",
+				Description: "JbossWebServerStatus defines the observed state of JbossWebServer",
 				Properties:  map[string]spec.Schema{},
 			},
 		},
