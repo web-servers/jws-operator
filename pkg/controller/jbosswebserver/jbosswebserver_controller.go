@@ -905,7 +905,7 @@ func createBuildTriggerPolicy(t *jbosswebserversv1alpha1.JbossWebServer) []build
 		if params != nil {
 			if params.GithubWebhookSecret != "" {
 				env = append(env, buildv1.BuildTriggerPolicy{
-					Type: "Github",
+					Type: "GitHub",
 					GitHubWebHook: &buildv1.WebHookTrigger{
 						Secret: params.GithubWebhookSecret,
 					},
@@ -914,7 +914,7 @@ func createBuildTriggerPolicy(t *jbosswebserversv1alpha1.JbossWebServer) []build
 			if params.GenericWebhookSecret != "" {
 				env = append(env, buildv1.BuildTriggerPolicy{
 					Type: "Generic",
-					GitHubWebHook: &buildv1.WebHookTrigger{
+					GenericWebHook: &buildv1.WebHookTrigger{
 						Secret: params.GenericWebhookSecret,
 					},
 				})
