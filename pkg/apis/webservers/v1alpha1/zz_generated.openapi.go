@@ -13,17 +13,17 @@ import (
 
 func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenAPIDefinition {
 	return map[string]common.OpenAPIDefinition{
-		"github.com/web-servers/jws-operator/pkg/apis/jbosswebservers/v1alpha1.JbossWebServer":       schema_pkg_apis_jbosswebservers_v1alpha1_JbossWebServer(ref),
-		"github.com/web-servers/jws-operator/pkg/apis/jbosswebservers/v1alpha1.JbossWebServerSpec":   schema_pkg_apis_jbosswebservers_v1alpha1_JbossWebServerSpec(ref),
-		"github.com/web-servers/jws-operator/pkg/apis/jbosswebservers/v1alpha1.JbossWebServerStatus": schema_pkg_apis_jbosswebservers_v1alpha1_JbossWebServerStatus(ref),
+		"github.com/web-servers/jws-operator/pkg/apis/webservers/v1alpha1.WebServer":       schema_pkg_apis_webservers_v1alpha1_WebServer(ref),
+		"github.com/web-servers/jws-operator/pkg/apis/webservers/v1alpha1.WebServerSpec":   schema_pkg_apis_webservers_v1alpha1_WebServerSpec(ref),
+		"github.com/web-servers/jws-operator/pkg/apis/webservers/v1alpha1.WebServerStatus": schema_pkg_apis_webservers_v1alpha1_WebServerStatus(ref),
 	}
 }
 
-func schema_pkg_apis_jbosswebservers_v1alpha1_JbossWebServer(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_pkg_apis_webservers_v1alpha1_WebServer(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "JbossWebServer is the Schema for the JbossWebServers API",
+				Description: "WebServer is the Schema for the WebServers API",
 				Properties: map[string]spec.Schema{
 					"kind": {
 						SchemaProps: spec.SchemaProps{
@@ -46,27 +46,27 @@ func schema_pkg_apis_jbosswebservers_v1alpha1_JbossWebServer(ref common.Referenc
 					},
 					"spec": {
 						SchemaProps: spec.SchemaProps{
-							Ref: ref("github.com/web-servers/jws-operator/pkg/apis/jbosswebservers/v1alpha1.JbossWebServerSpec"),
+							Ref: ref("github.com/web-servers/jws-operator/pkg/apis/webservers/v1alpha1.WebServerSpec"),
 						},
 					},
 					"status": {
 						SchemaProps: spec.SchemaProps{
-							Ref: ref("github.com/web-servers/jws-operator/pkg/apis/jbosswebservers/v1alpha1.JbossWebServerStatus"),
+							Ref: ref("github.com/web-servers/jws-operator/pkg/apis/webservers/v1alpha1.WebServerStatus"),
 						},
 					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"github.com/web-servers/jws-operator/pkg/apis/jbosswebservers/v1alpha1.JbossWebServerSpec", "github.com/web-servers/jws-operator/pkg/apis/jbosswebservers/v1alpha1.JbossWebServerStatus", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
+			"github.com/web-servers/jws-operator/pkg/apis/webservers/v1alpha1.WebServerSpec", "github.com/web-servers/jws-operator/pkg/apis/webservers/v1alpha1.WebServerStatus", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
 	}
 }
 
-func schema_pkg_apis_jbosswebservers_v1alpha1_JbossWebServerSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_pkg_apis_webservers_v1alpha1_WebServerSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "JbossWebServerSpec defines the desired state of JbossWebServer",
+				Description: "WebServerSpec defines the desired state of WebServer",
 				Properties:  map[string]spec.Schema{},
 			},
 		},
@@ -74,11 +74,11 @@ func schema_pkg_apis_jbosswebservers_v1alpha1_JbossWebServerSpec(ref common.Refe
 	}
 }
 
-func schema_pkg_apis_jbosswebservers_v1alpha1_JbossWebServerStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_pkg_apis_webservers_v1alpha1_WebServerStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "JbossWebServerStatus defines the observed state of JbossWebServer",
+				Description: "WebServerStatus defines the observed state of WebServer",
 				Properties:  map[string]spec.Schema{},
 			},
 		},

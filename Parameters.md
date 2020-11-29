@@ -1,101 +1,101 @@
-## Parameter to use in CRD
+# Parameters to use in CRD
 
-# replicas (mandatory all configuration)
+## replicas (mandatory all configuration)
 
-That is the number of pods of the JWS image you want to run. Use at least 2!
+The number of pods of the JBoss Web Server image you want to run.
 
 ```
   replicas: 2
 ```
 
-# applicationName (mandatory all configuration)
+## applicationName (mandatory all configuration)
 
-That is the name of the application, it must be unique in the namespace/project. Note it is used to create the route to access
+The name of the application, it must be unique in the namespace/project. Note that it is used to create the route to access
 to that application.
 
 ```
   applicationName: test
 ```
 
-# applicationImage (customized images)
+## applicationImage (customized images) (Method 1)
 
-That is the URL to find the image you want to use with the operator. For example:
+The URL of the image you want to use with the operator. For example:
 
 ```
 applicationImage: docker.io/jfclere/tomcat-demo
 ```
 
-# JbossWebImageStream
+## webImageStream (Method 2)
 
-That describes the ImageStream to provide images to run or to build, the latest image in the stream is used.
+The image stream that provides images to run or to build upon. The latest image in the stream is used.
 
-## imageStreamName (mandatory BuildImage)
+### imageStreamName (mandatory BuildImage)
 
-That is the ImageStream you created to allow the operator to find the base images:
+The name of the image stream you created to allow the operator to find the base images.
 
 ```bash
-oc create -f xpaas-streams/jws53-tomcat9-image-stream.json
-imagestream.image.openshift.io/jboss-webserver53-tomcat9-openshift created
+oc create -f xpaas-streams/jws54-tomcat9-image-stream.json
+imagestream.image.openshift.io/jboss-webserver54-tomcat9-openshift created
 ```
 
-Here: imageStream: `jboss-webserver53-tomcat9-openshift:latest`
+Here: imageStream: `jboss-webserver54-tomcat9-openshift:latest`
 
-## imageStreamNamespace (BuildImage only)
+### imageStreamNamespace (BuildImage only)
 
-That is the namespace/project in which you create the ImageStream
+The namespace/project in which you created the image stream
 
 ```bash
-oc create -f xpaas-streams/jws53-tomcat9-image-stream.json -n jfc
-imagestream.image.openshift.io/jboss-webserver53-tomcat9-openshift created
+oc create -f xpaas-streams/jws54-tomcat9-image-stream.json -n jfc
+imagestream.image.openshift.io/jboss-webserver54-tomcat9-openshift created
 ```
 
 Here: imageStreamNamespace: jfc
 
-# JbossWebSources
+### webSources
 
-Describe where the sources are located and how build them
+Describes where the sources are located and how build them
 
-## sourceRepositoryUrl (Mandatory BuildImage)
+#### sourceRepositoryUrl (Mandatory BuildImage)
 
-That the URL were the sources are located, the source should have a maven pom.xml to allow a maven build, the produced war is put
-in the webapps directory of image /opt/jws-5.x/tomcat/webapps. See `ARTIFACT_DIR" here too.
+The URL where the sources are located. The source should contain a maven pom.xml to allow for a maven build. The produced war is put
+in the webapps directory of image /opt/jws-5.x/tomcat/webapps. See `artifactDir` as well.
 
 ```
  sourceRepositoryUrl: 'https://github.com/jfclere/demo-webapp.git'
 ```
 
-## sourceRepositoryRef (Mandatory BuildImage)
+#### sourceRepositoryRef (Mandatory BuildImage)
 
-That is the branch you want to build.
+The branch of the source repository that will be used.
 
 ```
 sourceRepositoryRef: master
 ```
 
-## contextDir (BuildImage only)
+#### contextDir (BuildImage only)
 
-That is the sub directory where the pom.xml is located and where the `mvn install` should be run.
+The sub directory where the pom.xml is located and where the `mvn install` should be run.
 
 ```
   contextDir: /
 ```
 
-## JbossWebSourcesParams
+#### webSourcesParams
 
-Those are additional parameter of JbossWebSourcesParams to describe how to build the application images.
+Those are additional parameter of webSourcesParams to describe how to build the application images.
 
-### ARTIFACT_DIR (BuidImage only)
+##### artifactDir (BuidImage only)
 
-The ARTIFACT_DIR is a parameter of SourceBuildStrategy the operator is using. It is the directory were maven put the war it creates for the webapp.
-The contents of ARTIFACT_DIR is copied in the webapps directory of the image /opt/jws-5.x/tomcat/webapps the default value is target.
+The artifactDir is a parameter of the SourceBuildStrategy the operator is using. It is the directory where maven places the war it creates for the webapp.
+The contents of artifactDir is copied in the webapps directory of the image used to deploy the application /opt/jws-5.x/tomcat/webapps. The default value is target.
 
-### MAVEN_MIRROR_URL (BuildImage only)
+##### mavenMirrorUrl (BuildImage only)
 
-The MAVEN_MIRROR_URL is a parameter of SourceBuildStrategy the operator is using. It is the maven proxy URL maven will use to build the webapp. You need it if your cluster has not access to the Internet.
+The mavenMirrorUrl is a parameter of the SourceBuildStrategy the operator is using. It is the maven proxy URL that maven will use to build the webapp. It is required if the cluster doesn't have access to the Internet.
 
-### genericWebhookSecret (BuildImage only)
+##### genericWebhookSecret (BuildImage only)
 
-That is a secret for a webhook to trigger a build.
+This is a secret for a generic webhook to trigger a build.
 Create a secret.yaml like:
 
 ```
@@ -141,7 +141,7 @@ oc describe BuildConfig | grep webhooks
 
 ```bash
 curl -H "X-GitHub-Event: push" -H "Content-Type: application/json" -k -X POST --data-binary @payload.json https://api.jclere.rhmw-runtimes.net:6443/apis/build.openshift.io/v1/namespaces/jfc/buildconfigs/test/webhooks/qwerty/generic
-{"kind":"Build","apiVersion":"build.openshift.io/v1","metadata":{"name":"test-2","namespace":"jfc","selfLink":"/apis/build.openshift.io/v1/namespaces/jfc/buildconfigs/test-2/instantiate","uid":"a72dd529-edc6-4e1c-898e-7c0dbbea176e","resourceVersion":"846159","creationTimestamp":"2020-10-30T12:29:30Z","labels":{"application":"test","buildconfig":"test","openshift.io/build-config.name":"test","openshift.io/build.start-policy":"Serial"},"annotations":{"openshift.io/build-config.name":"test","openshift.io/build.number":"2"},"ownerReferences":[{"apiVersion":"build.openshift.io/v1","kind":"BuildConfig","name":"test","uid":"1f78fa3f-2f3b-421b-9f49-192184cc2280","controller":true}],"managedFields":[{"manager":"openshift-apiserver","operation":"Update","apiVersion":"build.openshift.io/v1","time":"2020-10-30T12:29:30Z","fieldsType":"FieldsV1","fieldsV1":{"f:metadata":{"f:annotations":{".":{},"f:openshift.io/build-config.name":{},"f:openshift.io/build.number":{}},"f:labels":{".":{},"f:application":{},"f:buildconfig":{},"f:openshift.io/build-config.name":{},"f:openshift.io/build.start-policy":{}},"f:ownerReferences":{".":{},"k:{\"uid\":\"1f78fa3f-2f3b-421b-9f49-192184cc2280\"}":{".":{},"f:apiVersion":{},"f:controller":{},"f:kind":{},"f:name":{},"f:uid":{}}}},"f:spec":{"f:output":{"f:to":{".":{},"f:kind":{},"f:name":{}}},"f:serviceAccount":{},"f:source":{"f:contextDir":{},"f:git":{".":{},"f:ref":{},"f:uri":{}},"f:type":{}},"f:strategy":{"f:sourceStrategy":{".":{},"f:env":{},"f:forcePull":{},"f:from":{".":{},"f:kind":{},"f:name":{}},"f:pullSecret":{".":{},"f:name":{}}},"f:type":{}},"f:triggeredBy":{}},"f:status":{"f:conditions":{".":{},"k:{\"type\":\"New\"}":{".":{},"f:lastTransitionTime":{},"f:lastUpdateTime":{},"f:status":{},"f:type":{}}},"f:config":{".":{},"f:kind":{},"f:name":{},"f:namespace":{}},"f:phase":{}}}}]},"spec":{"serviceAccount":"builder","source":{"type":"Git","git":{"uri":"https://github.com/jfclere/demo-webapp.git","ref":"master"},"contextDir":"/"},"strategy":{"type":"Source","sourceStrategy":{"from":{"kind":"DockerImage","name":"image-registry.openshift-image-registry.svc:5000/jfc/jboss-webserver53-tomcat9-openshift@sha256:75dcdf81011e113b8c8d0a40af32dc705851243baa13b68352706154174319e7"},"pullSecret":{"name":"builder-dockercfg-rvbh8"},"env":[{"name":"MAVEN_MIRROR_URL"},{"name":"ARTIFACT_DIR"}],"forcePull":true}},"output":{"to":{"kind":"ImageStreamTag","name":"test:latest"}},"resources":{},"postCommit":{},"nodeSelector":null,"triggeredBy":[{"message":"Generic WebHook","genericWebHook":{"secret":"\u003csecret\u003e"}}]},"status":{"phase":"New","config":{"kind":"BuildConfig","namespace":"jfc","name":"test"},"output":{},"conditions":[{"type":"New","status":"True","lastUpdateTime":"2020-10-30T12:29:30Z","lastTransitionTime":"2020-10-30T12:29:30Z"}]}}
+{"kind":"Build","apiVersion":"build.openshift.io/v1","metadata":{"name":"test-2","namespace":"jfc","selfLink":"/apis/build.openshift.io/v1/namespaces/jfc/buildconfigs/test-2/instantiate","uid":"a72dd529-edc6-4e1c-898e-7c0dbbea176e","resourceVersion":"846159","creationTimestamp":"2020-10-30T12:29:30Z","labels":{"application":"test","buildconfig":"test","openshift.io/build-config.name":"test","openshift.io/build.start-policy":"Serial"},"annotations":{"openshift.io/build-config.name":"test","openshift.io/build.number":"2"},"ownerReferences":[{"apiVersion":"build.openshift.io/v1","kind":"BuildConfig","name":"test","uid":"1f78fa3f-2f3b-421b-9f49-192184cc2280","controller":true}],"managedFields":[{"manager":"openshift-apiserver","operation":"Update","apiVersion":"build.openshift.io/v1","time":"2020-10-30T12:29:30Z","fieldsType":"FieldsV1","fieldsV1":{"f:metadata":{"f:annotations":{".":{},"f:openshift.io/build-config.name":{},"f:openshift.io/build.number":{}},"f:labels":{".":{},"f:application":{},"f:buildconfig":{},"f:openshift.io/build-config.name":{},"f:openshift.io/build.start-policy":{}},"f:ownerReferences":{".":{},"k:{\"uid\":\"1f78fa3f-2f3b-421b-9f49-192184cc2280\"}":{".":{},"f:apiVersion":{},"f:controller":{},"f:kind":{},"f:name":{},"f:uid":{}}}},"f:spec":{"f:output":{"f:to":{".":{},"f:kind":{},"f:name":{}}},"f:serviceAccount":{},"f:source":{"f:contextDir":{},"f:git":{".":{},"f:ref":{},"f:uri":{}},"f:type":{}},"f:strategy":{"f:sourceStrategy":{".":{},"f:env":{},"f:forcePull":{},"f:from":{".":{},"f:kind":{},"f:name":{}},"f:pullSecret":{".":{},"f:name":{}}},"f:type":{}},"f:triggeredBy":{}},"f:status":{"f:conditions":{".":{},"k:{\"type\":\"New\"}":{".":{},"f:lastTransitionTime":{},"f:lastUpdateTime":{},"f:status":{},"f:type":{}}},"f:config":{".":{},"f:kind":{},"f:name":{},"f:namespace":{}},"f:phase":{}}}}]},"spec":{"serviceAccount":"builder","source":{"type":"Git","git":{"uri":"https://github.com/jfclere/demo-webapp.git","ref":"master"},"contextDir":"/"},"strategy":{"type":"Source","sourceStrategy":{"from":{"kind":"DockerImage","name":"image-registry.openshift-image-registry.svc:5000/jfc/jboss-webserver54-tomcat9-openshift@sha256:75dcdf81011e113b8c8d0a40af32dc705851243baa13b68352706154174319e7"},"pullSecret":{"name":"builder-dockercfg-rvbh8"},"env":[{"name":"MAVEN_MIRROR_URL"},{"name":"ARTIFACT_DIR"}],"forcePull":true}},"output":{"to":{"kind":"ImageStreamTag","name":"test:latest"}},"resources":{},"postCommit":{},"nodeSelector":null,"triggeredBy":[{"message":"Generic WebHook","genericWebHook":{"secret":"\u003csecret\u003e"}}]},"status":{"phase":"New","config":{"kind":"BuildConfig","namespace":"jfc","name":"test"},"output":{},"conditions":[{"type":"New","status":"True","lastUpdateTime":"2020-10-30T12:29:30Z","lastTransitionTime":"2020-10-30T12:29:30Z"}]}}
 {
   "kind": "Status",
   "apiVersion": "v1",
@@ -160,7 +160,7 @@ The build is triggered.
 
 Go to Setting+Webhooks+Add webhook in your github project and add the URL in the Payload URL, set Content type: application/json, Disable SSL verification if needed and click Add webhook. See https://docs.openshift.com/container-platform/4.6/builds/triggering-builds-build-hooks.html for more details.
 
-### githubWebhookSecret (BuildImage only)
+##### githubWebhookSecret (BuildImage only)
 
 That is a web hook specific to GitHub, it works like `genericWebhookSecret`
 
@@ -168,46 +168,20 @@ That is a web hook specific to GitHub, it works like `genericWebhookSecret`
 githubWebhookSecret: qwerty
 ```
 
-# JbossWebServerHealthCheck
+## webServerHealthCheck
 
-That describes the health check to use the default is to use the health valve and doesn't require any parameters.
+The health check that the operator will use. The default behavior is to use the health valve which doesn't require any parameters.
 
-## serverReadinessScript
+### serverReadinessScript
 
-That is the script used to check if a pod is ready. That is only mandary for JWS-5.3 iamges.
-An empty or not existing is the default. The default is to check http://localhost:8080/health using OpenShift internal.
-For example the JWS-5.3 is:
+String for the pod readiness health check logic. If left empty the default health check is used (it checks http://localhost:8080/health using OpenShift internal)
+Example :
 
 ```
-  serverReadinessScript: >-
-    /bin/bash -c "/usr/bin/curl --noproxy '*' -s -u
-    ${JWS_ADMIN_USERNAME}:${JWS_ADMIN_PASSWORD}
-    'http://localhost:8080/manager/jmxproxy/?get=Catalina%3Atype%3DServer&att=stateName'
-    | /usr/bin/grep -iq 'stateName *= *STARTED'"
+  serverReadinessScript: /bin/bash -c " /usr/bin/curl --noproxy '*' -s 'http://localhost:8080/health' | /usr/bin/grep -i 'status.*UP'"
 ```
 
 For the formats see the README.md.
 
-## serverLivenessScript
-
-That is the script to check that a pod is alive. That is NOT mandatory.
-
-## JbossWebServer53HealthCheck
-
-That is needed only if you use the manager webapp to check if Tomcat is started, that is mostly for JWS-5.3 and older images version.
-
-### jwsAdminUsername (JWS-5.3 images only)
-
-That is the admin user created in /opt/jws-5.3/tomcat/conf/tomcat-users.xml for the JWS-5.3 health check only.
-
-```
-jwsAdminUsername: tomcat
-```
-
-### jwsAdminPassword (JWS-5.3 images only)
-
-That is the password of the user created in /opt/jws-5.3/tomcat/conf/tomcat-users.xml for the JWS-5.3 health check only.
-
-```
-  jwsAdminPassword: tomcat
-```
+### serverLivenessScript
+The script that checks if the pod is running. It's use is optional.

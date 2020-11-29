@@ -7,83 +7,77 @@ import (
 // EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
 // NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
 
-// JbossWebServerSpec defines the desired state of JbossWebServer
-type JbossWebServerSpec struct {
+// WebServerSpec defines the desired state of WebServer
+type WebServerSpec struct {
 	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
 	// Important: Run "operator-sdk generate k8s" to regenerate code after modifying this file
 	// Add custom validation using kubebuilder tags: https://book-v1.book.kubebuilder.io/beyond_basics/generating_crd.html
 
-	// ApplicationImage is the name of the application image to be deployed
+	// The base for the names of the deployed application resources
 	ApplicationName string `json:"applicationName"`
-	// Replicas is the desired number of replicas for the application
+	// The desired number of replicas for the application
 	// +kubebuilder:validation:Minimum=0
 	Replicas int32 `json:"replicas"`
-	// Image information
-	JbossWebImage *JbossWebImageSpec `json:"JbossWebImage,omitempty"`
-	// ImageStream information
-	JbossWebImageStream *JbossWebImageStreamSpec `json:"JbossWebImageStream,omitempty"`
-	// Sources information
-	JbossWebSources *JbossWebSourcesSpec `json:"JbossWebSources,omitempty"`
-	// Health checks information
-	JbossWebServerHealthCheck *JbossWebServerHealthCheckSpec `json:"JbossWebServerHealthCheck,omitempty"`
+	// (Deployment method 1) Application image
+	WebImage *WebImageSpec `json:"webImage,omitempty"`
+	// (Deployment method 2) Imagestream
+	WebImageStream *WebImageStreamSpec `json:"webImageStream,omitempty"`
 }
 
-// Image somewhere.
-type JbossWebImageSpec struct {
-	// ApplicationImage is the name of the application image to be deployed
+// (Deployment method 1) Application image
+type WebImageSpec struct {
+	// The name of the application image to be deployed
 	ApplicationImage string `json:"applicationImage"`
+	// Pod health checks information
+	WebServerHealthCheck *WebServerHealthCheckSpec `json:"webServerHealthCheck,omitempty"`
 }
 
-// ImageStream description
-type JbossWebImageStreamSpec struct {
-	// ImageStream containing our images
+// (Deployment method 2) Imagestream
+type WebImageStreamSpec struct {
+	// The imagestream containing the image to be deployed
 	ImageStreamName string `json:"imageStreamName"`
-	// Space where the ImageStream is located
+	// The namespace where the image stream is located
 	ImageStreamNamespace string `json:"imageStreamNamespace"`
+	// (Optional) Source code information
+	WebSources *WebSourcesSpec `json:"webSources,omitempty"`
+	// Pod health checks information
+	WebServerHealthCheck *WebServerHealthCheckSpec `json:"webServerHealthCheck,omitempty"`
 }
 
-// Sources description
-type JbossWebSourcesSpec struct {
+// (Optional) Source code information
+type WebSourcesSpec struct {
 	// URL for the repository of the application sources
 	SourceRepositoryUrl string `json:"sourceRepositoryUrl"`
 	// Branch in the source repository
 	SourceRepositoryRef string `json:"sourceRepositoryRef"`
-	// sub directory in the source repository
+	// Subdirectory in the source repository
 	ContextDir string `json:"contextDir"`
-	// Sub not mandatory sources related parameters
-	JbossWebSourcesParams *JbossWebSourcesParamsSpec `json:"JbossWebSourcesParams,omitempty"`
+	// (Optional) Sources related parameters
+	WebSourcesParams *WebSourcesParamsSpec `json:"webSourcesParams,omitempty"`
 }
 
-// Sources no mandatory
-type JbossWebSourcesParamsSpec struct {
+// (Optional) Sources related parameters
+type WebSourcesParamsSpec struct {
 	// URL to a maven repository
 	MavenMirrorUrl string `json:"mavenMirrorUrl,omitempty"`
-	// Directory where the jar/war are created.
+	// Directory where the jar/war is created
 	ArtifactDir string `json:"artifactDir,omitempty"`
-	// Secret for generic web hook
+	// Secret for a generic web hook
 	GenericWebhookSecret string `json:"genericWebhookSecret,omitempty"`
-	// Secret for Github web hook
+	// Secret for a Github web hook
 	GithubWebhookSecret string `json:"githubWebhookSecret,omitempty"`
 }
 
-type JbossWebServerHealthCheckSpec struct {
-	// String for the readyness health check logic
+type WebServerHealthCheckSpec struct {
+	// String for the pod readiness health check logic
 	ServerReadinessScript string `json:"serverReadinessScript"`
-	// String for the alive health check logic
+	// String for the pod liveness health check logic
 	ServerLivenessScript string `json:"serverLivenessScript,omitempty"`
-	// Username and Password are for pre 5.4 images
-	JbossWebServer53HealthCheck *JbossWebServer53HealthCheckSpec `json:"JbossWebServer53HealthCheck,omitempty"`
-}
-type JbossWebServer53HealthCheckSpec struct {
-	// Admin User Name for the tomcat-users.xml
-	JwsAdminUsername string `json:"jwsAdminUsername"`
-	// Password for the Admin User in the tomcat-users.xml
-	JwsAdminPassword string `json:"jwsAdminPassword"`
 }
 
-// JbossWebServerStatus defines the observed state of JbossWebServer
+// WebServerStatus defines the observed state of WebServer
 // +k8s:openapi-gen=true
-type JbossWebServerStatus struct {
+type WebServerStatus struct {
 	// Replicas is the actual number of replicas for the application
 	Replicas int32 `json:"replicas"`
 	// +listType=atomic
@@ -107,7 +101,7 @@ const (
 	PodStateFailed = "FAILED"
 )
 
-// PodStatus defines the observed state of pods running the JbossWebServer application
+// PodStatus defines the observed state of pods running the WebServer application
 // +k8s:openapi-gen=true
 type PodStatus struct {
 	Name  string `json:"name"`
@@ -117,26 +111,26 @@ type PodStatus struct {
 	State string `json:"state"`
 }
 
-// JbossWebServer is the Schema for the jbosswebservers API
+// Web Server is the schema for the webservers API
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +kubebuilder:subresource:status
-// +kubebuilder:resource:path=jbosswebservers,scope=Namespaced
-type JbossWebServer struct {
+// +kubebuilder:resource:path=webservers,scope=Namespaced
+type WebServer struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec   JbossWebServerSpec   `json:"spec,omitempty"`
-	Status JbossWebServerStatus `json:"status,omitempty"`
+	Spec   WebServerSpec   `json:"spec,omitempty"`
+	Status WebServerStatus `json:"status,omitempty"`
 }
 
-// JbossWebServerList contains a list of JbossWebServer
+// WebServerList contains a list of WebServer
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
-type JbossWebServerList struct {
+type WebServerList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
-	Items           []JbossWebServer `json:"items"`
+	Items           []WebServer `json:"items"`
 }
 
 func init() {
-	SchemeBuilder.Register(&JbossWebServer{}, &JbossWebServerList{})
+	SchemeBuilder.Register(&WebServer{}, &WebServerList{})
 }

@@ -54,7 +54,7 @@ generate-operator.yaml:
 
 ## run-openshift                            Run the JWS operator on OpenShift.
 run-openshift:
-	oc create -f deploy/crds/web.servers.org_jbosswebservers_crd.yaml
+	oc create -f deploy/crds/web.servers.org_webservers_crd.yaml
 	oc create -f deploy/service_account.yaml
 	oc create -f deploy/role.yaml
 	oc create -f deploy/role_binding.yaml
@@ -63,7 +63,7 @@ run-openshift:
 
 ## run-kubernetes                           Run the Tomcat operator on kubernetes.
 run-kubernetes:
-	kubectl create -f deploy/crds/web.servers.org_jbosswebservers_crd.yaml
+	kubectl create -f deploy/crds/web.servers.org_webservers_crd.yaml
 	kubectl create -f deploy/service_account.yaml
 	kubectl create -f deploy/role.yaml
 	kubectl create -f deploy/role_binding.yaml

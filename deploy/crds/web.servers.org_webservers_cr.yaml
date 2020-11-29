@@ -1,0 +1,10 @@
+apiVersion: web.servers.org/v1alpha1
+kind: WebServer
+metadata:
+  name: example-image-webserver
+spec:
+  # Add fields here
+  applicationName: jws-app
+  replicas: 2
+  webImage:
+    applicationImage: quay.io/jfclere/jws-image:5.4
