@@ -1,4 +1,4 @@
-package jbosswebserver
+package webserver
 
 import (
 	"context"
@@ -10,7 +10,7 @@ import (
 
 	"k8s.io/apimachinery/pkg/util/intstr"
 
-	jbosswebserversv1alpha1 "github.com/web-servers/jws-operator/pkg/apis/jbosswebservers/v1alpha1"
+	webserversv1alpha1 "github.com/web-servers/jws-operator/pkg/apis/webservers/v1alpha1"
 
 	appsv1 "github.com/openshift/api/apps/v1"
 	buildv1 "github.com/openshift/api/build/v1"
@@ -36,7 +36,7 @@ import (
 )
 
 var (
-	log = logf.Log.WithName("controller_jbosswebserver")
+	log = logf.Log.WithName("controller_webserver")
 )
 
 /**
@@ -44,7 +44,7 @@ var (
 * business logic.  Delete these comments after modifying this file.*
  */
 
-// Add creates a new JbossWebServer Controller and adds it to the Manager. The Manager will set fields on the Controller
+// Add creates a new WebServer Controller and adds it to the Manager. The Manager will set fields on the Controller
 // and Start it when the Manager is Started.
 func Add(mgr manager.Manager) error {
 	return add(mgr, newReconciler(mgr))
@@ -52,27 +52,27 @@ func Add(mgr manager.Manager) error {
 
 // newReconciler returns a new reconcile.Reconciler
 func newReconciler(mgr manager.Manager) reconcile.Reconciler {
-	return &ReconcileJbossWebServer{client: mgr.GetClient(), scheme: mgr.GetScheme(), isOpenShift: isOpenShift(mgr.GetConfig())}
+	return &ReconcileWebServer{client: mgr.GetClient(), scheme: mgr.GetScheme(), isOpenShift: isOpenShift(mgr.GetConfig())}
 }
 
 // add adds a new Controller to mgr with r as the reconcile.Reconciler
 func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	// Create a new controller
-	c, err := controller.New("jbosswebserver-controller", mgr, controller.Options{Reconciler: r})
+	c, err := controller.New("webserver-controller", mgr, controller.Options{Reconciler: r})
 	if err != nil {
 		return err
 	}
 
-	// Watch for changes to primary resource JbossWebServer
-	err = c.Watch(&source.Kind{Type: &jbosswebserversv1alpha1.JbossWebServer{}}, &handler.EnqueueRequestForObject{})
+	// Watch for changes to primary resource WebServer
+	err = c.Watch(&source.Kind{Type: &webserversv1alpha1.WebServer{}}, &handler.EnqueueRequestForObject{})
 	if err != nil {
 		return err
 	}
 
-	// Watch for changes to secondary resource Pods and requeue the owner JbossWebServer
+	// Watch for changes to secondary resource Pods and requeue the owner WebServer
 	enqueueRequestForOwner := handler.EnqueueRequestForOwner{
 		IsController: true,
-		OwnerType:    &jbosswebserversv1alpha1.JbossWebServer{},
+		OwnerType:    &webserversv1alpha1.WebServer{},
 	}
 	for _, obj := range []runtime.Object{&appsv1.DeploymentConfig{}, &kbappsv1.Deployment{}, &corev1.Service{}} {
 		if err = c.Watch(&source.Kind{Type: obj}, &enqueueRequestForOwner); err != nil {
@@ -88,10 +88,10 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	return nil
 }
 
-var _ reconcile.Reconciler = &ReconcileJbossWebServer{}
+var _ reconcile.Reconciler = &ReconcileWebServer{}
 
-// ReconcileJbossWebServer reconciles a JbossWebServer object
-type ReconcileJbossWebServer struct {
+// ReconcileWebServer reconciles a WebServer object
+type ReconcileWebServer struct {
 	// This client, initialized using mgr.Client() above, is a split client
 	// that reads objects from the cache and writes to the apiserver
 	client      client.Client
@@ -99,36 +99,36 @@ type ReconcileJbossWebServer struct {
 	isOpenShift bool
 }
 
-// Reconcile reads that state of the cluster for a JbossWebServer object and makes changes based on the state read
-// and what is in the JbossWebServer.Spec
+// Reconcile reads that state of the cluster for a WebServer object and makes changes based on the state read
+// and what is in the WebServer.Spec
 // TODO(user): Modify this Reconcile function to implement your Controller logic.  This example creates
 // a Pod as an example
 // Note:
 // The Controller will requeue the Request to be processed again if the returned error is non-nil or
 // Result.Requeue is true, otherwise upon completion it will remove the work from the queue.
-func (r *ReconcileJbossWebServer) Reconcile(request reconcile.Request) (reconcile.Result, error) {
+func (r *ReconcileWebServer) Reconcile(request reconcile.Request) (reconcile.Result, error) {
 	reqLogger := log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
-	reqLogger.Info("Reconciling JbossWebServer")
-	updateJbossWebServer := false
+	reqLogger.Info("Reconciling WebServer")
+	updateWebServer := false
 	requeue := false
 
-	// Fetch the JbossWebServer tomcat
-	jbossWebServer := &jbosswebserversv1alpha1.JbossWebServer{}
-	err := r.client.Get(context.TODO(), request.NamespacedName, jbossWebServer)
+	// Fetch the WebServer tomcat
+	webServer := &webserversv1alpha1.WebServer{}
+	err := r.client.Get(context.TODO(), request.NamespacedName, webServer)
 	if err != nil {
 		if errors.IsNotFound(err) {
 			// Request object not found, could have been deleted after reconcile request.
 			// Owned objects are automatically garbage collected. For additional cleanup logic use finalizers.
 			// Return and don't requeue
-			reqLogger.Info("JbossWebServer resource not found. Ignoring since object must have been deleted")
+			reqLogger.Info("WebServer resource not found. Ignoring since object must have been deleted")
 			return reconcile.Result{}, nil
 		}
 		// Error reading the object - requeue the request.
-		reqLogger.Error(err, "Failed to get JbossWebServer resource")
+		reqLogger.Error(err, "Failed to get WebServer resource")
 		return reconcile.Result{}, err
 	}
 
-	ser := r.serviceForJbossWebServer(jbossWebServer)
+	ser := r.serviceForWebServer(webServer)
 	// Check if the Service for the Route exists
 	err = r.client.Get(context.TODO(), types.NamespacedName{Name: ser.Name, Namespace: ser.Namespace}, &corev1.Service{})
 	if err != nil && errors.IsNotFound(err) {
@@ -146,7 +146,7 @@ func (r *ReconcileJbossWebServer) Reconcile(request reconcile.Request) (reconcil
 		return reconcile.Result{}, err
 	}
 
-	ser1 := r.serviceForJbossWebServerDNS(jbossWebServer)
+	ser1 := r.serviceForWebServerDNS(webServer)
 	// Check if the Service for DNSPing exists
 	err = r.client.Get(context.TODO(), types.NamespacedName{Name: ser1.Name, Namespace: ser1.Namespace}, &corev1.Service{})
 	if err != nil && errors.IsNotFound(err) {
@@ -166,10 +166,10 @@ func (r *ReconcileJbossWebServer) Reconcile(request reconcile.Request) (reconcil
 
 	// Check if the Route already exists, if not create a new one
 	if r.isOpenShift {
-		err = r.client.Get(context.TODO(), types.NamespacedName{Name: jbossWebServer.Spec.ApplicationName, Namespace: jbossWebServer.Namespace}, &routev1.Route{})
+		err = r.client.Get(context.TODO(), types.NamespacedName{Name: webServer.Spec.ApplicationName, Namespace: webServer.Namespace}, &routev1.Route{})
 		if err != nil && errors.IsNotFound(err) {
 			// Define a new Route
-			rou := r.routeForJbossWebServer(jbossWebServer)
+			rou := r.routeForWebServer(webServer)
 			reqLogger.Info("Creating a new Route.", "Route.Namespace", rou.Namespace, "Route.Name", rou.Name)
 			err = r.client.Create(context.TODO(), rou)
 			if err != nil && !errors.IsAlreadyExists(err) {
@@ -185,29 +185,29 @@ func (r *ReconcileJbossWebServer) Reconcile(request reconcile.Request) (reconcil
 	}
 
 	foundReplicas := int32(-1) // we need the foundDeployment.Spec.Replicas which is &appsv1.DeploymentConfig{} or &kbappsv1.Deployment{}
-	jbossWebImage := jbossWebServer.Spec.JbossWebImage
+	webImage := webServer.Spec.WebImage
 	applicationImage := ""
-	if jbossWebImage != nil {
-		applicationImage = jbossWebImage.ApplicationImage
+	if webImage != nil {
+		applicationImage = webImage.ApplicationImage
 	}
 	if applicationImage == "" {
 		// Are we building from sources and/or use the ImageStream
 
-		if jbossWebServer.Spec.JbossWebImageStream == nil {
-			reqLogger.Info("JbossWebImageStream or JbossWebImage required")
+		if webServer.Spec.WebImageStream == nil {
+			reqLogger.Info("WebImageStream or WebImage required")
 			return reconcile.Result{}, nil
 		}
 
-		myImageName := jbossWebServer.Spec.JbossWebImageStream.ImageStreamName
-		myImageNameSpace := jbossWebServer.Spec.JbossWebImageStream.ImageStreamNamespace
+		myImageName := webServer.Spec.WebImageStream.ImageStreamName
+		myImageNameSpace := webServer.Spec.WebImageStream.ImageStreamNamespace
 
-		if jbossWebServer.Spec.JbossWebSources != nil {
+		if webServer.Spec.WebImageStream.WebSources != nil {
 			// Check if the ImageStream already exists, if not create a new one
 			img := &imagev1.ImageStream{}
-			err = r.client.Get(context.TODO(), types.NamespacedName{Name: jbossWebServer.Spec.ApplicationName, Namespace: jbossWebServer.Namespace}, img)
+			err = r.client.Get(context.TODO(), types.NamespacedName{Name: webServer.Spec.ApplicationName, Namespace: webServer.Namespace}, img)
 			if err != nil && errors.IsNotFound(err) {
 				// Define a new ImageStream
-				img = r.imageStreamForJbossWebServer(jbossWebServer)
+				img = r.imageStreamForWebServer(webServer)
 				reqLogger.Info("Creating a new ImageStream.", "ImageStream.Namespace", img.Namespace, "ImageStream.Name", img.Name)
 				err = r.client.Create(context.TODO(), img)
 				if err != nil && !errors.IsAlreadyExists(err) {
@@ -225,10 +225,10 @@ func (r *ReconcileJbossWebServer) Reconcile(request reconcile.Request) (reconcil
 
 			buildConfig := &buildv1.BuildConfig{}
 			// Check if the BuildConfig already exists, if not create a new one
-			err = r.client.Get(context.TODO(), types.NamespacedName{Name: jbossWebServer.Spec.ApplicationName, Namespace: jbossWebServer.Namespace}, buildConfig)
+			err = r.client.Get(context.TODO(), types.NamespacedName{Name: webServer.Spec.ApplicationName, Namespace: webServer.Namespace}, buildConfig)
 			if err != nil && errors.IsNotFound(err) {
 				// Define a new BuildConfig
-				buildConfig = r.buildConfigForJbossWebServer(jbossWebServer)
+				buildConfig = r.buildConfigForWebServer(webServer)
 				reqLogger.Info("Creating a new BuildConfig.", "BuildConfig.Namespace", buildConfig.Namespace, "BuildConfig.Name", buildConfig.Name)
 				err = r.client.Create(context.TODO(), buildConfig)
 				if err != nil && !errors.IsAlreadyExists(err) {
@@ -243,7 +243,7 @@ func (r *ReconcileJbossWebServer) Reconcile(request reconcile.Request) (reconcil
 			}
 
 			build := &buildv1.Build{}
-			err = r.client.Get(context.TODO(), types.NamespacedName{Name: jbossWebServer.Spec.ApplicationName + "-" + strconv.FormatInt(buildConfig.Status.LastVersion, 10), Namespace: jbossWebServer.Namespace}, build)
+			err = r.client.Get(context.TODO(), types.NamespacedName{Name: webServer.Spec.ApplicationName + "-" + strconv.FormatInt(buildConfig.Status.LastVersion, 10), Namespace: webServer.Namespace}, build)
 			if err != nil && !errors.IsNotFound(err) {
 				reqLogger.Error(err, "Failed to get Build")
 			}
@@ -263,10 +263,10 @@ func (r *ReconcileJbossWebServer) Reconcile(request reconcile.Request) (reconcil
 
 		// Check if the DeploymentConfig already exists, if not create a new one
 		foundDeployment := &appsv1.DeploymentConfig{}
-		err = r.client.Get(context.TODO(), types.NamespacedName{Name: jbossWebServer.Spec.ApplicationName, Namespace: jbossWebServer.Namespace}, foundDeployment)
+		err = r.client.Get(context.TODO(), types.NamespacedName{Name: webServer.Spec.ApplicationName, Namespace: webServer.Namespace}, foundDeployment)
 		if err != nil && errors.IsNotFound(err) {
 			// Define a new DeploymentConfig
-			dep := r.deploymentConfigForJbossWebServer(jbossWebServer, myImageName, myImageNameSpace)
+			dep := r.deploymentConfigForWebServer(webServer, myImageName, myImageNameSpace)
 			reqLogger.Info("Creating a new DeploymentConfig.", "DeploymentConfig.Namespace", dep.Namespace, "DeploymentConfig.Name", dep.Name)
 			err = r.client.Create(context.TODO(), dep)
 			if err != nil && !errors.IsAlreadyExists(err) {
@@ -286,9 +286,9 @@ func (r *ReconcileJbossWebServer) Reconcile(request reconcile.Request) (reconcil
 
 		// Handle Scaling
 		foundReplicas = foundDeployment.Spec.Replicas
-		replicas := jbossWebServer.Spec.Replicas
+		replicas := webServer.Spec.Replicas
 		if foundReplicas != replicas {
-			reqLogger.Info("DeploymentConfig replicas number does not match the JbossWebServer specification")
+			reqLogger.Info("DeploymentConfig replicas number does not match the WebServer specification")
 			foundDeployment.Spec.Replicas = replicas
 			err = r.client.Update(context.TODO(), foundDeployment)
 			if err != nil {
@@ -301,10 +301,10 @@ func (r *ReconcileJbossWebServer) Reconcile(request reconcile.Request) (reconcil
 	} else {
 		// Check if the Deployment already exists, if not create a new one
 		foundDeployment := &kbappsv1.Deployment{}
-		err = r.client.Get(context.TODO(), types.NamespacedName{Name: jbossWebServer.Spec.ApplicationName, Namespace: jbossWebServer.Namespace}, foundDeployment)
+		err = r.client.Get(context.TODO(), types.NamespacedName{Name: webServer.Spec.ApplicationName, Namespace: webServer.Namespace}, foundDeployment)
 		if err != nil && errors.IsNotFound(err) {
 			// Define a new Deployment
-			dep := r.deploymentForJbossWebServer(jbossWebServer)
+			dep := r.deploymentForWebServer(webServer)
 			reqLogger.Info("Creating a new Deployment.", "Deployment.Namespace", dep.Namespace, "Deployment.Name", dep.Name)
 			err = r.client.Create(context.TODO(), dep)
 			if err != nil && !errors.IsAlreadyExists(err) {
@@ -320,9 +320,9 @@ func (r *ReconcileJbossWebServer) Reconcile(request reconcile.Request) (reconcil
 
 		// Handle Scaling
 		foundReplicas = *foundDeployment.Spec.Replicas
-		replicas := jbossWebServer.Spec.Replicas
+		replicas := webServer.Spec.Replicas
 		if foundReplicas != replicas {
-			reqLogger.Info("Deployment replicas number does not match the JbossWebServer specification")
+			reqLogger.Info("Deployment replicas number does not match the WebServer specification")
 			foundDeployment.Spec.Replicas = &replicas
 			err = r.client.Update(context.TODO(), foundDeployment)
 			if err != nil {
@@ -334,10 +334,10 @@ func (r *ReconcileJbossWebServer) Reconcile(request reconcile.Request) (reconcil
 		}
 	}
 
-	// List of pods which belongs under this jbossWebServer instance
-	podList, err := GetPodsForJbossWebServer(r, jbossWebServer)
+	// List of pods which belongs under this webServer instance
+	podList, err := GetPodsForWebServer(r, webServer)
 	if err != nil {
-		reqLogger.Error(err, "Failed to get pod list.", "JbossWebServer.Namespace", jbossWebServer.Namespace, "JbossWebServer.Name", jbossWebServer.Name)
+		reqLogger.Error(err, "Failed to get pod list.", "WebServer.Namespace", webServer.Namespace, "WebServer.Name", webServer.Name)
 		return reconcile.Result{}, err
 	}
 
@@ -347,17 +347,17 @@ func (r *ReconcileJbossWebServer) Reconcile(request reconcile.Request) (reconcil
 		reqLogger.Info("Some pods don't have an IP address yet, reconciliation requeue scheduled")
 		requeue = true
 	}
-	if !reflect.DeepEqual(podsStatus, jbossWebServer.Status.Pods) {
-		// reqLogger.Info("Will update the JbossWebServer pod status", "New pod status list", podsStatus)
-		// reqLogger.Info("Will update the JbossWebServer pod status", "Existing pod status list", jbossWebServer.Status.Pods)
+	if !reflect.DeepEqual(podsStatus, webServer.Status.Pods) {
+		// reqLogger.Info("Will update the WebServer pod status", "New pod status list", podsStatus)
+		// reqLogger.Info("Will update the WebServer pod status", "Existing pod status list", webServer.Status.Pods)
 		reqLogger.Info("Status.Pods update scheduled")
-		jbossWebServer.Status.Pods = podsStatus
-		updateJbossWebServer = true
+		webServer.Status.Pods = podsStatus
+		updateWebServer = true
 	}
 
 	if r.isOpenShift {
 		route := &routev1.Route{}
-		err = r.client.Get(context.TODO(), types.NamespacedName{Name: jbossWebServer.Spec.ApplicationName, Namespace: jbossWebServer.Namespace}, route)
+		err = r.client.Get(context.TODO(), types.NamespacedName{Name: webServer.Spec.ApplicationName, Namespace: webServer.Namespace}, route)
 		if err != nil {
 			reqLogger.Error(err, "Failed to get Route.", "Route.Namespace", route.Namespace, "Route.Name", route.Name)
 			return reconcile.Result{}, err
@@ -368,36 +368,36 @@ func (r *ReconcileJbossWebServer) Reconcile(request reconcile.Request) (reconcil
 			hosts[i] = ingress.Host
 		}
 		sort.Strings(hosts)
-		if !reflect.DeepEqual(hosts, jbossWebServer.Status.Hosts) {
-			updateJbossWebServer = true
-			jbossWebServer.Status.Hosts = hosts
+		if !reflect.DeepEqual(hosts, webServer.Status.Hosts) {
+			updateWebServer = true
+			webServer.Status.Hosts = hosts
 			reqLogger.Info("Status.Hosts update scheduled")
 		}
 	}
 
 	// Make sure the number of active pods is the desired replica size.
 	numberOfDeployedPods := int32(len(podList.Items))
-	if numberOfDeployedPods != jbossWebServer.Spec.Replicas {
-		reqLogger.Info("The number of deployed pods does not match the JbossWebServer specification, reconciliation requeue scheduled")
+	if numberOfDeployedPods != webServer.Spec.Replicas {
+		reqLogger.Info("The number of deployed pods does not match the WebServer specification, reconciliation requeue scheduled")
 		requeue = true
 	}
 
 	// Update the replicas
-	if jbossWebServer.Status.Replicas != foundReplicas {
+	if webServer.Status.Replicas != foundReplicas {
 		reqLogger.Info("Status.Replicas update scheduled")
-		jbossWebServer.Status.Replicas = foundReplicas
-		updateJbossWebServer = true
+		webServer.Status.Replicas = foundReplicas
+		updateWebServer = true
 	}
 	// Update the scaledown
-	numberOfPodsToScaleDown := foundReplicas - jbossWebServer.Spec.Replicas
-	if jbossWebServer.Status.ScalingdownPods != numberOfPodsToScaleDown {
+	numberOfPodsToScaleDown := foundReplicas - webServer.Spec.Replicas
+	if webServer.Status.ScalingdownPods != numberOfPodsToScaleDown {
 		reqLogger.Info("Status.ScalingdownPods update scheduled")
-		jbossWebServer.Status.ScalingdownPods = numberOfPodsToScaleDown
-		updateJbossWebServer = true
+		webServer.Status.ScalingdownPods = numberOfPodsToScaleDown
+		updateWebServer = true
 	}
 	// Update if needed.
-	if updateJbossWebServer {
-		err := UpdateJbossWebServerStatus(jbossWebServer, r.client)
+	if updateWebServer {
+		err := UpdateWebServerStatus(webServer, r.client)
 		if err != nil {
 			return reconcile.Result{}, err
 		}
@@ -410,14 +410,14 @@ func (r *ReconcileJbossWebServer) Reconcile(request reconcile.Request) (reconcil
 	return reconcile.Result{}, nil
 }
 
-func (r *ReconcileJbossWebServer) serviceForJbossWebServer(t *jbosswebserversv1alpha1.JbossWebServer) *corev1.Service {
+func (r *ReconcileWebServer) serviceForWebServer(t *webserversv1alpha1.WebServer) *corev1.Service {
 
 	service := &corev1.Service{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: "apps/v1",
 			Kind:       "Service",
 		},
-		ObjectMeta: objectMetaForJbossWebServer(t, t.Spec.ApplicationName),
+		ObjectMeta: objectMetaForWebServer(t, t.Spec.ApplicationName),
 		Spec: corev1.ServiceSpec{
 			Ports: []corev1.ServicePort{{
 				Name:       "ui",
@@ -426,7 +426,7 @@ func (r *ReconcileJbossWebServer) serviceForJbossWebServer(t *jbosswebserversv1a
 			}},
 			Selector: map[string]string{
 				"deploymentConfig": t.Spec.ApplicationName,
-				"JbossWebServer":   t.Name,
+				"WebServer":        t.Name,
 			},
 		},
 	}
@@ -435,14 +435,14 @@ func (r *ReconcileJbossWebServer) serviceForJbossWebServer(t *jbosswebserversv1a
 	return service
 }
 
-func (r *ReconcileJbossWebServer) serviceForJbossWebServerDNS(t *jbosswebserversv1alpha1.JbossWebServer) *corev1.Service {
+func (r *ReconcileWebServer) serviceForWebServerDNS(t *webserversv1alpha1.WebServer) *corev1.Service {
 
 	service := &corev1.Service{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: "apps/v1",
 			Kind:       "Service",
 		},
-		ObjectMeta: objectMetaForJbossWebServer(t, "jbosswebserver"),
+		ObjectMeta: objectMetaForWebServer(t, "webserver"),
 		Spec: corev1.ServiceSpec{
 			ClusterIP: "None",
 			Ports: []corev1.ServicePort{{
@@ -460,16 +460,16 @@ func (r *ReconcileJbossWebServer) serviceForJbossWebServerDNS(t *jbosswebservers
 	return service
 }
 
-func (r *ReconcileJbossWebServer) deploymentConfigForJbossWebServer(t *jbosswebserversv1alpha1.JbossWebServer, image string, namespace string) *appsv1.DeploymentConfig {
+func (r *ReconcileWebServer) deploymentConfigForWebServer(t *webserversv1alpha1.WebServer, image string, namespace string) *appsv1.DeploymentConfig {
 
 	replicas := int32(1)
-	podTemplateSpec := podTemplateSpecForJbossWebServer(t, t.Spec.ApplicationName)
+	podTemplateSpec := podTemplateSpecForWebServer(t, t.Spec.ApplicationName)
 	deploymentConfig := &appsv1.DeploymentConfig{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: "apps.openshift.io/v1",
 			Kind:       "DeploymentConfig",
 		},
-		ObjectMeta: objectMetaForJbossWebServer(t, t.Spec.ApplicationName),
+		ObjectMeta: objectMetaForWebServer(t, t.Spec.ApplicationName),
 		Spec: appsv1.DeploymentConfigSpec{
 			Strategy: appsv1.DeploymentStrategy{
 				Type: appsv1.DeploymentStrategyTypeRecreate,
@@ -492,7 +492,7 @@ func (r *ReconcileJbossWebServer) deploymentConfigForJbossWebServer(t *jbosswebs
 			Replicas: replicas,
 			Selector: map[string]string{
 				"deploymentConfig": t.Spec.ApplicationName,
-				"JbossWebServer":   t.Name,
+				"WebServer":        t.Name,
 			},
 			Template: &podTemplateSpec,
 		},
@@ -502,16 +502,16 @@ func (r *ReconcileJbossWebServer) deploymentConfigForJbossWebServer(t *jbosswebs
 	return deploymentConfig
 }
 
-func (r *ReconcileJbossWebServer) deploymentForJbossWebServer(t *jbosswebserversv1alpha1.JbossWebServer) *kbappsv1.Deployment {
+func (r *ReconcileWebServer) deploymentForWebServer(t *webserversv1alpha1.WebServer) *kbappsv1.Deployment {
 
 	replicas := int32(1)
-	podTemplateSpec := podTemplateSpecForJbossWebServer(t, t.Spec.JbossWebImage.ApplicationImage)
+	podTemplateSpec := podTemplateSpecForWebServer(t, t.Spec.WebImage.ApplicationImage)
 	deployment := &kbappsv1.Deployment{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: "k8s.io/api/apps/v1",
 			Kind:       "Deployment",
 		},
-		ObjectMeta: objectMetaForJbossWebServer(t, t.Spec.ApplicationName),
+		ObjectMeta: objectMetaForWebServer(t, t.Spec.ApplicationName),
 		Spec: kbappsv1.DeploymentSpec{
 			Strategy: kbappsv1.DeploymentStrategy{
 				Type: kbappsv1.RecreateDeploymentStrategyType,
@@ -520,7 +520,7 @@ func (r *ReconcileJbossWebServer) deploymentForJbossWebServer(t *jbosswebservers
 			Selector: &metav1.LabelSelector{
 				MatchLabels: map[string]string{
 					"deploymentConfig": t.Spec.ApplicationName,
-					"JbossWebServer":   t.Name,
+					"WebServer":        t.Name,
 				},
 			},
 			Template: podTemplateSpec,
@@ -531,7 +531,7 @@ func (r *ReconcileJbossWebServer) deploymentForJbossWebServer(t *jbosswebservers
 	return deployment
 }
 
-func objectMetaForJbossWebServer(t *jbosswebserversv1alpha1.JbossWebServer, name string) metav1.ObjectMeta {
+func objectMetaForWebServer(t *webserversv1alpha1.WebServer, name string) metav1.ObjectMeta {
 	return metav1.ObjectMeta{
 		Name:      name,
 		Namespace: t.Namespace,
@@ -541,10 +541,16 @@ func objectMetaForJbossWebServer(t *jbosswebserversv1alpha1.JbossWebServer, name
 	}
 }
 
-func podTemplateSpecForJbossWebServer(t *jbosswebserversv1alpha1.JbossWebServer, image string) corev1.PodTemplateSpec {
-	objectMeta := objectMetaForJbossWebServer(t, t.Spec.ApplicationName)
+func podTemplateSpecForWebServer(t *webserversv1alpha1.WebServer, image string) corev1.PodTemplateSpec {
+	objectMeta := objectMetaForWebServer(t, t.Spec.ApplicationName)
 	objectMeta.Labels["deploymentConfig"] = t.Spec.ApplicationName
-	objectMeta.Labels["JbossWebServer"] = t.Name
+	objectMeta.Labels["WebServer"] = t.Name
+	var health *webserversv1alpha1.WebServerHealthCheckSpec = &webserversv1alpha1.WebServerHealthCheckSpec{}
+	if t.Spec.WebImage != nil {
+		health = t.Spec.WebImage.WebServerHealthCheck
+	} else{
+		health = t.Spec.WebImageStream.WebServerHealthCheck
+	}
 	terminationGracePeriodSeconds := int64(60)
 	return corev1.PodTemplateSpec{
 		ObjectMeta: objectMeta,
@@ -554,8 +560,8 @@ func podTemplateSpecForJbossWebServer(t *jbosswebserversv1alpha1.JbossWebServer,
 				Name:            t.Spec.ApplicationName,
 				Image:           image,
 				ImagePullPolicy: "Always",
-				ReadinessProbe:  createReadinessProbe(t),
-				LivenessProbe:   createLivenessProbe(t),
+				ReadinessProbe:  createReadinessProbe(t, health),
+				LivenessProbe:   createLivenessProbe(t, health),
 				Ports: []corev1.ContainerPort{{
 					Name:          "jolokia",
 					ContainerPort: 8778,
@@ -571,8 +577,8 @@ func podTemplateSpecForJbossWebServer(t *jbosswebserversv1alpha1.JbossWebServer,
 	}
 }
 
-func (r *ReconcileJbossWebServer) routeForJbossWebServer(t *jbosswebserversv1alpha1.JbossWebServer) *routev1.Route {
-	objectMeta := objectMetaForJbossWebServer(t, t.Spec.ApplicationName)
+func (r *ReconcileWebServer) routeForWebServer(t *webserversv1alpha1.WebServer) *routev1.Route {
+	objectMeta := objectMetaForWebServer(t, t.Spec.ApplicationName)
 	objectMeta.Annotations = map[string]string{
 		"description": "Route for application's http service.",
 	}
@@ -593,37 +599,37 @@ func (r *ReconcileJbossWebServer) routeForJbossWebServer(t *jbosswebserversv1alp
 	return route
 }
 
-func (r *ReconcileJbossWebServer) imageStreamForJbossWebServer(t *jbosswebserversv1alpha1.JbossWebServer) *imagev1.ImageStream {
+func (r *ReconcileWebServer) imageStreamForWebServer(t *webserversv1alpha1.WebServer) *imagev1.ImageStream {
 
 	imageStream := &imagev1.ImageStream{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: "image.openshift.io/v1",
 			Kind:       "ImageStream",
 		},
-		ObjectMeta: objectMetaForJbossWebServer(t, t.Spec.ApplicationName),
+		ObjectMeta: objectMetaForWebServer(t, t.Spec.ApplicationName),
 	}
 
 	controllerutil.SetControllerReference(t, imageStream, r.scheme)
 	return imageStream
 }
 
-func (r *ReconcileJbossWebServer) buildConfigForJbossWebServer(t *jbosswebserversv1alpha1.JbossWebServer) *buildv1.BuildConfig {
+func (r *ReconcileWebServer) buildConfigForWebServer(t *webserversv1alpha1.WebServer) *buildv1.BuildConfig {
 
 	buildConfig := &buildv1.BuildConfig{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: "build.openshift.io/v1",
 			Kind:       "BuildConfig",
 		},
-		ObjectMeta: objectMetaForJbossWebServer(t, t.Spec.ApplicationName),
+		ObjectMeta: objectMetaForWebServer(t, t.Spec.ApplicationName),
 		Spec: buildv1.BuildConfigSpec{
 			CommonSpec: buildv1.CommonSpec{
 				Source: buildv1.BuildSource{
 					Type: "Git",
 					Git: &buildv1.GitBuildSource{
-						URI: t.Spec.JbossWebSources.SourceRepositoryUrl,
-						Ref: t.Spec.JbossWebSources.SourceRepositoryRef,
+						URI: t.Spec.WebImageStream.WebSources.SourceRepositoryUrl,
+						Ref: t.Spec.WebImageStream.WebSources.SourceRepositoryRef,
 					},
-					ContextDir: t.Spec.JbossWebSources.ContextDir,
+					ContextDir: t.Spec.WebImageStream.WebSources.ContextDir,
 				},
 				Strategy: buildv1.BuildStrategy{
 					Type: "Source",
@@ -632,8 +638,8 @@ func (r *ReconcileJbossWebServer) buildConfigForJbossWebServer(t *jbosswebserver
 						ForcePull: true,
 						From: corev1.ObjectReference{
 							Kind:      "ImageStreamTag",
-							Namespace: t.Spec.JbossWebImageStream.ImageStreamNamespace,
-							Name:      t.Spec.JbossWebImageStream.ImageStreamName + ":latest",
+							Namespace: t.Spec.WebImageStream.ImageStreamNamespace,
+							Name:      t.Spec.WebImageStream.ImageStreamName + ":latest",
 						},
 					},
 				},
@@ -658,8 +664,7 @@ func (r *ReconcileJbossWebServer) buildConfigForJbossWebServer(t *jbosswebserver
 // If defined, serverLivenessScript must be a shell script that
 // complies to the Kubernetes probes requirements and use the following format
 // shell -c "command"
-func createLivenessProbe(t *jbosswebserversv1alpha1.JbossWebServer) *corev1.Probe {
-	health := t.Spec.JbossWebServerHealthCheck
+func createLivenessProbe(t *webserversv1alpha1.WebServer, health *webserversv1alpha1.WebServerHealthCheckSpec) *corev1.Probe {
 	livenessProbeScript := ""
 	if health != nil {
 		livenessProbeScript = health.ServerLivenessScript
@@ -676,8 +681,7 @@ func createLivenessProbe(t *jbosswebserversv1alpha1.JbossWebServer) *corev1.Prob
 // If defined, serverReadinessScript must be a shell script that
 // complies to the Kubernetes probes requirements and use the following format
 // shell -c "command"
-func createReadinessProbe(t *jbosswebserversv1alpha1.JbossWebServer) *corev1.Probe {
-	health := t.Spec.JbossWebServerHealthCheck
+func createReadinessProbe(t *webserversv1alpha1.WebServer, health *webserversv1alpha1.WebServerHealthCheckSpec) *corev1.Probe {
 	readinessProbeScript := ""
 	if health != nil {
 		readinessProbeScript = health.ServerReadinessScript
@@ -697,7 +701,7 @@ func createReadinessProbe(t *jbosswebserversv1alpha1.JbossWebServer) *corev1.Pro
 	}
 }
 
-func createCustomProbe(t *jbosswebserversv1alpha1.JbossWebServer, probeScript string) *corev1.Probe {
+func createCustomProbe(t *webserversv1alpha1.WebServer, probeScript string) *corev1.Probe {
 	// If the script has the following format: shell -c "command"
 	// we create the slice ["shell", "-c", "command"]
 	probeScriptSlice := make([]string, 0)
@@ -740,14 +744,14 @@ func isOpenShift(c *rest.Config) bool {
 	return false
 }
 
-// GetPodsForJbossWebServer lists pods which belongs to the JbossWeb server
+// GetPodsForWebServer lists pods which belongs to the Web server
 // the pods are differentiated based on the selectors
-func GetPodsForJbossWebServer(r *ReconcileJbossWebServer, j *jbosswebserversv1alpha1.JbossWebServer) (*corev1.PodList, error) {
+func GetPodsForWebServer(r *ReconcileWebServer, j *webserversv1alpha1.WebServer) (*corev1.PodList, error) {
 	podList := &corev1.PodList{}
 
 	listOpts := []client.ListOption{
 		client.InNamespace(j.Namespace),
-		client.MatchingLabels(LabelsForJbossWeb(j)),
+		client.MatchingLabels(LabelsForWeb(j)),
 	}
 	err := r.client.List(context.TODO(), podList, listOpts...)
 
@@ -758,12 +762,12 @@ func GetPodsForJbossWebServer(r *ReconcileJbossWebServer, j *jbosswebserversv1al
 	return podList, err
 }
 
-// LabelsForJbossWeb return a map of labels that are used for identification
-//  of objects belonging to the particular JbossWebServer instance
-func LabelsForJbossWeb(j *jbosswebserversv1alpha1.JbossWebServer) map[string]string {
+// LabelsForWeb return a map of labels that are used for identification
+//  of objects belonging to the particular WebServer instance
+func LabelsForWeb(j *webserversv1alpha1.WebServer) map[string]string {
 	labels := map[string]string{
 		"deploymentConfig": j.Spec.ApplicationName,
-		"JbossWebServer":   j.Name,
+		"WebServer":        j.Name,
 	}
 	// labels["app.kubernetes.io/name"] = j.Name
 	// labels["app.kubernetes.io/managed-by"] = os.Getenv("LABEL_APP_MANAGED_BY")
@@ -786,22 +790,22 @@ func SortPodListByName(podList *corev1.PodList) *corev1.PodList {
 	return podList
 }
 
-// UpdateJbossWebServerStatus updates status of the JbossWebServer resource.
-func UpdateJbossWebServerStatus(j *jbosswebserversv1alpha1.JbossWebServer, client client.Client) error {
-	logger := log.WithValues("JbossWebServer.Namespace", j.Namespace, "JbossWebServer.Name", j.Name)
-	logger.Info("Updating the status of JbossWebServer")
+// UpdateWebServerStatus updates status of the WebServer resource.
+func UpdateWebServerStatus(j *webserversv1alpha1.WebServer, client client.Client) error {
+	logger := log.WithValues("WebServer.Namespace", j.Namespace, "WebServer.Name", j.Name)
+	logger.Info("Updating the status of WebServer")
 
 	if err := client.Status().Update(context.Background(), j); err != nil {
-		logger.Error(err, "Failed to update the status of JbossWebServer")
+		logger.Error(err, "Failed to update the status of WebServer")
 		return err
 	}
 
-	logger.Info("The status of JbossWebServer was updated successfully")
+	logger.Info("The status of WebServer was updated successfully")
 	return nil
 }
 
-func UpdateStatus(j *jbosswebserversv1alpha1.JbossWebServer, client client.Client, objectDefinition runtime.Object) error {
-	logger := log.WithValues("JbossWebServer.Namespace", j.Namespace, "JbossWebServer.Name", j.Name)
+func UpdateStatus(j *webserversv1alpha1.WebServer, client client.Client, objectDefinition runtime.Object) error {
+	logger := log.WithValues("WebServer.Namespace", j.Namespace, "WebServer.Name", j.Name)
 	logger.Info("Updating the status of the resource")
 
 	if err := client.Update(context.Background(), objectDefinition); err != nil {
@@ -814,20 +818,20 @@ func UpdateStatus(j *jbosswebserversv1alpha1.JbossWebServer, client client.Clien
 }
 
 // getPodStatus returns the pod names of the array of pods passed in
-func getPodStatus(pods []corev1.Pod) (bool, []jbosswebserversv1alpha1.PodStatus) {
+func getPodStatus(pods []corev1.Pod) (bool, []webserversv1alpha1.PodStatus) {
 	var requeue = false
-	var podStatuses []jbosswebserversv1alpha1.PodStatus
+	var podStatuses []webserversv1alpha1.PodStatus
 	for _, pod := range pods {
-		podState := jbosswebserversv1alpha1.PodStateFailed
+		podState := webserversv1alpha1.PodStateFailed
 
 		switch pod.Status.Phase {
 		case corev1.PodPending:
-			podState = jbosswebserversv1alpha1.PodStatePending
+			podState = webserversv1alpha1.PodStatePending
 		case corev1.PodRunning:
-			podState = jbosswebserversv1alpha1.PodStateActive
+			podState = webserversv1alpha1.PodStateActive
 		}
 
-		podStatuses = append(podStatuses, jbosswebserversv1alpha1.PodStatus{
+		podStatuses = append(podStatuses, webserversv1alpha1.PodStatus{
 			Name:  pod.Name,
 			PodIP: pod.Status.PodIP,
 			State: podState,
@@ -840,36 +844,22 @@ func getPodStatus(pods []corev1.Pod) (bool, []jbosswebserversv1alpha1.PodStatus)
 }
 
 // Create the env for the pods we are starting.
-func createEnvVars(t *jbosswebserversv1alpha1.JbossWebServer) []corev1.EnvVar {
+func createEnvVars(t *webserversv1alpha1.WebServer) []corev1.EnvVar {
 	env := []corev1.EnvVar{
 		{
 			Name:  "KUBERNETES_NAMESPACE",
-			Value: "jbosswebserver",
+			Value: "webserver",
 		},
-	}
-	health := t.Spec.JbossWebServerHealthCheck
-	if health != nil {
-		health53 := health.JbossWebServer53HealthCheck
-		if health53 != nil {
-			env = append(env, corev1.EnvVar{
-				Name:  "JWS_ADMIN_USERNAME",
-				Value: health53.JwsAdminUsername,
-			})
-			env = append(env, corev1.EnvVar{
-				Name:  "JWS_ADMIN_PASSWORD",
-				Value: health53.JwsAdminPassword,
-			})
-		}
 	}
 	return env
 }
 
 // Create the env for the maven build
-func createEnvBuild(t *jbosswebserversv1alpha1.JbossWebServer) []corev1.EnvVar {
+func createEnvBuild(t *webserversv1alpha1.WebServer) []corev1.EnvVar {
 	var env []corev1.EnvVar
-	sources := t.Spec.JbossWebSources
+	sources := t.Spec.WebImageStream.WebSources
 	if sources != nil {
-		params := sources.JbossWebSourcesParams
+		params := sources.WebSourcesParams
 		if params != nil {
 			if params.MavenMirrorUrl != "" {
 				env = append(env, corev1.EnvVar{
@@ -889,7 +879,7 @@ func createEnvBuild(t *jbosswebserversv1alpha1.JbossWebServer) []corev1.EnvVar {
 }
 
 // Create the BuildTriggerPolicy
-func createBuildTriggerPolicy(t *jbosswebserversv1alpha1.JbossWebServer) []buildv1.BuildTriggerPolicy {
+func createBuildTriggerPolicy(t *webserversv1alpha1.WebServer) []buildv1.BuildTriggerPolicy {
 	env := []buildv1.BuildTriggerPolicy{
 		{
 			Type:        "ImageChange",
@@ -899,9 +889,9 @@ func createBuildTriggerPolicy(t *jbosswebserversv1alpha1.JbossWebServer) []build
 			Type: "ConfigChange",
 		},
 	}
-	sources := t.Spec.JbossWebSources
+	sources := t.Spec.WebImageStream.WebSources
 	if sources != nil {
-		params := sources.JbossWebSourcesParams
+		params := sources.WebSourcesParams
 		if params != nil {
 			if params.GithubWebhookSecret != "" {
 				env = append(env, buildv1.BuildTriggerPolicy{

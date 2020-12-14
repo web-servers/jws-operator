@@ -4,7 +4,7 @@ The JWS operator brings two main features, deploy a prepared image or build an i
 
 You have to prepare an image with the health check valve or any other way to check that the webapp you want to deploy is running.
 
-The JWS-5.4 image have the Apache Tomcat health check valve already configured.
+The JWS-5.4 image has the Apache Tomcat health check valve already configured.
 
 If you are building your image from the ASF Tomcat
 make sure you have the health check valve enabled in the server.xml.
@@ -18,7 +18,7 @@ The minimal yaml file you need is something like:
 
 ```
 apiVersion: web.servers.org/v1alpha1
-kind: JbossWebServer
+kind: WebServer
 metadata:
   name: example
 spec:
@@ -27,7 +27,7 @@ spec:
   applicationImage: docker.io/jfclere/tomcat-demo
 ```
 
-In cluster just run
+Just run the following command in your cluster
 
 ```
 oc create -f minimal.yaml
@@ -39,46 +39,40 @@ The route is something like http://jws-app-jws-operator.example.[cluster base na
 
 ## Build a image base on JWS-5.4 and deploy it
 
-You have to create an ImageStream, use a file with something like in the following file:
+If you want to use an image stream, use a file with something like in the following file:
 https://github.com/web-servers/jws-operator/blob/master/xpaas-streams/jws54-tomcat9-image-stream.json
 
-Create the ImageStream jboss-webserver54-openjdk8-tomcat9-ubi8-openshift:
+This creates the image stream jboss-webserver54-openjdk8-tomcat9-ubi8-openshift:
 
 ```
 oc create -f https://github.com/web-servers/jws-operator/blob/master/xpaas-streams/jws54-tomcat9-image-stream.json
 ```
 
-Prepare you webapps to build with mvn install, put it in a git url your cluster can access, then create a minimal yaml file like the following
+Prepare you webapps to build with mvn install, put it in a git URL that your cluster can access, then create a minimal yaml file like the following
 
 ```
 apiVersion: web.servers.org/v1alpha1
-kind: JbossWebServer
+kind: WebServer
 metadata:
   name: example
 spec:
-  replicas: 2
   applicationName: jws-app
-  imageStreamName: 'jboss-webserver54-tomcat9-openshift:latest'
-  sourceRepositoryUrl: 'https://github.com/jfclere/demo-webapp.git'
-  sourceRepositoryRef: master
-  contextDir: /
-  genericWebhookSecret: " "
+  replicas: 2
+  webImageStream:
+    imageStreamNamespace: openshift
+    imageStreamName: jboss-webserver54-openjdk8-tomcat9-ubi8-openshift
+    webSources:
+      sourceRepositoryUrl: https://github.com/jboss-openshift/openshift-quickstarts.git
+      sourceRepositoryRef: "1.2"
+      contextDir: tomcat-websocket-chat
 ```
 
-In cluster just run
+Just run the following command in your cluster
 
 ```
 oc create -f minimal.yaml
 ```
 
-The operator will compile and build an image using the war mvn install creates in target. The image is stored in an Image Stream. The operator creates a ReplicaSet 2 service and router. It deploys 2 pods.
+The operator will compile and build an image using the war mvn install creates in target. The image is stored in an Image Stream. The operator creates a ReplicaSet, 2 services and a Router. It deploys 2 pods.
 
 The route is something like http://jws-app-jws-operator.example.[cluster base name]/
-
-Note the minimal.yaml DOES NOT work for JWS-5.3. For JWS-5.3 you need to add:
-
-```
-  jwsAdminUsername: tomcat
-  jwsAdminPassword: tomcat
-  serverReadinessScript: /bin/bash -c "/usr/bin/curl --noproxy '*' -s -u ${JWS_ADMIN_USERNAME}:${JWS_ADMIN_PASSWORD} 'http://localhost:8080/manager/jmxproxy/?get=Catalina%3Atype%3DServer&att=stateName' | /usr/bin/grep -iq 'stateName *= *STARTED'"
-```

@@ -1,7 +1,7 @@
 package apis
 
 import (
-	"github.com/web-servers/jws-operator/pkg/apis/jbosswebservers/v1alpha1"
+	"github.com/web-servers/jws-operator/pkg/apis/webservers/v1alpha1"
 )
 
 func init() {
