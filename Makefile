@@ -7,6 +7,9 @@ PROG  := jws-operator
 setup:
 	./build/setup-operator-sdk.sh
 
+setup-e2e-test:
+	./build/setup-operator-sdk-e2e-tests.sh
+
 ## tidy                                     Ensures modules are tidy.
 tidy:
 	export GOPROXY=proxy.golang.org
@@ -68,6 +71,11 @@ run-kubernetes:
 	kubectl create -f deploy/role.yaml
 	kubectl create -f deploy/role_binding.yaml
 	kubectl apply -f deploy/operator.yaml
+
+test: test-e2e-17-local
+
+test-e2e-17-local: setup-e2e-test
+	LOCAL_OPERATOR=true OPERATOR_NAME=jws-operator ./operator-sdk-e2e-tests test local ./test/e2e/17.0 --verbose --debug  --operator-namespace default --up-local --local-operator-flags "--zap-devel --zap-level=5" --global-manifest ./deploy/crds/web.servers.org_webservers_crd.yaml
 
 
 help : Makefile
