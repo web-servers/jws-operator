@@ -27,17 +27,17 @@ var (
 	cleanupTimeout       = time.Second * 5
 )
 
-// JWSBasicTest runs basic operator tests
-func JWSBasicTest(t *testing.T, applicationTag string) {
-	ctx, f := jwsTestSetup(t)
+// WebServerBasicTest runs basic operator tests
+func WebServerBasicTest(t *testing.T, applicationTag string) {
+	ctx, f := webServerTestSetup(t)
 	defer ctx.Cleanup()
 
-	if err := jwsBasicServerScaleTest(t, f, ctx, applicationTag); err != nil {
+	if err := webServerBasicServerScaleTest(t, f, ctx, applicationTag); err != nil {
 		t.Fatal(err)
 	}
 }
 
-func jwsTestSetup(t *testing.T) (*framework.Context, *framework.Framework) {
+func webServerTestSetup(t *testing.T) (*framework.Context, *framework.Framework) {
 	ctx := framework.NewContext(t)
 	err := ctx.InitializeClusterResources(&framework.CleanupOptions{TestContext: ctx, Timeout: cleanupTimeout, RetryInterval: cleanupRetryInterval})
 	if err != nil {
@@ -56,17 +56,17 @@ func jwsTestSetup(t *testing.T) (*framework.Context, *framework.Framework) {
 	return ctx, f
 }
 
-func jwsBasicServerScaleTest(t *testing.T, f *framework.Framework, ctx *framework.Context, applicationTag string) error {
+func webServerBasicServerScaleTest(t *testing.T, f *framework.Framework, ctx *framework.Context, applicationTag string) error {
 	namespace, err := ctx.GetOperatorNamespace()
 	if err != nil {
 		return fmt.Errorf("could not get namespace: %v", err)
 	}
 
 	name := "example-webserver-" + unixEpoch()
-	// create wildflyserver custom resource
-	// jwsServer := MakeBasicJWSServer(namespace, name, "quay.io/jws-quickstarts/jws-operator-quickstart:"+applicationTag, 1)
-	jwsServer := MakeBasicJWSServer(namespace, name, "quay.io/jfclere/jws-image:5.4", 1)
-	err = CreateAndWaitUntilReady(f, ctx, t, jwsServer)
+	// create webServer custom resource
+	// webServer := MakeBasicWebServer(namespace, name, "quay.io/jws-quickstarts/jws-operator-quickstart:"+applicationTag, 1)
+	webServer := MakeBasicWebServer(namespace, name, "quay.io/jfclere/jws-image:5.4", 1)
+	err = CreateAndWaitUntilReady(f, ctx, t, webServer)
 	if err != nil {
 		return err
 	}
@@ -76,19 +76,19 @@ func jwsBasicServerScaleTest(t *testing.T, f *framework.Framework, ctx *framewor
 	context := goctx.TODO()
 
 	// update the size to 2
-	err = f.Client.Get(context, types.NamespacedName{Name: name, Namespace: namespace}, jwsServer)
+	err = f.Client.Get(context, types.NamespacedName{Name: name, Namespace: namespace}, webServer)
 	if err != nil {
 		return err
 	}
-	jwsServer.Spec.Replicas = 2
-	err = f.Client.Update(context, jwsServer)
+	webServer.Spec.Replicas = 2
+	err = f.Client.Update(context, webServer)
 	if err != nil {
 		return err
 	}
-	t.Logf("Updated application %s size to %d\n", name, jwsServer.Spec.Replicas)
+	t.Logf("Updated application %s size to %d\n", name, webServer.Spec.Replicas)
 
 	// check that the resource have been updated
-	return WaitUntilReady(f, t, jwsServer)
+	return WaitUntilReady(f, t, webServer)
 }
 
 func unixEpoch() string {
@@ -108,7 +108,7 @@ func IsOperatorLocal() bool {
 	return local
 }
 
-// CreateAndWaitUntilReady creates a WildFlyServer resource and wait until it is ready
+// CreateAndWaitUntilReady creates a WebServer resource and wait until it is ready
 func CreateAndWaitUntilReady(f *framework.Framework, ctx *framework.Context, t *testing.T, server *webserversv1alpha1.WebServer) error {
 	// use Context's create helper to create the object and add a cleanup function for the new object
 	err := f.Client.Create(goctx.TODO(), server, &framework.CleanupOptions{TestContext: ctx, Timeout: cleanupTimeout, RetryInterval: cleanupRetryInterval})
@@ -119,7 +119,7 @@ func CreateAndWaitUntilReady(f *framework.Framework, ctx *framework.Context, t *
 	// removing finalizers explicitly otherwise the removal could hang
 	ctx.AddCleanupFn(
 		func() error {
-			// Removing deployment for not putting finalizers back to the WildflyServer
+			// Removing deployment for not putting finalizers back to the WebServer
 			name := server.ObjectMeta.Name
 			namespace := server.ObjectMeta.Namespace
 			deployment, err := f.KubeClient.AppsV1().Deployments(namespace).Get("jws-operator", metav1.GetOptions{})
@@ -133,15 +133,15 @@ func CreateAndWaitUntilReady(f *framework.Framework, ctx *framework.Context, t *
 				namespacedName := types.NamespacedName{Name: name, Namespace: namespace}
 				if errPoll := f.Client.Get(context.TODO(), namespacedName, foundServer); errPoll != nil {
 					if apierrors.IsNotFound(errPoll) {
-						t.Logf("No WildFlyServer object '%v' to remove the finalizer at. Probably all cleanly finished before.\n", name)
+						t.Logf("No WebServer object '%v' to remove the finalizer at. Probably all cleanly finished before.\n", name)
 						return true, nil
 					}
-					t.Logf("Cannot obtain object of the WildflyServer '%v', cause: %v\n", name, errPoll)
+					t.Logf("Cannot obtain object of the WebServer '%v', cause: %v\n", name, errPoll)
 					return false, nil
 				}
 				foundServer.SetFinalizers([]string{})
 				if errPoll := f.Client.Update(context.TODO(), foundServer); errPoll != nil {
-					t.Logf("Cannot update WildflyServer '%v' with empty finalizers array, cause: %v\n", name, errPoll)
+					t.Logf("Cannot update WebServer '%v' with empty finalizers array, cause: %v\n", name, errPoll)
 					return false, nil
 				}
 				t.Logf("Finalizer definition succesfully removed from the WebServer '%v'\n", name)
