@@ -37,6 +37,16 @@ func WebServerBasicTest(t *testing.T, applicationTag string) {
 	}
 }
 
+// WebServerBasicTest runs basic operator tests
+func WebServerImageStreamTest(t *testing.T, applicationTag string) {
+	ctx, f := webServerTestSetup(t)
+	defer ctx.Cleanup()
+
+	if err := webServerImageStreamServerScaleTest(t, f, ctx, applicationTag); err != nil {
+		t.Fatal(err)
+	}
+}
+
 func webServerTestSetup(t *testing.T) (*framework.Context, *framework.Framework) {
 	ctx := framework.NewContext(t)
 	err := ctx.InitializeClusterResources(&framework.CleanupOptions{TestContext: ctx, Timeout: cleanupTimeout, RetryInterval: cleanupRetryInterval})
@@ -66,6 +76,40 @@ func webServerBasicServerScaleTest(t *testing.T, f *framework.Framework, ctx *fr
 	// create webServer custom resource
 	// webServer := MakeBasicWebServer(namespace, name, "quay.io/jws-quickstarts/jws-operator-quickstart:"+applicationTag, 1)
 	webServer := MakeBasicWebServer(namespace, name, "quay.io/jfclere/jws-image:5.4", 1)
+	err = CreateAndWaitUntilReady(f, ctx, t, webServer)
+	if err != nil {
+		return err
+	}
+
+	t.Logf("Application %s is deployed with %d instance\n", name, 1)
+
+	context := goctx.TODO()
+
+	// update the size to 2
+	err = f.Client.Get(context, types.NamespacedName{Name: name, Namespace: namespace}, webServer)
+	if err != nil {
+		return err
+	}
+	webServer.Spec.Replicas = 2
+	err = f.Client.Update(context, webServer)
+	if err != nil {
+		return err
+	}
+	t.Logf("Updated application %s size to %d\n", name, webServer.Spec.Replicas)
+
+	// check that the resource have been updated
+	return WaitUntilReady(f, t, webServer)
+}
+
+func webServerImageStreamServerScaleTest(t *testing.T, f *framework.Framework, ctx *framework.Context, applicationTag string) error {
+	namespace, err := ctx.GetOperatorNamespace()
+	if err != nil {
+		return fmt.Errorf("could not get namespace: %v", err)
+	}
+
+	name := "example-webserver-" + unixEpoch()
+	// create the webServer custom resource
+	webServer := MakeImageStreamWebServer(namespace, name, "jboss-webserver54-openjdk8-tomcat9-ubi8-openshift", namespace, 1)
 	err = CreateAndWaitUntilReady(f, ctx, t, webServer)
 	if err != nil {
 		return err

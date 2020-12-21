@@ -1,5 +1,6 @@
 IMAGE ?= docker.io/${USER}/jws-operator:latest
 PROG  := jws-operator
+NAMESPACE :=`oc project -q`
 
 .DEFAULT_GOAL := help
 
@@ -75,7 +76,7 @@ run-kubernetes:
 test: test-e2e-17-local
 
 test-e2e-17-local: setup-e2e-test
-	LOCAL_OPERATOR=true OPERATOR_NAME=jws-operator ./operator-sdk-e2e-tests test local ./test/e2e/17.0 --verbose --debug  --operator-namespace default --up-local --local-operator-flags "--zap-devel --zap-level=5" --global-manifest ./deploy/crds/web.servers.org_webservers_crd.yaml
+	LOCAL_OPERATOR=true OPERATOR_NAME=jws-operator ./operator-sdk-e2e-tests test local ./test/e2e/17.0 --verbose --debug  --operator-namespace ${NAMESPACE} --up-local --local-operator-flags "--zap-devel --zap-level=5" --global-manifest ./deploy/crds/web.servers.org_webservers_crd.yaml
 
 
 help : Makefile

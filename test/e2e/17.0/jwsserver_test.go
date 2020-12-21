@@ -25,8 +25,13 @@ func TestWebServer54(t *testing.T) {
 	}
 	// run subtests
 	t.Run("BasicTest", webServerBasicTest)
+	t.Run("ImageStreamTest", webServerImageStreamTest)
 }
 
 func webServerBasicTest(t *testing.T) {
-	webserversframework.WebServerBasicTest(t, "54.0")
+	webserversframework.WebServerBasicTest(t, "5.4")
+}
+
+func webServerImageStreamTest(t *testing.T) {
+	webserversframework.WebServerImageStreamTest(t, "5.4")
 }

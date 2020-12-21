@@ -25,3 +25,25 @@ func MakeBasicWebServer(ns, name, applicationImage string, size int32) *webserve
 		},
 	}
 }
+
+// MakeImageStreamWebServer creates a WebServer using an ImageStream
+func MakeImageStreamWebServer(ns, name, imageStreamName string, imageStreamNamespace string, size int32) *webserversv1alpha1.WebServer {
+	return &webserversv1alpha1.WebServer{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "WebServer",
+			APIVersion: "web.servers.org/v1alpha1",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: ns,
+		},
+		Spec: webserversv1alpha1.WebServerSpec{
+			Replicas:        size,
+			ApplicationName: name,
+			WebImageStream: &webserversv1alpha1.WebImageStreamSpec{
+				ImageStreamName:      imageStreamName,
+				ImageStreamNamespace: imageStreamNamespace,
+			},
+		},
+	}
+}
