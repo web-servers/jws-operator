@@ -3,7 +3,10 @@ package framework
 import (
 	"context"
 	goctx "context"
+	"errors"
 	"fmt"
+	"io/ioutil"
+	"net/http"
 	"os"
 	"strconv"
 	"testing"
@@ -98,7 +101,16 @@ func webServerBasicServerScaleTest(t *testing.T, f *framework.Framework, ctx *fr
 	t.Logf("Updated application %s size to %d\n", name, webServer.Spec.Replicas)
 
 	// check that the resource have been updated
-	return WaitUntilReady(f, t, webServer)
+	err = WaitUntilReady(f, t, webServer)
+	if err != nil {
+		return err
+	}
+
+	err = TestRouteWebServer(f, t, name, namespace, "/health")
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 func webServerImageStreamServerScaleTest(t *testing.T, f *framework.Framework, ctx *framework.Context, applicationTag string) error {
@@ -132,7 +144,16 @@ func webServerImageStreamServerScaleTest(t *testing.T, f *framework.Framework, c
 	t.Logf("Updated application %s size to %d\n", name, webServer.Spec.Replicas)
 
 	// check that the resource have been updated
-	return WaitUntilReady(f, t, webServer)
+	err = WaitUntilReady(f, t, webServer)
+	if err != nil {
+		return err
+	}
+
+	err = TestRouteWebServer(f, t, name, namespace, "/health")
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 func unixEpoch() string {
@@ -194,7 +215,11 @@ func CreateAndWaitUntilReady(f *framework.Framework, ctx *framework.Context, t *
 		},
 	)
 
-	return WaitUntilReady(f, t, server)
+	err = WaitUntilReady(f, t, server)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 // WaitUntilReady waits until the number of pods matches the server spec size.
@@ -222,8 +247,8 @@ func WaitUntilReady(f *framework.Framework, t *testing.T, server *webserversv1al
 			return false, err
 		}
 
-		// Testing for Ready?
-		if int32(len(podList.Items)) == size {
+		// Testing for Ready
+		if ArePodsReady(podList, size) {
 			return true, nil
 		}
 
@@ -236,6 +261,19 @@ func WaitUntilReady(f *framework.Framework, t *testing.T, server *webserversv1al
 	t.Logf("pods available (%d/%d)\n", size, size)
 
 	return nil
+}
+
+// Check that all the pods are ready
+func ArePodsReady(podList *corev1.PodList, size int32) bool {
+	if int32(len(podList.Items)) != size {
+		return false
+	}
+	for _, pod := range podList.Items {
+		if pod.Status.Phase != corev1.PodRunning {
+			return false
+		}
+	}
+	return true
 }
 
 // LabelsForWeb return a map of labels that are used for identification
@@ -254,4 +292,33 @@ func LabelsForWeb(j *webserversv1alpha1.WebServer) map[string]string {
 		}
 	}
 	return labels
+}
+
+// Test the route
+func TestRouteWebServer(f *framework.Framework, t *testing.T, name string, namespace string, uri string) error {
+
+	context := goctx.TODO()
+
+	webServer := &webserversv1alpha1.WebServer{}
+	err := f.Client.Get(context, types.NamespacedName{Name: name, Namespace: namespace}, webServer)
+	if err != nil {
+		return err
+	}
+	t.Logf("route:  (%s)\n", webServer.Status.Hosts)
+	url := "http://" + webServer.Status.Hosts[0] + uri
+	t.Logf("doing get:  (%s)\n", url)
+	res, err := http.Get(url)
+	if err != nil {
+		return err
+	}
+	body, err := ioutil.ReadAll(res.Body)
+	res.Body.Close()
+	if err != nil {
+		return err
+	}
+	if res.StatusCode != 200 {
+		t.Logf("body: %s\n", body)
+		return errors.New(url + " returns: " + strconv.Itoa(res.StatusCode))
+	}
+	return nil
 }
