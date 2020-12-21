@@ -40,12 +40,22 @@ func WebServerBasicTest(t *testing.T, applicationTag string) {
 	}
 }
 
-// WebServerBasicTest runs basic operator tests
+// WebServermageStreamTest runs Image Stream operator tests
 func WebServerImageStreamTest(t *testing.T, applicationTag string) {
 	ctx, f := webServerTestSetup(t)
 	defer ctx.Cleanup()
 
 	if err := webServerImageStreamServerScaleTest(t, f, ctx, applicationTag); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// WebServermageStreamTest runs Image Stream operator tests
+func WebServerSourcesTest(t *testing.T, applicationTag string) {
+	ctx, f := webServerTestSetup(t)
+	defer ctx.Cleanup()
+
+	if err := webServerSourcesServerScaleTest(t, f, ctx, applicationTag); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -150,6 +160,49 @@ func webServerImageStreamServerScaleTest(t *testing.T, f *framework.Framework, c
 	}
 
 	err = TestRouteWebServer(f, t, name, namespace, "/health")
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func webServerSourcesServerScaleTest(t *testing.T, f *framework.Framework, ctx *framework.Context, applicationTag string) error {
+	namespace, err := ctx.GetOperatorNamespace()
+	if err != nil {
+		return fmt.Errorf("could not get namespace: %v", err)
+	}
+
+	name := "example-webserver-" + unixEpoch()
+	// create the webServer custom resource
+	webServer := MakeSourcesWebServer(namespace, name, "jboss-webserver54-openjdk8-tomcat9-ubi8-openshift", namespace, "https://github.com/jfclere/demo-webapp", 1)
+	err = CreateAndWaitUntilReady(f, ctx, t, webServer)
+	if err != nil {
+		return err
+	}
+
+	t.Logf("Application %s is deployed with %d instance\n", name, 1)
+
+	context := goctx.TODO()
+
+	// update the size to 2
+	err = f.Client.Get(context, types.NamespacedName{Name: name, Namespace: namespace}, webServer)
+	if err != nil {
+		return err
+	}
+	webServer.Spec.Replicas = 2
+	err = f.Client.Update(context, webServer)
+	if err != nil {
+		return err
+	}
+	t.Logf("Updated application %s size to %d\n", name, webServer.Spec.Replicas)
+
+	// check that the resource have been updated
+	err = WaitUntilReady(f, t, webServer)
+	if err != nil {
+		return err
+	}
+
+	err = TestRouteWebServer(f, t, name, namespace, "/demo-1.0/demo")
 	if err != nil {
 		return err
 	}
