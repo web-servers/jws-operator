@@ -42,7 +42,7 @@
                         },
                         "from": {
                             "kind": "DockerImage",
-                            "name": "registry.redhat.io/jboss-webserver-5/webserver54-openjdk8-tomcat9-openshift-rhel7:latest"
+                            "name": "registry.redhat.io/jboss-webserver-5/webserver54-openjdk8-tomcat9-openshift-rhel8:latest"
                         }
                     }
                 ]
