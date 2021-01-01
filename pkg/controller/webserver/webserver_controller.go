@@ -146,22 +146,42 @@ func (r *ReconcileWebServer) Reconcile(request reconcile.Request) (reconcile.Res
 		return reconcile.Result{}, err
 	}
 
-	ser1 := r.serviceForWebServerDNS(webServer)
-	// Check if the Service for DNSPing exists
-	err = r.client.Get(context.TODO(), types.NamespacedName{Name: ser1.Name, Namespace: ser1.Namespace}, &corev1.Service{})
-	if err != nil && errors.IsNotFound(err) {
-		// Define a new Service
-		reqLogger.Info("Creating a new Service.", "Service.Namespace", ser1.Namespace, "Service.Name", ser1.Name)
-		err = r.client.Create(context.TODO(), ser1)
-		if err != nil && !errors.IsAlreadyExists(err) {
-			reqLogger.Error(err, "Failed to create a new Service.", "Service.Namespace", ser1.Namespace, "Service.Name", ser1.Name)
+	if webServer.Spec.UseSessionClustering {
+		ser1 := r.serviceForWebServerDNS(webServer)
+		// Check if the Service for DNSPing exists
+		err = r.client.Get(context.TODO(), types.NamespacedName{Name: ser1.Name, Namespace: ser1.Namespace}, &corev1.Service{})
+		if err != nil && errors.IsNotFound(err) {
+			// Define a new Service
+			reqLogger.Info("Creating a new Service.", "Service.Namespace", ser1.Namespace, "Service.Name", ser1.Name)
+			err = r.client.Create(context.TODO(), ser1)
+			if err != nil && !errors.IsAlreadyExists(err) {
+				reqLogger.Error(err, "Failed to create a new Service.", "Service.Namespace", ser1.Namespace, "Service.Name", ser1.Name)
+				return reconcile.Result{}, err
+			}
+			// Service created successfully - return and requeue
+			return reconcile.Result{Requeue: true}, nil
+		} else if err != nil {
+			reqLogger.Error(err, "Failed to get Service.")
 			return reconcile.Result{}, err
 		}
-		// Service created successfully - return and requeue
-		return reconcile.Result{Requeue: true}, nil
-	} else if err != nil {
-		reqLogger.Error(err, "Failed to get Service.")
-		return reconcile.Result{}, err
+		cmap := r.cmapForWebServerDNS(webServer)
+		// Check if the ConfigMap for DNSPing exists
+		err = r.client.Get(context.TODO(), types.NamespacedName{Name: cmap.Name, Namespace: cmap.Namespace}, &corev1.ConfigMap{})
+		if err != nil && errors.IsNotFound(err) {
+			// Define a new ConfigMap
+			reqLogger.Info("Creating a new ConfigMap.", "ConfigMap.Namespace", cmap.Namespace, "ConfigMap.Name", cmap.Name)
+			err = r.client.Create(context.TODO(), cmap)
+			if err != nil && !errors.IsAlreadyExists(err) {
+				reqLogger.Error(err, "Failed to create a new ConfigMap.", "ConfigMap.Namespace", cmap.Namespace, "ConfigMap.Name", cmap.Name)
+				return reconcile.Result{}, err
+			}
+			// Service created successfully - return and requeue
+			return reconcile.Result{Requeue: true}, nil
+		} else if err != nil {
+			reqLogger.Error(err, "Failed to get ConfigMap.")
+			return reconcile.Result{}, err
+		}
+
 	}
 
 	// Check if the Route already exists, if not create a new one
@@ -442,7 +462,7 @@ func (r *ReconcileWebServer) serviceForWebServerDNS(t *webserversv1alpha1.WebSer
 			APIVersion: "apps/v1",
 			Kind:       "Service",
 		},
-		ObjectMeta: objectMetaForWebServer(t, "webserver"),
+		ObjectMeta: objectMetaForWebServer(t, "webserver-"+t.Name),
 		Spec: corev1.ServiceSpec{
 			ClusterIP: "None",
 			Ports: []corev1.ServicePort{{
@@ -458,6 +478,27 @@ func (r *ReconcileWebServer) serviceForWebServerDNS(t *webserversv1alpha1.WebSer
 
 	controllerutil.SetControllerReference(t, service, r.scheme)
 	return service
+}
+
+func (r *ReconcileWebServer) cmapForWebServerDNS(t *webserversv1alpha1.WebServer) *corev1.ConfigMap {
+
+	cmap := &corev1.ConfigMap{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: "apps/v1",
+			Kind:       "ConfigMap",
+		},
+		ObjectMeta: objectMetaForWebServer(t, "webserver-"+t.Name),
+		Data: map[string]string{
+			"test.sh": "FILE=`find /opt -name server.xml`\n" +
+				"grep -q DNSMembershipProvider ${FILE}\n" +
+				"if [ $? -ne 0 ]; then\n" +
+				"  sed -i '/cluster.html/a        <Cluster className=\"org.apache.catalina.ha.tcp.SimpleTcpCluster\">\\n <Channel className=\"org.apache.catalina.tribes.group.GroupChannel\">\\n <Membership className=\"org.apache.catalina.tribes.membership.cloud.CloudMembershipService\" membershipProviderClassName=\"org.apache.catalina.tribes.membership.cloud.DNSMembershipProvider\"/>\\n </Channel>\\n </Cluster>\\n' ${FILE}\n" +
+				"fi\n",
+		},
+	}
+
+	controllerutil.SetControllerReference(t, cmap, r.scheme)
+	return cmap
 }
 
 func (r *ReconcileWebServer) deploymentConfigForWebServer(t *webserversv1alpha1.WebServer, image string, namespace string) *appsv1.DeploymentConfig {
@@ -548,7 +589,7 @@ func podTemplateSpecForWebServer(t *webserversv1alpha1.WebServer, image string) 
 	var health *webserversv1alpha1.WebServerHealthCheckSpec = &webserversv1alpha1.WebServerHealthCheckSpec{}
 	if t.Spec.WebImage != nil {
 		health = t.Spec.WebImage.WebServerHealthCheck
-	} else{
+	} else {
 		health = t.Spec.WebImageStream.WebServerHealthCheck
 	}
 	terminationGracePeriodSeconds := int64(60)
@@ -572,6 +613,20 @@ func podTemplateSpecForWebServer(t *webserversv1alpha1.WebServer, image string) 
 					Protocol:      corev1.ProtocolTCP,
 				}},
 				Env: createEnvVars(t),
+				VolumeMounts: []corev1.VolumeMount{{
+					Name:      "webserver-" + t.Name,
+					MountPath: "/test/my-files",
+				}},
+			}},
+			Volumes: []corev1.Volume{{
+				Name: "webserver-" + t.Name,
+				VolumeSource: corev1.VolumeSource{
+					ConfigMap: &corev1.ConfigMapVolumeSource{
+						LocalObjectReference: corev1.LocalObjectReference{
+							Name: "webserver-" + t.Name,
+						},
+					},
+				},
 			}},
 		},
 	}
@@ -848,8 +903,15 @@ func createEnvVars(t *webserversv1alpha1.WebServer) []corev1.EnvVar {
 	env := []corev1.EnvVar{
 		{
 			Name:  "KUBERNETES_NAMESPACE",
-			Value: "webserver",
+			Value: "webserver-" + t.Name,
 		},
+	}
+	if t.Spec.UseSessionClustering {
+		// Add parameter USE_SESSION_CLUSTERING
+		env = append(env, corev1.EnvVar{
+			Name:  "ENV_FILES",
+			Value: "/test/my-files/test.sh",
+		})
 	}
 	return env
 }
