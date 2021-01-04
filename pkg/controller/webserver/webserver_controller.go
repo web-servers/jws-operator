@@ -612,22 +612,10 @@ func podTemplateSpecForWebServer(t *webserversv1alpha1.WebServer, image string) 
 					ContainerPort: 8080,
 					Protocol:      corev1.ProtocolTCP,
 				}},
-				Env: createEnvVars(t),
-				VolumeMounts: []corev1.VolumeMount{{
-					Name:      "webserver-" + t.Name,
-					MountPath: "/test/my-files",
-				}},
+				Env:          createEnvVars(t),
+				VolumeMounts: createVolumeMounts(t),
 			}},
-			Volumes: []corev1.Volume{{
-				Name: "webserver-" + t.Name,
-				VolumeSource: corev1.VolumeSource{
-					ConfigMap: &corev1.ConfigMapVolumeSource{
-						LocalObjectReference: corev1.LocalObjectReference{
-							Name: "webserver-" + t.Name,
-						},
-					},
-				},
-			}},
+			Volumes: createVolumes(t),
 		},
 	}
 }
@@ -974,4 +962,34 @@ func createBuildTriggerPolicy(t *webserversv1alpha1.WebServer) []buildv1.BuildTr
 		}
 	}
 	return env
+}
+
+// Create the VolumeMounts
+func createVolumeMounts(t *webserversv1alpha1.WebServer) []corev1.VolumeMount {
+	if t.Spec.UseSessionClustering {
+		volm := []corev1.VolumeMount{{
+			Name:      "webserver-" + t.Name,
+			MountPath: "/test/my-files",
+		}}
+		return volm
+	}
+	return nil
+}
+
+// Create the Volumes
+func createVolumes(t *webserversv1alpha1.WebServer) []corev1.Volume {
+	if t.Spec.UseSessionClustering {
+		vol := []corev1.Volume{{
+			Name: "webserver-" + t.Name,
+			VolumeSource: corev1.VolumeSource{
+				ConfigMap: &corev1.ConfigMapVolumeSource{
+					LocalObjectReference: corev1.LocalObjectReference{
+						Name: "webserver-" + t.Name,
+					},
+				},
+			},
+		}}
+		return vol
+	}
+	return nil
 }
