@@ -17,6 +17,13 @@ to that application.
   applicationName: test
 ```
 
+## useSessionClustering (off if not filled)
+
+Use the DNSping session clustering if filled, default don't use session clustering
+```
+  useSessionClustering: true
+```
+
 ## applicationImage (customized images) (Method 1)
 
 The URL of the image you want to use with the operator. For example:
