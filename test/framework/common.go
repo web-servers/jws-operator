@@ -371,6 +371,9 @@ func LabelsForWeb(j *webserversv1alpha1.WebServer) map[string]string {
 func TestRouteWebServer(f *framework.Framework, t *testing.T, name string, namespace string, uri string, sticky bool) error {
 
 	context := goctx.TODO()
+	if sticky {
+		time.Sleep(20 * time.Second)
+	}
 
 	webServer := &webserversv1alpha1.WebServer{}
 	err := f.Client.Get(context, types.NamespacedName{Name: name, Namespace: namespace}, webServer)
