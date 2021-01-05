@@ -3,6 +3,7 @@ package framework
 import (
 	"context"
 	goctx "context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io/ioutil"
@@ -22,6 +23,25 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
+
+/* Result for the demo webapp
+{
+  "counter": 2,
+  "id": "2244ED88EBC16E2956F63107405D7CC9",
+  "new": false,
+  "server": "10.129.2.169",
+  "hostname": "test-app-1-psvcz",
+  "newtest": "2020"
+}
+*/
+type DemoResult struct {
+	Counter  int
+	Id       string
+	New      bool
+	Server   string
+	Hostname string
+	Newtest  string
+}
 
 var (
 	retryInterval        = time.Second * 5
@@ -116,7 +136,7 @@ func webServerBasicServerScaleTest(t *testing.T, f *framework.Framework, ctx *fr
 		return err
 	}
 
-	err = TestRouteWebServer(f, t, name, namespace, "/health")
+	err = TestRouteWebServer(f, t, name, namespace, "/health", false)
 	if err != nil {
 		return err
 	}
@@ -159,7 +179,7 @@ func webServerImageStreamServerScaleTest(t *testing.T, f *framework.Framework, c
 		return err
 	}
 
-	err = TestRouteWebServer(f, t, name, namespace, "/health")
+	err = TestRouteWebServer(f, t, name, namespace, "/health", false)
 	if err != nil {
 		return err
 	}
@@ -202,7 +222,7 @@ func webServerSourcesServerScaleTest(t *testing.T, f *framework.Framework, ctx *
 		return err
 	}
 
-	err = TestRouteWebServer(f, t, name, namespace, "/demo-1.0/demo")
+	err = TestRouteWebServer(f, t, name, namespace, "/demo-1.0/demo", true)
 	if err != nil {
 		return err
 	}
@@ -348,7 +368,7 @@ func LabelsForWeb(j *webserversv1alpha1.WebServer) map[string]string {
 }
 
 // Test the route
-func TestRouteWebServer(f *framework.Framework, t *testing.T, name string, namespace string, uri string) error {
+func TestRouteWebServer(f *framework.Framework, t *testing.T, name string, namespace string, uri string, sticky bool) error {
 
 	context := goctx.TODO()
 
@@ -372,6 +392,89 @@ func TestRouteWebServer(f *framework.Framework, t *testing.T, name string, names
 	if res.StatusCode != 200 {
 		t.Logf("body: %s\n", body)
 		return errors.New(url + " returns: " + strconv.Itoa(res.StatusCode))
+	}
+	if sticky {
+		// Do stickyness test.
+
+		// read the SESSIONID cookie
+		cookie := res.Cookies()
+		sessionco := &http.Cookie{}
+		sessionco = nil
+		for _, co := range cookie {
+			t.Logf("1-cookies: %s", co.Raw)
+			if co.Name == "JSESSIONID" {
+				sessionco = co
+			}
+		}
+		if sessionco == nil {
+			return errors.New(url + " doesn't return JSESSIONID cookies")
+		}
+
+		// Parse the response.
+		var oldresult DemoResult
+		json.Unmarshal(body, &oldresult)
+		counter := 1
+		t.Logf("1 - body: %s\n", body)
+
+		// Wait for the replication to take place... Probably something wrong there???
+		time.Sleep(10 * time.Second)
+
+		for {
+			// Do a another request.
+			req, err := http.NewRequest("GET", url, nil)
+			if err != nil {
+				return err
+			}
+			req.AddCookie(sessionco)
+			client := &http.Client{}
+			res, err = client.Do(req)
+			if err != nil {
+				return err
+			}
+			newbody, err := ioutil.ReadAll(res.Body)
+			res.Body.Close()
+			if err != nil {
+				return err
+			}
+			if res.StatusCode != 200 {
+				t.Logf("body: %s\n", newbody)
+				return errors.New(url + "second request returns: " + strconv.Itoa(res.StatusCode))
+			}
+			t.Logf("%d - body: %s\n", counter, newbody)
+			cookie = res.Cookies()
+			newsessionco := &http.Cookie{}
+			newsessionco = nil
+			for _, co := range cookie {
+				t.Logf("2-cookies: %s", co.Raw)
+				if co.Name == "JSESSIONID" {
+					t.Logf("Found cookies: %s", co.Raw)
+					newsessionco = co
+				}
+			}
+			if newsessionco != nil {
+				t.Logf("cookies new: %s old: %s", newsessionco.Raw, sessionco.Raw)
+				return errors.New(url + " Not sticky!!!")
+			}
+
+			// Check the counter in the body.
+			var result DemoResult
+			json.Unmarshal(newbody, &result)
+			t.Logf("Demo counter: %d", result.Counter)
+			if result.Counter != counter {
+				return errors.New(url + " NOTOK, counter should be " + strconv.Itoa(counter) + "... Not sticky!!!")
+			}
+
+			// And that pod name has changed...
+			t.Logf("Demo POD: %s and %s", result.Hostname, oldresult.Hostname)
+			if result.Hostname == oldresult.Hostname {
+				// We are on same pod... retry?...
+				t.Logf("%s NOTOK, on the same POD... Too sticky!!! retrying", url)
+				counter++
+				time.Sleep(10 * time.Second)
+			} else {
+				break
+			}
+		}
 	}
 	return nil
 }

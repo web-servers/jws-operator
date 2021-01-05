@@ -60,8 +60,9 @@ func MakeSourcesWebServer(ns, name, imageStreamName string, imageStreamNamespace
 			Namespace: ns,
 		},
 		Spec: webserversv1alpha1.WebServerSpec{
-			Replicas:        size,
-			ApplicationName: name,
+			Replicas:             size,
+			ApplicationName:      name,
+			UseSessionClustering: true,
 			WebImageStream: &webserversv1alpha1.WebImageStreamSpec{
 				ImageStreamName:      imageStreamName,
 				ImageStreamNamespace: imageStreamNamespace,
