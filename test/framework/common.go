@@ -116,22 +116,8 @@ func webServerBasicServerScaleTest(t *testing.T, f *framework.Framework, ctx *fr
 
 	t.Logf("Application %s is deployed with %d instance\n", name, 1)
 
-	context := goctx.TODO()
-
 	// update the size to 2
-	err = f.Client.Get(context, types.NamespacedName{Name: name, Namespace: namespace}, webServer)
-	if err != nil {
-		return err
-	}
-	webServer.Spec.Replicas = 2
-	err = f.Client.Update(context, webServer)
-	if err != nil {
-		return err
-	}
-	t.Logf("Updated application %s size to %d\n", name, webServer.Spec.Replicas)
-
-	// check that the resource have been updated
-	err = WaitUntilReady(f, t, webServer)
+	err = ScaleAndWaitUntilReady(f, t, webServer, name, namespace, 2)
 	if err != nil {
 		return err
 	}
@@ -159,22 +145,8 @@ func webServerImageStreamServerScaleTest(t *testing.T, f *framework.Framework, c
 
 	t.Logf("Application %s is deployed with %d instance\n", name, 1)
 
-	context := goctx.TODO()
-
 	// update the size to 2
-	err = f.Client.Get(context, types.NamespacedName{Name: name, Namespace: namespace}, webServer)
-	if err != nil {
-		return err
-	}
-	webServer.Spec.Replicas = 2
-	err = f.Client.Update(context, webServer)
-	if err != nil {
-		return err
-	}
-	t.Logf("Updated application %s size to %d\n", name, webServer.Spec.Replicas)
-
-	// check that the resource have been updated
-	err = WaitUntilReady(f, t, webServer)
+	err = ScaleAndWaitUntilReady(f, t, webServer, name, namespace, 2)
 	if err != nil {
 		return err
 	}
@@ -202,27 +174,35 @@ func webServerSourcesServerScaleTest(t *testing.T, f *framework.Framework, ctx *
 
 	t.Logf("Application %s is deployed with %d instance\n", name, 1)
 
-	context := goctx.TODO()
-
 	// update the size to 2
-	err = f.Client.Get(context, types.NamespacedName{Name: name, Namespace: namespace}, webServer)
-	if err != nil {
-		return err
-	}
-	webServer.Spec.Replicas = 2
-	err = f.Client.Update(context, webServer)
-	if err != nil {
-		return err
-	}
-	t.Logf("Updated application %s size to %d\n", name, webServer.Spec.Replicas)
-
-	// check that the resource have been updated
-	err = WaitUntilReady(f, t, webServer)
+	err = ScaleAndWaitUntilReady(f, t, webServer, name, namespace, 2)
 	if err != nil {
 		return err
 	}
 
 	err = TestRouteWebServer(f, t, name, namespace, "/demo-1.0/demo", true)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func ScaleAndWaitUntilReady(f *framework.Framework, t *testing.T, server *webserversv1alpha1.WebServer, name string, namespace string, size int32) error {
+	context := goctx.TODO()
+
+	err := f.Client.Get(context, types.NamespacedName{Name: name, Namespace: namespace}, server)
+	if err != nil {
+		return err
+	}
+	server.Spec.Replicas = size
+	err = f.Client.Update(context, server)
+	if err != nil {
+		return err
+	}
+	t.Logf("Updated application %s size to %d\n", name, server.Spec.Replicas)
+
+	// check that the resource have been updated
+	err = WaitUntilReady(f, t, server)
 	if err != nil {
 		return err
 	}
