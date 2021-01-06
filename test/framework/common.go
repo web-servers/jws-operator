@@ -372,7 +372,7 @@ func TestRouteWebServer(f *framework.Framework, t *testing.T, name string, names
 
 	context := goctx.TODO()
 	if sticky {
-		time.Sleep(20 * time.Second)
+		time.Sleep(40 * time.Second)
 	}
 
 	webServer := &webserversv1alpha1.WebServer{}
