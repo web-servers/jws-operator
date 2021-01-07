@@ -52,31 +52,31 @@ var (
 )
 
 // WebServerBasicTest runs basic operator tests
-func WebServerBasicTest(t *testing.T, applicationTag string) {
+func WebServerBasicTest(t *testing.T, imageName string, testUri string) {
 	ctx, f := webServerTestSetup(t)
 	defer ctx.Cleanup()
 
-	if err := webServerBasicServerScaleTest(t, f, ctx, applicationTag); err != nil {
+	if err := webServerBasicServerScaleTest(t, f, ctx, imageName, testUri); err != nil {
 		t.Fatal(err)
 	}
 }
 
 // WebServermageStreamTest runs Image Stream operator tests
-func WebServerImageStreamTest(t *testing.T, applicationTag string) {
+func WebServerImageStreamTest(t *testing.T, imageStreamName string, testUri string) {
 	ctx, f := webServerTestSetup(t)
 	defer ctx.Cleanup()
 
-	if err := webServerImageStreamServerScaleTest(t, f, ctx, applicationTag); err != nil {
+	if err := webServerImageStreamServerScaleTest(t, f, ctx, imageStreamName, testUri); err != nil {
 		t.Fatal(err)
 	}
 }
 
 // WebServermageStreamTest runs Image Stream operator tests
-func WebServerSourcesTest(t *testing.T, applicationTag string) {
+func WebServerSourcesTest(t *testing.T, imageStreamName string, gitUrl string, testUri string) {
 	ctx, f := webServerTestSetup(t)
 	defer ctx.Cleanup()
 
-	if err := webServerSourcesServerScaleTest(t, f, ctx, applicationTag); err != nil {
+	if err := webServerSourcesServerScaleTest(t, f, ctx, imageStreamName, gitUrl, testUri); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -100,7 +100,7 @@ func webServerTestSetup(t *testing.T) (*framework.Context, *framework.Framework)
 	return ctx, f
 }
 
-func webServerBasicServerScaleTest(t *testing.T, f *framework.Framework, ctx *framework.Context, applicationTag string) error {
+func webServerBasicServerScaleTest(t *testing.T, f *framework.Framework, ctx *framework.Context, imageName string, testUri string) error {
 	namespace, err := ctx.GetOperatorNamespace()
 	if err != nil {
 		return fmt.Errorf("could not get namespace: %v", err)
@@ -108,8 +108,7 @@ func webServerBasicServerScaleTest(t *testing.T, f *framework.Framework, ctx *fr
 
 	name := "example-webserver-" + unixEpoch()
 	// create webServer custom resource
-	// webServer := MakeBasicWebServer(namespace, name, "quay.io/jws-quickstarts/jws-operator-quickstart:"+applicationTag, 1)
-	webServer := MakeBasicWebServer(namespace, name, "quay.io/jfclere/jws-image:5.4", 1)
+	webServer := MakeBasicWebServer(namespace, name, imageName, 1)
 	err = CreateAndWaitUntilReady(f, ctx, t, webServer)
 	if err != nil {
 		return err
@@ -123,14 +122,14 @@ func webServerBasicServerScaleTest(t *testing.T, f *framework.Framework, ctx *fr
 		return err
 	}
 
-	err = TestRouteWebServer(f, t, name, namespace, "/health", false)
+	err = TestRouteWebServer(f, t, name, namespace, testUri, false)
 	if err != nil {
 		return err
 	}
 	return nil
 }
 
-func webServerImageStreamServerScaleTest(t *testing.T, f *framework.Framework, ctx *framework.Context, applicationTag string) error {
+func webServerImageStreamServerScaleTest(t *testing.T, f *framework.Framework, ctx *framework.Context, imageStreamName string, testURI string) error {
 	namespace, err := ctx.GetOperatorNamespace()
 	if err != nil {
 		return fmt.Errorf("could not get namespace: %v", err)
@@ -138,7 +137,7 @@ func webServerImageStreamServerScaleTest(t *testing.T, f *framework.Framework, c
 
 	name := "example-webserver-" + unixEpoch()
 	// create the webServer custom resource
-	webServer := MakeImageStreamWebServer(namespace, name, "jboss-webserver54-openjdk8-tomcat9-ubi8-openshift", namespace, 1)
+	webServer := MakeImageStreamWebServer(namespace, name, imageStreamName, namespace, 1)
 	err = CreateAndWaitUntilReady(f, ctx, t, webServer)
 	if err != nil {
 		return err
@@ -152,14 +151,14 @@ func webServerImageStreamServerScaleTest(t *testing.T, f *framework.Framework, c
 		return err
 	}
 
-	err = TestRouteWebServer(f, t, name, namespace, "/health", false)
+	err = TestRouteWebServer(f, t, name, namespace, testURI, false)
 	if err != nil {
 		return err
 	}
 	return nil
 }
 
-func webServerSourcesServerScaleTest(t *testing.T, f *framework.Framework, ctx *framework.Context, applicationTag string) error {
+func webServerSourcesServerScaleTest(t *testing.T, f *framework.Framework, ctx *framework.Context, imageStreamName string, gitUrl string, testUri string) error {
 	namespace, err := ctx.GetOperatorNamespace()
 	if err != nil {
 		return fmt.Errorf("could not get namespace: %v", err)
@@ -167,7 +166,7 @@ func webServerSourcesServerScaleTest(t *testing.T, f *framework.Framework, ctx *
 
 	name := "example-webserver-" + unixEpoch()
 	// create the webServer custom resource
-	webServer := MakeSourcesWebServer(namespace, name, "jboss-webserver54-openjdk8-tomcat9-ubi8-openshift", namespace, "https://github.com/jfclere/demo-webapp", 1)
+	webServer := MakeSourcesWebServer(namespace, name, imageStreamName, namespace, gitUrl, 1)
 	err = CreateAndWaitUntilReady(f, ctx, t, webServer)
 	if err != nil {
 		return err
@@ -181,7 +180,7 @@ func webServerSourcesServerScaleTest(t *testing.T, f *framework.Framework, ctx *
 		return err
 	}
 
-	err = TestRouteWebServer(f, t, name, namespace, "/demo-1.0/demo", true)
+	err = TestRouteWebServer(f, t, name, namespace, testUri, true)
 	if err != nil {
 		return err
 	}
