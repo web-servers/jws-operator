@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"os"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 
@@ -174,8 +175,8 @@ func webServerSourcesServerScaleTest(t *testing.T, f *framework.Framework, ctx *
 
 	t.Logf("Application %s is deployed with %d instance\n", name, 1)
 
-	// update the size to 2
-	err = ScaleAndWaitUntilReady(f, t, webServer, name, namespace, 2)
+	// update the size to 4
+	err = ScaleAndWaitUntilReady(f, t, webServer, name, namespace, 4)
 	if err != nil {
 		return err
 	}
@@ -402,6 +403,8 @@ func TestRouteWebServer(f *framework.Framework, t *testing.T, name string, names
 		// Wait for the replication to take place... Probably something wrong there???
 		time.Sleep(10 * time.Second)
 
+		hostnames := make([]string, 0)
+		hostnames = append(hostnames, oldresult.Hostname)
 		for {
 			// Do a another request.
 			req, err := http.NewRequest("GET", url, nil)
@@ -448,15 +451,25 @@ func TestRouteWebServer(f *framework.Framework, t *testing.T, name string, names
 			}
 
 			// And that pod name has changed...
-			t.Logf("Demo POD: %s and %s", result.Hostname, oldresult.Hostname)
-			if result.Hostname == oldresult.Hostname {
+			t.Logf("Demo POD: %s and %s", result.Hostname, strings.Join(hostnames, ","))
+			found := false
+			for _, hostname := range hostnames {
+				t.Logf("Demo POD: %s and %s", result.Hostname, hostname)
+				if hostname == result.Hostname {
+					found = true
+				}
+			}
+			if found {
 				// We are on same pod... retry?...
 				t.Logf("%s NOTOK, on the same POD... Too sticky!!! retrying", url)
-				counter++
-				time.Sleep(10 * time.Second)
 			} else {
-				break
+				hostnames = append(hostnames, result.Hostname)
+				if int32(len(hostnames)) == webServer.Spec.Replicas {
+					break
+				}
 			}
+			counter++
+			time.Sleep(10 * time.Second)
 		}
 	}
 	return nil
