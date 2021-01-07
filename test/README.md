@@ -60,7 +60,7 @@ metadata:
 spec:
   # Add fields here
   applicationName: example-webserver-123458
-  replicas: 2
+  replicas: 1
   useSessionClustering: true
   webImageStream:
     imageStreamNamespace: default
