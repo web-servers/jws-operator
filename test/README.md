@@ -1,16 +1,16 @@
 # This directory contains the test for the operator it requires:
 
-1 - To be connected to an openshift cluster where you can run the JWS operator.
+1 - To be connected to an openshift cluster where you can run the JWS operator
 
-2 - An ImageStream named "jboss-webserver54-openjdk8-tomcat9-ubi8-openshift"
+2 - To have an ImageStream named "jboss-webserver54-openjdk8-tomcat9-ubi8-openshift"
 ```
 oc create -f xpaas-streams/jws54-tomcat9-image-stream.json
 ```
-3 - A project must be created
+3 - To have a project
 ```
 oc new-project test
 ```
-4 - Is run by make test in the jws-operator directory.
+4 - and the tests are by make test in the jws-operator directory.
 ```
 make test
 ```
