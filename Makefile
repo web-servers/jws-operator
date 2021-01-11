@@ -1,8 +1,10 @@
 IMAGE ?= docker.io/${USER}/jws-operator:latest
 PROG  := jws-operator
 NAMESPACE :=`oc project -q`
-
+VERSION ?= 1.0.0
 .DEFAULT_GOAL := help
+DATETIME := `date -u +'%FT%TZ'`
+CONTAINER_IMAGE := "${CONTAINER_IMAGE}"
 
 ## setup                                    Ensure the operator-sdk is installed.
 setup:
@@ -78,6 +80,15 @@ test: test-e2e-17-local
 test-e2e-17-local: setup-e2e-test
 	LOCAL_OPERATOR=true OPERATOR_NAME=jws-operator ./operator-sdk-e2e-tests test local ./test/e2e/17.0 --verbose --debug  --operator-namespace ${NAMESPACE} --up-local --local-operator-flags "--zap-devel --zap-level=5" --global-manifest ./deploy/crds/web.servers.org_webservers_crd.yaml
 
+generate-csv:
+	operator-sdk generate csv --verbose --csv-version $(VERSION) --update-crds
+	mv deploy/olm-catalog/jws-operator/manifests/* manifests/jws/$(VERSION)/
+	rm -r deploy/olm-catalog
+
+customize-csv: generate-csv
+	# The containerImage and image information contain placeholders
+	# that need to be manually changed after the operator is built
+	DATETIME=$(DATETIME) CONTAINER_IMAGE=$(CONTAINER_IMAGE) OPERATOR_VERSION=$(VERSION) build/customize_csv.sh
 
 help : Makefile
 	@sed -n 's/^##//p' $<
