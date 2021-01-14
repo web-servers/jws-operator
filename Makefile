@@ -75,10 +75,10 @@ run-kubernetes:
 	kubectl create -f deploy/role_binding.yaml
 	kubectl apply -f deploy/operator.yaml
 
-test: test-e2e-17-local
+test: test-e2e-5-local
 
-test-e2e-17-local: setup-e2e-test
-	LOCAL_OPERATOR=true OPERATOR_NAME=jws-operator ./operator-sdk-e2e-tests test local ./test/e2e/17.0 --verbose --debug  --operator-namespace ${NAMESPACE} --up-local --local-operator-flags "--zap-devel --zap-level=5" --global-manifest ./deploy/crds/web.servers.org_webservers_crd.yaml
+test-e2e-5-local: setup-e2e-test
+	LOCAL_OPERATOR=true OPERATOR_NAME=jws-operator ./operator-sdk-e2e-tests test local ./test/e2e/5 --verbose --debug  --operator-namespace ${NAMESPACE} --up-local --local-operator-flags "--zap-devel --zap-level=5" --global-manifest ./deploy/crds/web.servers.org_webservers_crd.yaml
 
 generate-csv:
 	operator-sdk generate csv --verbose --csv-version $(VERSION) --update-crds

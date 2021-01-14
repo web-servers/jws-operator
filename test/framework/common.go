@@ -23,6 +23,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	podv1 "k8s.io/kubernetes/pkg/api/v1/pod"
 )
 
 /* Result for the demo webapp
@@ -344,7 +345,7 @@ func ArePodsReady(podList *corev1.PodList, size int32) bool {
 		return false
 	}
 	for _, pod := range podList.Items {
-		if pod.Status.Phase != corev1.PodRunning {
+		if !podv1.IsPodReady(&pod) { {
 			return false
 		}
 	}
