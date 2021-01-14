@@ -52,31 +52,36 @@ var (
 )
 
 // WebServerBasicTest runs basic operator tests
-func WebServerBasicTest(t *testing.T, applicationTag string) {
+func WebServerBasicTest(t *testing.T, imageName string, testUri string) {
 	ctx, f := webServerTestSetup(t)
 	defer ctx.Cleanup()
 
-	if err := webServerBasicServerScaleTest(t, f, ctx, applicationTag); err != nil {
+	if err := webServerBasicServerScaleTest(t, f, ctx, imageName, testUri); err != nil {
 		t.Fatal(err)
 	}
 }
 
 // WebServermageStreamTest runs Image Stream operator tests
-func WebServerImageStreamTest(t *testing.T, applicationTag string) {
+func WebServerImageStreamTest(t *testing.T, imageStreamName string, testUri string) {
 	ctx, f := webServerTestSetup(t)
 	defer ctx.Cleanup()
 
-	if err := webServerImageStreamServerScaleTest(t, f, ctx, applicationTag); err != nil {
+	if err := webServerImageStreamServerScaleTest(t, f, ctx, imageStreamName, testUri); err != nil {
 		t.Fatal(err)
 	}
 }
 
 // WebServermageStreamTest runs Image Stream operator tests
-func WebServerSourcesTest(t *testing.T, applicationTag string) {
+func WebServerSourcesTest(t *testing.T, imageStreamName string, gitUrl string, testUri string) {
 	ctx, f := webServerTestSetup(t)
 	defer ctx.Cleanup()
 
-	if err := webServerSourcesServerScaleTest(t, f, ctx, applicationTag); err != nil {
+	// scale up test.
+	if err := webServerSourcesServerScaleTest(t, f, ctx, imageStreamName, gitUrl, testUri, 1, 4); err != nil {
+		t.Fatal(err)
+	}
+	// scale down test.
+	if err := webServerSourcesServerScaleTest(t, f, ctx, imageStreamName, gitUrl, testUri, 4, 1); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -100,7 +105,7 @@ func webServerTestSetup(t *testing.T) (*framework.Context, *framework.Framework)
 	return ctx, f
 }
 
-func webServerBasicServerScaleTest(t *testing.T, f *framework.Framework, ctx *framework.Context, applicationTag string) error {
+func webServerBasicServerScaleTest(t *testing.T, f *framework.Framework, ctx *framework.Context, imageName string, testUri string) error {
 	namespace, err := ctx.GetOperatorNamespace()
 	if err != nil {
 		return fmt.Errorf("could not get namespace: %v", err)
@@ -108,8 +113,7 @@ func webServerBasicServerScaleTest(t *testing.T, f *framework.Framework, ctx *fr
 
 	name := "example-webserver-" + unixEpoch()
 	// create webServer custom resource
-	// webServer := MakeBasicWebServer(namespace, name, "quay.io/jws-quickstarts/jws-operator-quickstart:"+applicationTag, 1)
-	webServer := MakeBasicWebServer(namespace, name, "quay.io/jfclere/jws-image:5.4", 1)
+	webServer := MakeBasicWebServer(namespace, name, imageName, 1)
 	err = CreateAndWaitUntilReady(f, ctx, t, webServer)
 	if err != nil {
 		return err
@@ -123,14 +127,14 @@ func webServerBasicServerScaleTest(t *testing.T, f *framework.Framework, ctx *fr
 		return err
 	}
 
-	err = TestRouteWebServer(f, t, name, namespace, "/health", false)
+	_, err = TestRouteWebServer(f, t, name, namespace, testUri, false, nil)
 	if err != nil {
 		return err
 	}
 	return nil
 }
 
-func webServerImageStreamServerScaleTest(t *testing.T, f *framework.Framework, ctx *framework.Context, applicationTag string) error {
+func webServerImageStreamServerScaleTest(t *testing.T, f *framework.Framework, ctx *framework.Context, imageStreamName string, testURI string) error {
 	namespace, err := ctx.GetOperatorNamespace()
 	if err != nil {
 		return fmt.Errorf("could not get namespace: %v", err)
@@ -138,7 +142,7 @@ func webServerImageStreamServerScaleTest(t *testing.T, f *framework.Framework, c
 
 	name := "example-webserver-" + unixEpoch()
 	// create the webServer custom resource
-	webServer := MakeImageStreamWebServer(namespace, name, "jboss-webserver54-openjdk8-tomcat9-ubi8-openshift", namespace, 1)
+	webServer := MakeImageStreamWebServer(namespace, name, imageStreamName, namespace, 1)
 	err = CreateAndWaitUntilReady(f, ctx, t, webServer)
 	if err != nil {
 		return err
@@ -152,14 +156,14 @@ func webServerImageStreamServerScaleTest(t *testing.T, f *framework.Framework, c
 		return err
 	}
 
-	err = TestRouteWebServer(f, t, name, namespace, "/health", false)
+	_, err = TestRouteWebServer(f, t, name, namespace, testURI, false, nil)
 	if err != nil {
 		return err
 	}
 	return nil
 }
 
-func webServerSourcesServerScaleTest(t *testing.T, f *framework.Framework, ctx *framework.Context, applicationTag string) error {
+func webServerSourcesServerScaleTest(t *testing.T, f *framework.Framework, ctx *framework.Context, imageStreamName string, gitUrl string, testUri string, init int32, final int32) error {
 	namespace, err := ctx.GetOperatorNamespace()
 	if err != nil {
 		return fmt.Errorf("could not get namespace: %v", err)
@@ -167,21 +171,38 @@ func webServerSourcesServerScaleTest(t *testing.T, f *framework.Framework, ctx *
 
 	name := "example-webserver-" + unixEpoch()
 	// create the webServer custom resource
-	webServer := MakeSourcesWebServer(namespace, name, "jboss-webserver54-openjdk8-tomcat9-ubi8-openshift", namespace, "https://github.com/jfclere/demo-webapp", 1)
+	webServer := MakeSourcesWebServer(namespace, name, imageStreamName, namespace, gitUrl, init)
 	err = CreateAndWaitUntilReady(f, ctx, t, webServer)
 	if err != nil {
 		return err
 	}
 
-	t.Logf("Application %s is deployed with %d instance\n", name, 1)
+	t.Logf("Application %s is deployed with %d instance\n", name, init)
 
-	// update the size to 4
-	err = ScaleAndWaitUntilReady(f, t, webServer, name, namespace, 4)
+	// Wait until the replication is started.
+	time.Sleep(40 * time.Second)
+
+	// Test it.
+	co, err := TestRouteWebServer(f, t, name, namespace, testUri, true, nil)
+	if err != nil {
+		return err
+	}
+	if co == nil {
+		return errors.New("Missing JSESSIONID cookie")
+	}
+
+	// update the size to final
+	err = ScaleAndWaitUntilReady(f, t, webServer, name, namespace, final)
 	if err != nil {
 		return err
 	}
 
-	err = TestRouteWebServer(f, t, name, namespace, "/demo-1.0/demo", true)
+	// Retest it
+	if final > init {
+		// Wait until the replication is started on the new pods.
+		time.Sleep(40 * time.Second)
+	}
+	_, err = TestRouteWebServer(f, t, name, namespace, testUri, true, co)
 	if err != nil {
 		return err
 	}
@@ -349,33 +370,40 @@ func LabelsForWeb(j *webserversv1alpha1.WebServer) map[string]string {
 }
 
 // Test the route
-func TestRouteWebServer(f *framework.Framework, t *testing.T, name string, namespace string, uri string, sticky bool) error {
+func TestRouteWebServer(f *framework.Framework, t *testing.T, name string, namespace string, uri string, sticky bool, oldco *http.Cookie) (*http.Cookie, error) {
 
 	context := goctx.TODO()
-	if sticky {
-		time.Sleep(40 * time.Second)
-	}
 
 	webServer := &webserversv1alpha1.WebServer{}
 	err := f.Client.Get(context, types.NamespacedName{Name: name, Namespace: namespace}, webServer)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	t.Logf("route:  (%s)\n", webServer.Status.Hosts)
 	url := "http://" + webServer.Status.Hosts[0] + uri
-	t.Logf("doing get:  (%s)\n", url)
-	res, err := http.Get(url)
+	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
-		return err
+		return nil, err
+	}
+	if oldco != nil {
+		req.AddCookie(oldco)
+		t.Logf("doing get:  (%s) cookie: (%s)\n", url, oldco.Raw)
+	} else {
+		t.Logf("doing get:  (%s)\n", url)
+	}
+	client := &http.Client{}
+	res, err := client.Do(req)
+	if err != nil {
+		return nil, err
 	}
 	body, err := ioutil.ReadAll(res.Body)
 	res.Body.Close()
 	if err != nil {
-		return err
+		return nil, err
 	}
 	if res.StatusCode != 200 {
 		t.Logf("body: %s\n", body)
-		return errors.New(url + " returns: " + strconv.Itoa(res.StatusCode))
+		return nil, errors.New(url + " returns: " + strconv.Itoa(res.StatusCode))
 	}
 	if sticky {
 		// Do stickyness test.
@@ -390,15 +418,27 @@ func TestRouteWebServer(f *framework.Framework, t *testing.T, name string, names
 				sessionco = co
 			}
 		}
-		if sessionco == nil {
-			return errors.New(url + " doesn't return JSESSIONID cookies")
+		if oldco != nil {
+			if sessionco != nil {
+				return nil, errors.New(url + " unexpected JSESSIONID cookies")
+			}
+			sessionco = oldco
+		} else {
+			if sessionco == nil {
+				return nil, errors.New(url + " doesn't return JSESSIONID cookies")
+			}
 		}
 
 		// Parse the response.
 		var oldresult DemoResult
 		json.Unmarshal(body, &oldresult)
 		counter := 1
-		t.Logf("1 - body: %s\n", body)
+		if oldco != nil {
+			// Read previous value and increase it.
+			counter = oldresult.Counter
+			counter++
+		}
+		t.Logf("%d - body: %s\n", counter, body)
 
 		// Wait for the replication to take place... Probably something wrong there???
 		time.Sleep(10 * time.Second)
@@ -409,22 +449,22 @@ func TestRouteWebServer(f *framework.Framework, t *testing.T, name string, names
 			// Do a another request.
 			req, err := http.NewRequest("GET", url, nil)
 			if err != nil {
-				return err
+				return nil, err
 			}
 			req.AddCookie(sessionco)
-			client := &http.Client{}
+			client = &http.Client{}
 			res, err = client.Do(req)
 			if err != nil {
-				return err
+				return nil, err
 			}
 			newbody, err := ioutil.ReadAll(res.Body)
 			res.Body.Close()
 			if err != nil {
-				return err
+				return nil, err
 			}
 			if res.StatusCode != 200 {
 				t.Logf("body: %s\n", newbody)
-				return errors.New(url + "second request returns: " + strconv.Itoa(res.StatusCode))
+				return nil, errors.New(url + "second request returns: " + strconv.Itoa(res.StatusCode))
 			}
 			t.Logf("%d - body: %s\n", counter, newbody)
 			cookie = res.Cookies()
@@ -439,7 +479,7 @@ func TestRouteWebServer(f *framework.Framework, t *testing.T, name string, names
 			}
 			if newsessionco != nil {
 				t.Logf("cookies new: %s old: %s", newsessionco.Raw, sessionco.Raw)
-				return errors.New(url + " Not sticky!!!")
+				return nil, errors.New(url + " Not sticky!!!")
 			}
 
 			// Check the counter in the body.
@@ -447,7 +487,7 @@ func TestRouteWebServer(f *framework.Framework, t *testing.T, name string, names
 			json.Unmarshal(newbody, &result)
 			t.Logf("Demo counter: %d", result.Counter)
 			if result.Counter != counter {
-				return errors.New(url + " NOTOK, counter should be " + strconv.Itoa(counter) + "... Not sticky!!!")
+				return nil, errors.New(url + " NOTOK, counter should be " + strconv.Itoa(counter) + "... Not sticky!!!")
 			}
 
 			// And that pod name has changed...
@@ -461,16 +501,20 @@ func TestRouteWebServer(f *framework.Framework, t *testing.T, name string, names
 			}
 			if found {
 				// We are on same pod... retry?...
+				if webServer.Spec.Replicas == 1 {
+					// Only one pod done...
+					return sessionco, nil
+				}
 				t.Logf("%s NOTOK, on the same POD... Too sticky!!! retrying", url)
 			} else {
 				hostnames = append(hostnames, result.Hostname)
 				if int32(len(hostnames)) == webServer.Spec.Replicas {
-					break
+					return sessionco, nil
 				}
 			}
 			counter++
 			time.Sleep(10 * time.Second)
 		}
 	}
-	return nil
+	return nil, nil
 }

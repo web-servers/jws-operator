@@ -30,13 +30,13 @@ func TestWebServer54(t *testing.T) {
 }
 
 func webServerBasicTest(t *testing.T) {
-	webserversframework.WebServerBasicTest(t, "5.4")
+	webserversframework.WebServerBasicTest(t, "quay.io/jfclere/jws-image:5.4", "/health")
 }
 
 func webServerImageStreamTest(t *testing.T) {
-	webserversframework.WebServerImageStreamTest(t, "5.4")
+	webserversframework.WebServerImageStreamTest(t, "jboss-webserver54-openjdk8-tomcat9-ubi8-openshift", "/health")
 }
 
 func webServerSourcesTest(t *testing.T) {
-	webserversframework.WebServerSourcesTest(t, "5.4")
+	webserversframework.WebServerSourcesTest(t, "jboss-webserver54-openjdk8-tomcat9-ubi8-openshift", "https://github.com/jfclere/demo-webapp", "/demo-1.0/demo")
 }
