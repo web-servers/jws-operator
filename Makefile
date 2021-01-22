@@ -90,5 +90,12 @@ customize-csv: generate-csv
 	# that need to be manually changed after the operator is built
 	DATETIME=$(DATETIME) CONTAINER_IMAGE=$(CONTAINER_IMAGE) OPERATOR_VERSION=$(VERSION) build/customize_csv.sh
 
+catalog:
+	podman build -f build/catalog.Dockerfile -t my-test-catalog:latest .
+	podman tag my-test-catalog:latest quay.io/${USER}/my-test-catalog:latest
+	podman push quay.io/${USER}/my-test-catalog:latest
+	sed s:@USER@:${USER}: catalog.yaml.template > catalog.yaml
+	echo "Use oc create -f catalog.yaml to install the CatalogSource for the operator"
+
 help : Makefile
 	@sed -n 's/^##//p' $<
