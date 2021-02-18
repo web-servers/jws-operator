@@ -95,7 +95,13 @@ catalog:
 	podman tag my-test-catalog:latest quay.io/${USER}/my-test-catalog:latest
 	podman push quay.io/${USER}/my-test-catalog:latest
 	sed s:@USER@:${USER}: catalog.yaml.template > catalog.yaml
-	echo "Use oc create -f catalog.yaml to install the CatalogSource for the operator"
+	sed s:@NAMESPACE@:${NAMESPACE}: operatorgroup.yaml.template > operatorgroup.yaml
+	sed s:@NAMESPACE@:${NAMESPACE}: subscription.yaml.template > subscription.yaml
+	@echo ""
+	@echo "Use oc create -f catalog.yaml to install the CatalogSource for the operator"
+	@echo ""
+	@echo "Use oc create -f operatorgroup.yaml and oc create -f subscription.yaml to install the operator in ${NAMESPACE}"
+	@echo "or use the openshift web interface on the installed operator"
 
 help : Makefile
 	@sed -n 's/^##//p' $<
