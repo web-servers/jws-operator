@@ -1,10 +1,10 @@
 IMAGE ?= docker.io/${USER}/jws-operator:latest
 PROG  := jws-operator
 NAMESPACE :=`oc project -q`
-VERSION ?= 1.0.0
+VERSION ?= 1.1.0
 .DEFAULT_GOAL := help
 DATETIME := `date -u +'%FT%TZ'`
-CONTAINER_IMAGE := "${CONTAINER_IMAGE}"
+CONTAINER_IMAGE ?= "${IMAGE}"
 
 ## setup                                    Ensure the operator-sdk is installed.
 setup:
@@ -43,12 +43,12 @@ build: tidy build/_output/bin/jws-operator
 
 ## image                                    Builds the operator's image
 image: build
-	docker build -t "$(IMAGE)" . -f build/Dockerfile
+	podman build -t "$(IMAGE)" . -f build/Dockerfile
 	$(MAKE) generate-operator.yaml
 
 ## push                                     Push Docker image to the docker.io repository.
 push: image
-	docker push "$(IMAGE)"
+	podman push "$(IMAGE)"
 
 ## clean                                    Remove all generated build files.
 clean:
@@ -82,13 +82,13 @@ test-e2e-5-local: setup-e2e-test
 	LOCAL_OPERATOR=true OPERATOR_NAME=jws-operator ./operator-sdk-e2e-tests test local ./test/e2e/5 --verbose --debug  --operator-namespace ${NAMESPACE} --up-local --local-operator-flags "--zap-devel --zap-level=5" --global-manifest ./deploy/crds/web.servers.org_webservers_crd.yaml
 
 generate-csv:
+	operator-sdk generate crds
 	operator-sdk generate csv --verbose --csv-version $(VERSION) --update-crds
+	mkdir manifests/jws/$(VERSION)/ || true
 	mv deploy/olm-catalog/jws-operator/manifests/* manifests/jws/$(VERSION)/
 	rm -r deploy/olm-catalog
 
 customize-csv: generate-csv
-	# The containerImage and image information contain placeholders
-	# that need to be manually changed after the operator is built
 	DATETIME=$(DATETIME) CONTAINER_IMAGE=$(CONTAINER_IMAGE) OPERATOR_VERSION=$(VERSION) build/customize_csv.sh
 
 catalog:

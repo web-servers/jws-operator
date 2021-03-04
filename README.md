@@ -76,11 +76,11 @@ $ cd $GOPATH/src/github.com/web-servers
 $ git clone https://github.com/web-servers/jws-operator.git
 $ export IMAGE=docker.io/${USER}/jws-operator:v0.0.1
 $ cd jws-operator
-$ docker login docker.io
+$ podman login docker.io
 $ make push
 ```
 
-Note the Makefile uses _go mod tidy_, _go mod vendor_ then _go build_ to build the executable and docker to build and push the image.
+Note the Makefile uses _go mod tidy_, _go mod vendor_ then _go build_ to build the executable and podman to build and push the image.
 
 ## Deploy from sources to an Openshift Cluster
 
