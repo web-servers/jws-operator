@@ -3,15 +3,67 @@ kind: ClusterServiceVersion
 metadata:
   annotations:
     categories: Application Runtime
-    containerImage: quay.io/web-servers/jws-operator:v1.0.0
-    createdAt: 2021-03-04T14:55:06Z
+    containerImage: __IMAGE_PLACEHOLDER__
+    createdAt: 2021-03-04T14:51:25Z
     support: Red Hat
     repository: https://github.com/web-servers/jws-operator
     certified: "false"
     description:
       Operator that creates and manages Java applications running on JWS or Tomcat
+    alm-examples: |-
+      [
+        {
+          "apiVersion": "web.servers.org/v1alpha1",
+          "kind": "WebServer",
+          "metadata": {
+            "name": "example-image-webserver"
+          },
+          "spec": {
+            "applicationName": "jws-app",
+            "replicas": 2,
+            "webImage": {
+              "applicationImage": "quay.io/jfclere/jws-image:5.4"
+            }
+          }
+        },
+        {
+          "apiVersion": "web.servers.org/v1alpha1",
+          "kind": "WebServer",
+          "metadata": {
+            "name": "example-imagestream-webserver"
+          },
+          "spec": {
+            "applicationName": "jws-app",
+            "replicas": 2,
+            "webImageStream": {
+              "imageStreamName": "jboss-webserver54-openjdk8-tomcat9-ubi8-openshift",
+              "imageStreamNamespace": "openshift"
+            }
+          }
+        },
+        {
+          "apiVersion": "web.servers.org/v1alpha1",
+          "kind": "WebServer",
+          "metadata": {
+            "name": "example-imagestream-sources-webserver"
+          },
+          "spec": {
+            "applicationName": "jws-app",
+            "replicas": 2,
+            "webImageStream": {
+              "imageStreamName": "jboss-webserver54-openjdk8-tomcat9-ubi8-openshift",
+              "imageStreamNamespace": "openshift",
+              "webSources": {
+                "contextDir": "tomcat-websocket-chat",
+                "sourceRepositoryRef": "1.2",
+                "sourceRepositoryUrl": "https://github.com/jboss-openshift/openshift-quickstarts.git"
+              }
+            }
+          }
+        }
+      ]
     capabilities: Basic Install
-  name: jws-operator.v1.0.0
+  name: jws-operator.v1.1.0
   namespace: placeholder
 spec:
   apiservicedefinitions: {}
@@ -55,7 +107,7 @@ spec:
                       fieldPath: metadata.name
                 - name: OPERATOR_NAME
                   value: jws-operator
-                image: quay.io/web-servers/jws-operator:v1.0.0
+                image: __IMAGE_PLACEHOLDER__
                 imagePullPolicy: Always
                 name: jws-operator
                 resources: {}
@@ -169,4 +221,4 @@ spec:
   links:
   - name: JBoss Web Server
     url: https://www.redhat.com/en/technologies/jboss-middleware/web-server
-  version: 1.0.0
+  version: 1.1.0

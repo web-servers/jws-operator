@@ -1,0 +1,180 @@
+apiVersion: apiextensions.k8s.io/v1beta1
+kind: CustomResourceDefinition
+metadata:
+  name: webservers.web.servers.org
+spec:
+  group: web.servers.org
+  names:
+    kind: WebServer
+    listKind: WebServerList
+    plural: webservers
+    singular: webserver
+  scope: Namespaced
+  subresources:
+    status: {}
+  validation:
+    openAPIV3Schema:
+      description: Web Server is the schema for the webservers API
+      properties:
+        apiVersion:
+          description: 'APIVersion defines the versioned schema of this representation
+            of an object. Servers should convert recognized schemas to the latest
+            internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+          type: string
+        kind:
+          description: 'Kind is a string value representing the REST resource this
+            object represents. Servers may infer this from the endpoint the client
+            submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+          type: string
+        metadata:
+          type: object
+        spec:
+          description: WebServerSpec defines the desired state of WebServer
+          properties:
+            applicationName:
+              description: The base for the names of the deployed application resources
+              pattern: ^[a-z]([-a-z0-9]*[a-z0-9])?$
+              type: string
+            replicas:
+              description: The desired number of replicas for the application
+              format: int32
+              minimum: 0
+              type: integer
+            useSessionClustering:
+              description: Use Session Clustering
+              type: boolean
+            webImage:
+              description: (Deployment method 1) Application image
+              properties:
+                applicationImage:
+                  description: The name of the application image to be deployed
+                  type: string
+                webServerHealthCheck:
+                  description: Pod health checks information
+                  properties:
+                    serverLivenessScript:
+                      description: String for the pod liveness health check logic
+                      type: string
+                    serverReadinessScript:
+                      description: String for the pod readiness health check logic
+                      type: string
+                  required:
+                  - serverReadinessScript
+                  type: object
+              required:
+              - applicationImage
+              type: object
+            webImageStream:
+              description: (Deployment method 2) Imagestream
+              properties:
+                imageStreamName:
+                  description: The imagestream containing the image to be deployed
+                  type: string
+                imageStreamNamespace:
+                  description: The namespace where the image stream is located
+                  type: string
+                webServerHealthCheck:
+                  description: Pod health checks information
+                  properties:
+                    serverLivenessScript:
+                      description: String for the pod liveness health check logic
+                      type: string
+                    serverReadinessScript:
+                      description: String for the pod readiness health check logic
+                      type: string
+                  required:
+                  - serverReadinessScript
+                  type: object
+                webSources:
+                  description: (Optional) Source code information
+                  properties:
+                    contextDir:
+                      description: Subdirectory in the source repository
+                      type: string
+                    sourceRepositoryRef:
+                      description: Branch in the source repository
+                      type: string
+                    sourceRepositoryUrl:
+                      description: URL for the repository of the application sources
+                      type: string
+                    webSourcesParams:
+                      description: (Optional) Sources related parameters
+                      properties:
+                        artifactDir:
+                          description: Directory where the jar/war is created
+                          type: string
+                        genericWebhookSecret:
+                          description: Secret for a generic web hook
+                          type: string
+                        githubWebhookSecret:
+                          description: Secret for a Github web hook
+                          type: string
+                        mavenMirrorUrl:
+                          description: URL to a maven repository
+                          type: string
+                      type: object
+                  required:
+                  - contextDir
+                  - sourceRepositoryRef
+                  - sourceRepositoryUrl
+                  type: object
+              required:
+              - imageStreamName
+              - imageStreamNamespace
+              type: object
+          required:
+          - applicationName
+          - replicas
+          type: object
+        status:
+          description: WebServerStatus defines the observed state of WebServer
+          properties:
+            hosts:
+              items:
+                type: string
+              type: array
+              x-kubernetes-list-type: set
+            pods:
+              items:
+                description: PodStatus defines the observed state of pods running
+                  the WebServer application
+                properties:
+                  name:
+                    type: string
+                  podIP:
+                    type: string
+                  state:
+                    description: Represent the state of the Pod, it is used especially
+                      during scale down.
+                    enum:
+                    - ACTIVE
+                    - PENDING
+                    - FAILED
+                    type: string
+                required:
+                - name
+                - podIP
+                - state
+                type: object
+              type: array
+              x-kubernetes-list-type: atomic
+            replicas:
+              description: Replicas is the actual number of replicas for the application
+              format: int32
+              type: integer
+            scalingdownPods:
+              description: "Represents the number of pods which are in scaledown process
+                what particular pod is scaling down can be verified by PodStatus \n
+                Read-only."
+              format: int32
+              type: integer
+          required:
+          - replicas
+          - scalingdownPods
+          type: object
+      type: object
+  version: v1alpha1
+  versions:
+  - name: v1alpha1
+    served: true
+    storage: true
