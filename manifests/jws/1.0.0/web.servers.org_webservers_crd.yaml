@@ -33,7 +33,7 @@ spec:
           properties:
             applicationName:
               description: The base for the names of the deployed application resources
-              pattern: ^[a-z0-9]+$
+              pattern: ^[a-z]([-a-z0-9]*[a-z0-9])?$
               type: string
             replicas:
               description: The desired number of replicas for the application

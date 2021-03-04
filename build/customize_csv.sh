@@ -23,6 +23,8 @@ sed -i -e "s|  annotations:|"\
 '  links:\n'\
 '  - name: JBoss Web Server\n'\
 '    url: https://www.redhat.com/en/technologies/jboss-middleware/web-server|' \
+-e "s|image: ${IMAGE}|"\
+"image: ${CONTAINER_IMAGE}|" \
 manifests/jws/$OPERATOR_VERSION/jws-operator.clusterserviceversion.yaml
 
 #Keep scripts that match multiple lines separate from the rest, to avoid matching multiple lines when it's not supposed to

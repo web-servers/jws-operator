@@ -133,7 +133,7 @@ func (r *ReconcileWebServer) Reconcile(request reconcile.Request) (reconcile.Res
 	err = r.client.Get(context.TODO(), types.NamespacedName{Name: ser.Name, Namespace: ser.Namespace}, &corev1.Service{})
 	if err != nil && errors.IsNotFound(err) {
 		// Define a new Service
-		reqLogger.Info("Creating a new Service.", "Service.Namespace", ser.Namespace, "Service.Name", ser.Name)
+		reqLogger.Info("Creating a new Service for the Route.", "Service.Namespace", ser.Namespace, "Service.Name", ser.Name)
 		err = r.client.Create(context.TODO(), ser)
 		if err != nil && !errors.IsAlreadyExists(err) {
 			reqLogger.Error(err, "Failed to create a new Service.", "Service.Namespace", ser.Namespace, "Service.Name", ser.Name)
@@ -152,7 +152,7 @@ func (r *ReconcileWebServer) Reconcile(request reconcile.Request) (reconcile.Res
 		err = r.client.Get(context.TODO(), types.NamespacedName{Name: ser1.Name, Namespace: ser1.Namespace}, &corev1.Service{})
 		if err != nil && errors.IsNotFound(err) {
 			// Define a new Service
-			reqLogger.Info("Creating a new Service.", "Service.Namespace", ser1.Namespace, "Service.Name", ser1.Name)
+			reqLogger.Info("Creating a new Service for DNSPing.", "Service.Namespace", ser1.Namespace, "Service.Name", ser1.Name)
 			err = r.client.Create(context.TODO(), ser1)
 			if err != nil && !errors.IsAlreadyExists(err) {
 				reqLogger.Error(err, "Failed to create a new Service.", "Service.Namespace", ser1.Namespace, "Service.Name", ser1.Name)
