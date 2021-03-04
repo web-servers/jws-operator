@@ -46,7 +46,11 @@ $ operator-sdk add controller --api-version=web.servers.org/v1alpha1 --kind=WebS
 $ operator-sdk generate crds
 $ operator-sdk generate csv --csv-version 1.0.0
 ```
-
+9. Copy the web.servers.org_webservers_crd.yaml in the manifests/jws/${version} and build the catalog bundle
+```bash
+cp deploy/crds/web.servers.org_webservers_crd.yaml manifests/jws/1.0.0/web.servers.org_webservers_crd.yaml
+make catalog
+```
 ## Building the Operator
 
 ### Requirements
