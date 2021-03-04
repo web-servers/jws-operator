@@ -1,7 +1,7 @@
 apiVersion: web.servers.org/v1alpha1
 kind: WebServer
 metadata:
-  name: example-imagestream-webserver
+  name: example-imagestream-sources-webserver
 spec:
   # Add fields here
   applicationName: jws-app
@@ -9,3 +9,7 @@ spec:
   webImageStream:
     imageStreamNamespace: openshift
     imageStreamName: jboss-webserver54-openjdk8-tomcat9-ubi8-openshift
+    webSources:
+      sourceRepositoryUrl: https://github.com/jboss-openshift/openshift-quickstarts.git
+      sourceRepositoryRef: "1.2"
+      contextDir: tomcat-websocket-chat

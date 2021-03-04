@@ -345,7 +345,7 @@ func ArePodsReady(podList *corev1.PodList, size int32) bool {
 		return false
 	}
 	for _, pod := range podList.Items {
-		if !podv1.IsPodReady(&pod) { {
+		if !podv1.IsPodReady(&pod) {
 			return false
 		}
 	}
