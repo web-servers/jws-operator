@@ -15,7 +15,7 @@ spec:
       serviceAccountName: jws-operator
       containers:
         - name: jws-operator
-          image: quay.io/jfclere/jws-operator:v0.4.0
+          image: registry.redhat.io/jboss-webserver-5/webserver-openjdk8-rhel8-operator@sha256:e3fff4fecf05e350c32fffc63ea548f8e4628412fd000b4c90095a84806f61d0
           command:
             - jws-operator
           imagePullPolicy: Always
