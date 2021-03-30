@@ -78,8 +78,18 @@ rules:
       - "*"
     verbs:
       - "*"
-  - apiGroups: [""]
+  - apiGroups:
+      - ""
     resources:
       - services/finalizers
     verbs:
       - update
+  - apiGroups:
+      - rbac.authorization.k8s.io
+    resources:
+      - rolebindings
+    verbs:
+      - list
+      - create
+      - get
+      - watch

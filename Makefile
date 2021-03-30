@@ -59,12 +59,17 @@ generate-operator.yaml:
 	sed 's|@OP_IMAGE_TAG@|$(IMAGE)|' deploy/operator.template > deploy/operator.yaml
 
 ## run-openshift                            Run the JWS operator on OpenShift.
-run-openshift:
+run-openshift: push
 	oc create -f deploy/crds/web.servers.org_webservers_crd.yaml
 	oc create -f deploy/service_account.yaml
 	oc create -f deploy/role.yaml
 	oc create -f deploy/role_binding.yaml
 	oc apply -f deploy/operator.yaml
+clean-openshift:
+	oc delete -f deploy/crds/web.servers.org_webservers_crd.yaml
+	oc delete -f deploy/service_account.yaml
+	oc delete -f deploy/role.yaml
+	oc delete -f deploy/role_binding.yaml
 
 
 ## run-kubernetes                           Run the Tomcat operator on kubernetes.

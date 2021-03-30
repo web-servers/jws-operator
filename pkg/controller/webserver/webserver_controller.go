@@ -25,6 +25,9 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/rest"
+
+	// rbac "rbac.authorization.k8s.io/v1"
+	rbac "k8s.io/api/rbac/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -52,7 +55,7 @@ func Add(mgr manager.Manager) error {
 
 // newReconciler returns a new reconcile.Reconciler
 func newReconciler(mgr manager.Manager) reconcile.Reconciler {
-	return &ReconcileWebServer{client: mgr.GetClient(), scheme: mgr.GetScheme(), isOpenShift: isOpenShift(mgr.GetConfig())}
+	return &ReconcileWebServer{client: mgr.GetClient(), scheme: mgr.GetScheme(), isOpenShift: isOpenShift(mgr.GetConfig()), useKUBEPing: -1}
 }
 
 // add adds a new Controller to mgr with r as the reconcile.Reconciler
@@ -97,6 +100,7 @@ type ReconcileWebServer struct {
 	client      client.Client
 	scheme      *runtime.Scheme
 	isOpenShift bool
+	useKUBEPing int
 }
 
 // Reconcile reads that state of the cluster for a WebServer object and makes changes based on the state read
@@ -147,24 +151,50 @@ func (r *ReconcileWebServer) Reconcile(request reconcile.Request) (reconcile.Res
 	}
 
 	if webServer.Spec.UseSessionClustering {
-		ser1 := r.serviceForWebServerDNS(webServer)
-		// Check if the Service for DNSPing exists
-		err = r.client.Get(context.TODO(), types.NamespacedName{Name: ser1.Name, Namespace: ser1.Namespace}, &corev1.Service{})
-		if err != nil && errors.IsNotFound(err) {
-			// Define a new Service
-			reqLogger.Info("Creating a new Service for DNSPing.", "Service.Namespace", ser1.Namespace, "Service.Name", ser1.Name)
-			err = r.client.Create(context.TODO(), ser1)
-			if err != nil && !errors.IsAlreadyExists(err) {
-				reqLogger.Error(err, "Failed to create a new Service.", "Service.Namespace", ser1.Namespace, "Service.Name", ser1.Name)
+		// Create a RoleBinding for the KUBEPing
+		if r.useKUBEPing == -1 {
+			r.useKUBEPing = 0
+			rolebinding := r.roleBindingForWebServer(webServer)
+			err = r.client.Get(context.TODO(), types.NamespacedName{Name: rolebinding.Name, Namespace: rolebinding.Namespace}, &rbac.RoleBinding{})
+			if err != nil && errors.IsNotFound(err) {
+				// Define a new RoleBinding
+				reqLogger.Info("Creating a new RoleBinding.", "RoleBinding.Namespace", rolebinding.Namespace, "RoleBinding.Name", rolebinding.Name)
+				err = r.client.Create(context.TODO(), rolebinding)
+				if err != nil && !errors.IsAlreadyExists(err) {
+					reqLogger.Error(err, "Failed to create a new RoleBinding.", "RoleBinding.Namespace", rolebinding.Namespace, "RoleBinding.Name", rolebinding.Name)
+					// We ignore the error.
+					return reconcile.Result{Requeue: true}, nil
+				}
+				// Service created successfully - return and requeue
+				r.useKUBEPing = 1
+				return reconcile.Result{Requeue: true}, nil
+			} else if err != nil {
+				reqLogger.Error(err, "Failed to get RoleBinding.")
+				// We ignore the error.
+				return reconcile.Result{Requeue: true}, nil
+			}
+		}
+
+		if r.useKUBEPing == 0 {
+			ser1 := r.serviceForWebServerDNS(webServer)
+			// Check if the Service for DNSPing exists
+			err = r.client.Get(context.TODO(), types.NamespacedName{Name: ser1.Name, Namespace: ser1.Namespace}, &corev1.Service{})
+			if err != nil && errors.IsNotFound(err) {
+				// Define a new Service
+				reqLogger.Info("Creating a new Service for DNSPing.", "Service.Namespace", ser1.Namespace, "Service.Name", ser1.Name)
+				err = r.client.Create(context.TODO(), ser1)
+				if err != nil && !errors.IsAlreadyExists(err) {
+					reqLogger.Error(err, "Failed to create a new Service.", "Service.Namespace", ser1.Namespace, "Service.Name", ser1.Name)
+					return reconcile.Result{}, err
+				}
+				// Service created successfully - return and requeue
+				return reconcile.Result{Requeue: true}, nil
+			} else if err != nil {
+				reqLogger.Error(err, "Failed to get Service.")
 				return reconcile.Result{}, err
 			}
-			// Service created successfully - return and requeue
-			return reconcile.Result{Requeue: true}, nil
-		} else if err != nil {
-			reqLogger.Error(err, "Failed to get Service.")
-			return reconcile.Result{}, err
 		}
-		cmap := r.cmapForWebServerDNS(webServer)
+		cmap := r.cmapForWebServerDNS(webServer, r.useKUBEPing == 1)
 		// Check if the ConfigMap for DNSPing exists
 		err = r.client.Get(context.TODO(), types.NamespacedName{Name: cmap.Name, Namespace: cmap.Namespace}, &corev1.ConfigMap{})
 		if err != nil && errors.IsNotFound(err) {
@@ -286,7 +316,7 @@ func (r *ReconcileWebServer) Reconcile(request reconcile.Request) (reconcile.Res
 		err = r.client.Get(context.TODO(), types.NamespacedName{Name: webServer.Spec.ApplicationName, Namespace: webServer.Namespace}, foundDeployment)
 		if err != nil && errors.IsNotFound(err) {
 			// Define a new DeploymentConfig
-			dep := r.deploymentConfigForWebServer(webServer, myImageName, myImageNameSpace)
+			dep := r.deploymentConfigForWebServer(webServer, myImageName, myImageNameSpace, r.useKUBEPing == 1)
 			reqLogger.Info("Creating a new DeploymentConfig.", "DeploymentConfig.Namespace", dep.Namespace, "DeploymentConfig.Name", dep.Name)
 			err = r.client.Create(context.TODO(), dep)
 			if err != nil && !errors.IsAlreadyExists(err) {
@@ -324,7 +354,7 @@ func (r *ReconcileWebServer) Reconcile(request reconcile.Request) (reconcile.Res
 		err = r.client.Get(context.TODO(), types.NamespacedName{Name: webServer.Spec.ApplicationName, Namespace: webServer.Namespace}, foundDeployment)
 		if err != nil && errors.IsNotFound(err) {
 			// Define a new Deployment
-			dep := r.deploymentForWebServer(webServer)
+			dep := r.deploymentForWebServer(webServer, r.useKUBEPing == 1)
 			reqLogger.Info("Creating a new Deployment.", "Deployment.Namespace", dep.Namespace, "Deployment.Name", dep.Name)
 			err = r.client.Create(context.TODO(), dep)
 			if err != nil && !errors.IsAlreadyExists(err) {
@@ -480,7 +510,28 @@ func (r *ReconcileWebServer) serviceForWebServerDNS(t *webserversv1alpha1.WebSer
 	return service
 }
 
-func (r *ReconcileWebServer) cmapForWebServerDNS(t *webserversv1alpha1.WebServer) *corev1.ConfigMap {
+func (r *ReconcileWebServer) roleBindingForWebServer(t *webserversv1alpha1.WebServer) *rbac.RoleBinding {
+	rolebinding := &rbac.RoleBinding{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: "rbac.authorization.k8s.io/v1beta",
+			Kind:       "RoleBinding",
+		},
+		ObjectMeta: objectMetaForWebServer(t, "webserver-"+t.Name),
+		RoleRef: rbac.RoleRef{
+			APIGroup: "rbac.authorization.k8s.io",
+			Kind:     "ClusterRole",
+			Name:     "view",
+		},
+		Subjects: []rbac.Subject{{
+			Kind: "ServiceAccount",
+			Name: "default",
+		}},
+	}
+	controllerutil.SetControllerReference(t, rolebinding, r.scheme)
+	return rolebinding
+}
+
+func (r *ReconcileWebServer) cmapForWebServerDNS(t *webserversv1alpha1.WebServer, useKUBEPing bool) *corev1.ConfigMap {
 
 	cmap := &corev1.ConfigMap{
 		TypeMeta: metav1.TypeMeta{
@@ -488,23 +539,17 @@ func (r *ReconcileWebServer) cmapForWebServerDNS(t *webserversv1alpha1.WebServer
 			Kind:       "ConfigMap",
 		},
 		ObjectMeta: objectMetaForWebServer(t, "webserver-"+t.Name),
-		Data: map[string]string{
-			"test.sh": "FILE=`find /opt -name server.xml`\n" +
-				"grep -q DNSMembershipProvider ${FILE}\n" +
-				"if [ $? -ne 0 ]; then\n" +
-				"  sed -i '/cluster.html/a        <Cluster className=\"org.apache.catalina.ha.tcp.SimpleTcpCluster\" channelSendOptions=\"6\">\\n <Channel className=\"org.apache.catalina.tribes.group.GroupChannel\">\\n <Membership className=\"org.apache.catalina.tribes.membership.cloud.CloudMembershipService\" membershipProviderClassName=\"org.apache.catalina.tribes.membership.cloud.DNSMembershipProvider\"/>\\n </Channel>\\n </Cluster>\\n' ${FILE}\n" +
-				"fi\n",
-		},
+		Data:       commandForServerXml(useKUBEPing),
 	}
 
 	controllerutil.SetControllerReference(t, cmap, r.scheme)
 	return cmap
 }
 
-func (r *ReconcileWebServer) deploymentConfigForWebServer(t *webserversv1alpha1.WebServer, image string, namespace string) *appsv1.DeploymentConfig {
+func (r *ReconcileWebServer) deploymentConfigForWebServer(t *webserversv1alpha1.WebServer, image string, namespace string, useKUBEPing bool) *appsv1.DeploymentConfig {
 
 	replicas := int32(1)
-	podTemplateSpec := podTemplateSpecForWebServer(t, t.Spec.ApplicationName)
+	podTemplateSpec := podTemplateSpecForWebServer(t, t.Spec.ApplicationName, useKUBEPing)
 	deploymentConfig := &appsv1.DeploymentConfig{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: "apps.openshift.io/v1",
@@ -543,10 +588,10 @@ func (r *ReconcileWebServer) deploymentConfigForWebServer(t *webserversv1alpha1.
 	return deploymentConfig
 }
 
-func (r *ReconcileWebServer) deploymentForWebServer(t *webserversv1alpha1.WebServer) *kbappsv1.Deployment {
+func (r *ReconcileWebServer) deploymentForWebServer(t *webserversv1alpha1.WebServer, useKUBEPing bool) *kbappsv1.Deployment {
 
 	replicas := int32(1)
-	podTemplateSpec := podTemplateSpecForWebServer(t, t.Spec.WebImage.ApplicationImage)
+	podTemplateSpec := podTemplateSpecForWebServer(t, t.Spec.WebImage.ApplicationImage, useKUBEPing)
 	deployment := &kbappsv1.Deployment{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: "k8s.io/api/apps/v1",
@@ -582,7 +627,7 @@ func objectMetaForWebServer(t *webserversv1alpha1.WebServer, name string) metav1
 	}
 }
 
-func podTemplateSpecForWebServer(t *webserversv1alpha1.WebServer, image string) corev1.PodTemplateSpec {
+func podTemplateSpecForWebServer(t *webserversv1alpha1.WebServer, image string, useKUBEPing bool) corev1.PodTemplateSpec {
 	objectMeta := objectMetaForWebServer(t, t.Spec.ApplicationName)
 	objectMeta.Labels["deploymentConfig"] = t.Spec.ApplicationName
 	objectMeta.Labels["WebServer"] = t.Name
@@ -612,7 +657,7 @@ func podTemplateSpecForWebServer(t *webserversv1alpha1.WebServer, image string) 
 					ContainerPort: 8080,
 					Protocol:      corev1.ProtocolTCP,
 				}},
-				Env:          createEnvVars(t),
+				Env:          createEnvVars(t, useKUBEPing),
 				VolumeMounts: createVolumeMounts(t),
 			}},
 			Volumes: createVolumes(t),
@@ -699,6 +744,26 @@ func (r *ReconcileWebServer) buildConfigForWebServer(t *webserversv1alpha1.WebSe
 
 	controllerutil.SetControllerReference(t, buildConfig, r.scheme)
 	return buildConfig
+}
+
+// create the shell script to modify server.xml
+//
+func commandForServerXml(useKUBEPing bool) map[string]string {
+	cmd := make(map[string]string)
+	if useKUBEPing {
+		cmd["test.sh"] = "FILE=`find /opt -name server.xml`\n" +
+			"grep -q DNSMembershipProvider ${FILE}\n" +
+			"if [ $? -ne 0 ]; then\n" +
+			"  sed -i '/cluster.html/a        <Cluster className=\"org.apache.catalina.ha.tcp.SimpleTcpCluster\" channelSendOptions=\"6\">\\n <Channel className=\"org.apache.catalina.tribes.group.GroupChannel\">\\n <Membership className=\"org.apache.catalina.tribes.membership.cloud.CloudMembershipService\" membershipProviderClassName=\"org.apache.catalina.tribes.membership.cloud.KubernetesMembershipProvider\"/>\\n </Channel>\\n </Cluster>\\n' ${FILE}\n" +
+			"fi\n"
+	} else {
+		cmd["test.sh"] = "FILE=`find /opt -name server.xml`\n" +
+			"grep -q DNSMembershipProvider ${FILE}\n" +
+			"if [ $? -ne 0 ]; then\n" +
+			"  sed -i '/cluster.html/a        <Cluster className=\"org.apache.catalina.ha.tcp.SimpleTcpCluster\" channelSendOptions=\"6\">\\n <Channel className=\"org.apache.catalina.tribes.group.GroupChannel\">\\n <Membership className=\"org.apache.catalina.tribes.membership.cloud.CloudMembershipService\" membershipProviderClassName=\"org.apache.catalina.tribes.membership.cloud.DNSMembershipProvider\"/>\\n </Channel>\\n </Cluster>\\n' ${FILE}\n" +
+			"fi\n"
+	}
+	return cmd
 }
 
 // createLivenessProbe returns a custom probe if the serverLivenessScript string is defined and not empty in the Custom Resource.
@@ -887,11 +952,15 @@ func getPodStatus(pods []corev1.Pod) (bool, []webserversv1alpha1.PodStatus) {
 }
 
 // Create the env for the pods we are starting.
-func createEnvVars(t *webserversv1alpha1.WebServer) []corev1.EnvVar {
+func createEnvVars(t *webserversv1alpha1.WebServer, useKUBEPing bool) []corev1.EnvVar {
+	value := "webserver-" + t.Name
+	if useKUBEPing && t.Spec.UseSessionClustering {
+		value = t.Namespace
+	}
 	env := []corev1.EnvVar{
 		{
 			Name:  "KUBERNETES_NAMESPACE",
-			Value: "webserver-" + t.Name,
+			Value: value,
 		},
 	}
 	if t.Spec.UseSessionClustering {
