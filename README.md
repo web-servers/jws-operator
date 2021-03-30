@@ -192,6 +192,11 @@ make run-openshift
 5. Create a Tomcat instance (Custom Resource). An example has been provided in _deploy/crds/web.servers.org_webservers_cr.yaml_
 
 ```
+apiVersion: web.servers.org/v1alpha1
+kind: WebServer
+metadata:
+  name: example-image-webserver
+spec:
   applicationName: jws-app
   replicas: 2
   webImage:
