@@ -73,7 +73,7 @@ clean-openshift:
 
 
 ## run-kubernetes                           Run the Tomcat operator on kubernetes.
-run-kubernetes:
+run-kubernetes: push
 	kubectl create -f deploy/crds/web.servers.org_webservers_crd.yaml
 	kubectl create -f deploy/service_account.yaml
 	kubectl create -f deploy/role.yaml
