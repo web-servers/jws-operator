@@ -55,7 +55,7 @@ func Add(mgr manager.Manager) error {
 
 // newReconciler returns a new reconcile.Reconciler
 func newReconciler(mgr manager.Manager) reconcile.Reconciler {
-	return &ReconcileWebServer{client: mgr.GetClient(), scheme: mgr.GetScheme(), isOpenShift: isOpenShift(mgr.GetConfig()), useKUBEPing: -1}
+	return &ReconcileWebServer{client: mgr.GetClient(), scheme: mgr.GetScheme(), isOpenShift: isOpenShift(mgr.GetConfig()), useKUBEPing: true}
 }
 
 // add adds a new Controller to mgr with r as the reconcile.Reconciler
@@ -100,7 +100,7 @@ type ReconcileWebServer struct {
 	client      client.Client
 	scheme      *runtime.Scheme
 	isOpenShift bool
-	useKUBEPing int
+	useKUBEPing bool
 }
 
 // Reconcile reads that state of the cluster for a WebServer object and makes changes based on the state read
@@ -152,8 +152,7 @@ func (r *ReconcileWebServer) Reconcile(request reconcile.Request) (reconcile.Res
 
 	if webServer.Spec.UseSessionClustering {
 		// Create a RoleBinding for the KUBEPing
-		if r.useKUBEPing == -1 {
-			r.useKUBEPing = 0
+		if r.useKUBEPing {
 			rolebinding := r.roleBindingForWebServer(webServer)
 			err = r.client.Get(context.TODO(), types.NamespacedName{Name: rolebinding.Name, Namespace: rolebinding.Namespace}, &rbac.RoleBinding{})
 			if err != nil && errors.IsNotFound(err) {
@@ -166,16 +165,16 @@ func (r *ReconcileWebServer) Reconcile(request reconcile.Request) (reconcile.Res
 					return reconcile.Result{Requeue: true}, nil
 				}
 				// Service created successfully - return and requeue
-				r.useKUBEPing = 1
 				return reconcile.Result{Requeue: true}, nil
 			} else if err != nil {
 				reqLogger.Error(err, "Failed to get RoleBinding.")
 				// We ignore the error.
+				r.useKUBEPing = false
 				return reconcile.Result{Requeue: true}, nil
 			}
 		}
 
-		if r.useKUBEPing == 0 {
+		if !r.useKUBEPing {
 			ser1 := r.serviceForWebServerDNS(webServer)
 			// Check if the Service for DNSPing exists
 			err = r.client.Get(context.TODO(), types.NamespacedName{Name: ser1.Name, Namespace: ser1.Namespace}, &corev1.Service{})
@@ -194,7 +193,7 @@ func (r *ReconcileWebServer) Reconcile(request reconcile.Request) (reconcile.Res
 				return reconcile.Result{}, err
 			}
 		}
-		cmap := r.cmapForWebServerDNS(webServer, r.useKUBEPing == 1)
+		cmap := r.cmapForWebServerDNS(webServer, r.useKUBEPing)
 		// Check if the ConfigMap for DNSPing exists
 		err = r.client.Get(context.TODO(), types.NamespacedName{Name: cmap.Name, Namespace: cmap.Namespace}, &corev1.ConfigMap{})
 		if err != nil && errors.IsNotFound(err) {
@@ -316,7 +315,7 @@ func (r *ReconcileWebServer) Reconcile(request reconcile.Request) (reconcile.Res
 		err = r.client.Get(context.TODO(), types.NamespacedName{Name: webServer.Spec.ApplicationName, Namespace: webServer.Namespace}, foundDeployment)
 		if err != nil && errors.IsNotFound(err) {
 			// Define a new DeploymentConfig
-			dep := r.deploymentConfigForWebServer(webServer, myImageName, myImageNameSpace, r.useKUBEPing == 1)
+			dep := r.deploymentConfigForWebServer(webServer, myImageName, myImageNameSpace, r.useKUBEPing)
 			reqLogger.Info("Creating a new DeploymentConfig.", "DeploymentConfig.Namespace", dep.Namespace, "DeploymentConfig.Name", dep.Name)
 			err = r.client.Create(context.TODO(), dep)
 			if err != nil && !errors.IsAlreadyExists(err) {
@@ -354,7 +353,7 @@ func (r *ReconcileWebServer) Reconcile(request reconcile.Request) (reconcile.Res
 		err = r.client.Get(context.TODO(), types.NamespacedName{Name: webServer.Spec.ApplicationName, Namespace: webServer.Namespace}, foundDeployment)
 		if err != nil && errors.IsNotFound(err) {
 			// Define a new Deployment
-			dep := r.deploymentForWebServer(webServer, r.useKUBEPing == 1)
+			dep := r.deploymentForWebServer(webServer, r.useKUBEPing)
 			reqLogger.Info("Creating a new Deployment.", "Deployment.Namespace", dep.Namespace, "Deployment.Name", dep.Name)
 			err = r.client.Create(context.TODO(), dep)
 			if err != nil && !errors.IsAlreadyExists(err) {
