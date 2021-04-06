@@ -1,8 +1,20 @@
+# set OPERATOR_IMAGE and OPERATOR_BUNDLE_IMAGE
+```
+export OPERATOR_IMAGE=registry.redhat.io/jboss-webserver-5/webserver-openjdk8-rhel8-operator:1.0-18
+export OPERATOR_BUNDLE_IMAGE=registry.redhat.io/jboss-webserver-5/webserver-openjdk8-operator-bundle:1.0.0-5
+```
+
+# run the script
+```
+bash test-jws_src_test_resources_operators_jws_update-yaml-files.sh
+```
+it should be able to guess the OPERATOR_IMAGE from OPERATOR_BUNDLE_IMAGE, but to be on safe side export the 2 variables.
+
 # create project
 
 oc new-project jws-operator || oc project jws-operator
 
-# install operator pieces
+# install operator pieces in deploy
 oc apply -f configmap-jws-operator.gen.yaml
 
 oc apply -f operator-group.yaml
@@ -45,4 +57,3 @@ oc adm policy add-cluster-role-to-user create-customresourcedefinitions-clusterr
 oc create clusterrole create-jwsservers-clusterrole --verb=create --resource=webservers
 
 oc adm policy add-cluster-role-to-user create-jwsservers-clusterrole ${TEST_USER}
-
