@@ -22,8 +22,8 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 	podv1 "k8s.io/kubernetes/pkg/api/v1/pod"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 /* Result for the demo webapp
@@ -57,7 +57,7 @@ func WebServerBasicTest(t *testing.T, imageName string, testUri string) {
 	ctx, f := webServerTestSetup(t)
 	defer ctx.Cleanup()
 
-	if err := webServerBasicServerScaleTest(t, f, ctx, imageName, testUri); err != nil {
+	if err := webServerBasicServerScaleTest(t, f, ctx, imageName, testUri, 1, 2); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -67,22 +67,32 @@ func WebServerImageStreamTest(t *testing.T, imageStreamName string, testUri stri
 	ctx, f := webServerTestSetup(t)
 	defer ctx.Cleanup()
 
-	if err := webServerImageStreamServerScaleTest(t, f, ctx, imageStreamName, testUri); err != nil {
+	if err := webServerImageStreamServerScaleTest(t, f, ctx, imageStreamName, testUri, 1, 2); err != nil {
 		t.Fatal(err)
 	}
 }
 
-// WebServermageStreamTest runs Image Stream operator tests
 func WebServerSourcesTest(t *testing.T, imageStreamName string, gitUrl string, testUri string) {
+	WebServerSourcesUpscaleTest(t, imageStreamName, gitUrl, testUri, 1, 4)
+	WebServerSourcesDownscaleTest(t, imageStreamName, gitUrl, testUri, 4, 1)
+}
+
+func WebServerSourcesUpscaleTest(t *testing.T, imageStreamName string, gitUrl string, testUri string, init int32, final int32) {
 	ctx, f := webServerTestSetup(t)
 	defer ctx.Cleanup()
 
 	// scale up test.
-	if err := webServerSourcesServerScaleTest(t, f, ctx, imageStreamName, gitUrl, testUri, 1, 4); err != nil {
+	if err := webServerSourcesServerScaleTest(t, f, ctx, imageStreamName, gitUrl, testUri, init, final); err != nil {
 		t.Fatal(err)
 	}
+}
+
+func WebServerSourcesDownscaleTest(t *testing.T, imageStreamName string, gitUrl string, testUri string, init int32, final int32) {
+	ctx, f := webServerTestSetup(t)
+	defer ctx.Cleanup()
+
 	// scale down test.
-	if err := webServerSourcesServerScaleTest(t, f, ctx, imageStreamName, gitUrl, testUri, 4, 1); err != nil {
+	if err := webServerSourcesServerScaleTest(t, f, ctx, imageStreamName, gitUrl, testUri, init, final); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -106,7 +116,7 @@ func webServerTestSetup(t *testing.T) (*framework.Context, *framework.Framework)
 	return ctx, f
 }
 
-func webServerBasicServerScaleTest(t *testing.T, f *framework.Framework, ctx *framework.Context, imageName string, testUri string) error {
+func webServerBasicServerScaleTest(t *testing.T, f *framework.Framework, ctx *framework.Context, imageName string, testUri string, init int32, final int32) error {
 	namespace, err := ctx.GetOperatorNamespace()
 	if err != nil {
 		return fmt.Errorf("could not get namespace: %v", err)
@@ -114,16 +124,16 @@ func webServerBasicServerScaleTest(t *testing.T, f *framework.Framework, ctx *fr
 
 	name := "example-webserver-" + unixEpoch()
 	// create webServer custom resource
-	webServer := MakeBasicWebServer(namespace, name, imageName, 1)
+	webServer := MakeBasicWebServer(namespace, name, imageName, init)
 	err = CreateAndWaitUntilReady(f, ctx, t, webServer)
 	if err != nil {
 		return err
 	}
 
-	t.Logf("Application %s is deployed with %d instance\n", name, 1)
+	t.Logf("Application %s is deployed with %d instance\n", name, init)
 
 	// update the size to 2
-	err = ScaleAndWaitUntilReady(f, t, webServer, name, namespace, 2)
+	err = ScaleAndWaitUntilReady(f, t, webServer, name, namespace, final)
 	if err != nil {
 		return err
 	}
@@ -135,7 +145,7 @@ func webServerBasicServerScaleTest(t *testing.T, f *framework.Framework, ctx *fr
 	return nil
 }
 
-func webServerImageStreamServerScaleTest(t *testing.T, f *framework.Framework, ctx *framework.Context, imageStreamName string, testURI string) error {
+func webServerImageStreamServerScaleTest(t *testing.T, f *framework.Framework, ctx *framework.Context, imageStreamName string, testURI string, init int32, final int32) error {
 	namespace, err := ctx.GetOperatorNamespace()
 	if err != nil {
 		return fmt.Errorf("could not get namespace: %v", err)
@@ -143,16 +153,16 @@ func webServerImageStreamServerScaleTest(t *testing.T, f *framework.Framework, c
 
 	name := "example-webserver-" + unixEpoch()
 	// create the webServer custom resource
-	webServer := MakeImageStreamWebServer(namespace, name, imageStreamName, namespace, 1)
+	webServer := MakeImageStreamWebServer(namespace, name, imageStreamName, namespace, init)
 	err = CreateAndWaitUntilReady(f, ctx, t, webServer)
 	if err != nil {
 		return err
 	}
 
-	t.Logf("Application %s is deployed with %d instance\n", name, 1)
+	t.Logf("Application %s is deployed with %d instance\n", name, init)
 
 	// update the size to 2
-	err = ScaleAndWaitUntilReady(f, t, webServer, name, namespace, 2)
+	err = ScaleAndWaitUntilReady(f, t, webServer, name, namespace, final)
 	if err != nil {
 		return err
 	}
