@@ -84,7 +84,7 @@ test: test-e2e-5-local
 
 test-e2e-5-local: setup-e2e-test
 	oc create -f xpaas-streams/jws54-tomcat9-image-stream.json -n ${NAMESPACE} || true
-	LOCAL_OPERATOR=true OPERATOR_NAME=jws-operator ./operator-sdk-e2e-tests test local ./test/e2e/5 --verbose --debug  --operator-namespace ${NAMESPACE} --up-local --local-operator-flags "--zap-devel --zap-level=5" --global-manifest ./deploy/crds/web.servers.org_webservers_crd.yaml
+	LOCAL_OPERATOR=true OPERATOR_NAME=jws-operator ./operator-sdk-e2e-tests test local ./test/e2e/5 --verbose --debug  --operator-namespace ${NAMESPACE} --up-local --local-operator-flags "--zap-devel --zap-level=5" --global-manifest ./deploy/crds/web.servers.org_webservers_crd.yaml --go-test-flags "-timeout=30m"
 
 generate-csv:
 	operator-sdk generate crds
