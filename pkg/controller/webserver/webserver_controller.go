@@ -113,8 +113,9 @@ type ReconcileWebServer struct {
 func (r *ReconcileWebServer) Reconcile(request reconcile.Request) (reconcile.Result, error) {
 	reqLogger := log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
 	reqLogger.Info("Reconciling WebServer")
-	updateWebServer := false
+	updateStatus := false
 	requeue := false
+	updateDeployment := false
 
 	// Fetch the WebServer tomcat
 	webServer := &webserversv1alpha1.WebServer{}
@@ -367,12 +368,23 @@ func (r *ReconcileWebServer) Reconcile(request reconcile.Request) (reconcile.Res
 			return reconcile.Result{}, err
 		}
 
+		foundImage := foundDeployment.Spec.Template.Spec.Containers[0].Image
+		if foundImage != applicationImage{
+			reqLogger.Info("WebServer application image change detected. Deployment update scheduled")
+			foundDeployment.Spec.Template.Spec.Containers[0].Image = applicationImage
+			updateDeployment = true
+		}
+
 		// Handle Scaling
 		foundReplicas = *foundDeployment.Spec.Replicas
 		replicas := webServer.Spec.Replicas
 		if foundReplicas != replicas {
 			reqLogger.Info("Deployment replicas number does not match the WebServer specification")
 			foundDeployment.Spec.Replicas = &replicas
+			updateDeployment = true
+		}
+
+		if updateDeployment {
 			err = r.client.Update(context.TODO(), foundDeployment)
 			if err != nil {
 				reqLogger.Error(err, "Failed to update Deployment.", "Deployment.Namespace", foundDeployment.Namespace, "Deployment.Name", foundDeployment.Name)
@@ -401,7 +413,7 @@ func (r *ReconcileWebServer) Reconcile(request reconcile.Request) (reconcile.Res
 		// reqLogger.Info("Will update the WebServer pod status", "Existing pod status list", webServer.Status.Pods)
 		reqLogger.Info("Status.Pods update scheduled")
 		webServer.Status.Pods = podsStatus
-		updateWebServer = true
+		updateStatus = true
 	}
 
 	if r.isOpenShift {
@@ -418,7 +430,7 @@ func (r *ReconcileWebServer) Reconcile(request reconcile.Request) (reconcile.Res
 		}
 		sort.Strings(hosts)
 		if !reflect.DeepEqual(hosts, webServer.Status.Hosts) {
-			updateWebServer = true
+			updateStatus = true
 			webServer.Status.Hosts = hosts
 			reqLogger.Info("Status.Hosts update scheduled")
 		}
@@ -435,17 +447,17 @@ func (r *ReconcileWebServer) Reconcile(request reconcile.Request) (reconcile.Res
 	if webServer.Status.Replicas != foundReplicas {
 		reqLogger.Info("Status.Replicas update scheduled")
 		webServer.Status.Replicas = foundReplicas
-		updateWebServer = true
+		updateStatus = true
 	}
 	// Update the scaledown
 	numberOfPodsToScaleDown := foundReplicas - webServer.Spec.Replicas
 	if webServer.Status.ScalingdownPods != numberOfPodsToScaleDown {
 		reqLogger.Info("Status.ScalingdownPods update scheduled")
 		webServer.Status.ScalingdownPods = numberOfPodsToScaleDown
-		updateWebServer = true
+		updateStatus = true
 	}
 	// Update if needed.
-	if updateWebServer {
+	if updateStatus {
 		err := UpdateWebServerStatus(webServer, r.client)
 		if err != nil {
 			return reconcile.Result{}, err
