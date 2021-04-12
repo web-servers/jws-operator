@@ -25,12 +25,17 @@ func TestWebServer54(t *testing.T) {
 	}
 	// run subtests
 	t.Run("BasicTest", webServerBasicTest)
+	t.Run("UpdateApplicationImageTest", webServerUpdateApplicationImageTest)
 	t.Run("ImageStreamTest", webServerImageStreamTest)
 	t.Run("SourcesTest", webServerSourcesTest)
 }
 
 func webServerBasicTest(t *testing.T) {
 	webserversframework.WebServerBasicTest(t, "quay.io/jfclere/jws-image:5.4", "/health")
+}
+
+func webServerUpdateApplicationImageTest(t *testing.T) {
+	webserversframework.WebServerUpdateApplicationImageTest(t, "quay.io/jfclere/jws-image:5.4", "quay.io/jfclere/jws-image:5.4.1", "/health")
 }
 
 func webServerImageStreamTest(t *testing.T) {

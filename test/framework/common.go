@@ -23,6 +23,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	podv1 "k8s.io/kubernetes/pkg/api/v1/pod"
+	kbappsv1 "k8s.io/api/apps/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -62,6 +63,18 @@ func WebServerBasicTest(t *testing.T, imageName string, testUri string) {
 	}
 }
 
+// WebServerChangeApplicationImageTest test if the application image is updated correctly
+func WebServerUpdateApplicationImageTest(t *testing.T, imageName string, newImageName string, testUri string) {
+	ctx, f := webServerTestSetup(t)
+	defer ctx.Cleanup()
+
+	if err := webServerApplicationImageUpdateTest(t, f, ctx, imageName, newImageName, testUri, 1); err != nil {
+		t.Fatal(err)
+	}
+}
+
+
+
 // WebServermageStreamTest runs Image Stream operator tests
 func WebServerImageStreamTest(t *testing.T, imageStreamName string, testUri string) {
 	ctx, f := webServerTestSetup(t)
@@ -96,6 +109,9 @@ func WebServerSourcesDownscaleTest(t *testing.T, imageStreamName string, gitUrl 
 		t.Fatal(err)
 	}
 }
+
+
+
 
 func webServerTestSetup(t *testing.T) (*framework.Context, *framework.Framework) {
 	ctx := framework.NewContext(t)
@@ -141,6 +157,40 @@ func webServerBasicServerScaleTest(t *testing.T, f *framework.Framework, ctx *fr
 	_, err = TestRouteWebServer(f, t, name, namespace, testUri, false, nil)
 	if err != nil {
 		return err
+	}
+	return nil
+}
+
+
+func webServerApplicationImageUpdateTest(t *testing.T, f *framework.Framework, ctx *framework.Context, imageName string, newImageName string, testUri string, replicas int32) error {
+	namespace, err := ctx.GetOperatorNamespace()
+	if err != nil {
+		return fmt.Errorf("could not get namespace: %v", err)
+	}
+
+	name := "example-webserver-" + unixEpoch()
+	// create webServer custom resource
+	webServer := MakeBasicWebServer(namespace, name, imageName, replicas)
+	err = CreateAndWaitUntilReady(f, ctx, t, webServer)
+	if err != nil {
+		return err
+	}
+
+	t.Logf("Application %s is deployed with %d instance\n", name, replicas)
+
+	err = updateApplicationImage(f, t, webServer, name, namespace, newImageName)
+	if err != nil {
+		return err
+	}
+
+	foundDeployment := &kbappsv1.Deployment{}
+	err = f.Client.Get(context.TODO(), types.NamespacedName{Name: webServer.Spec.ApplicationName, Namespace: webServer.Namespace}, foundDeployment)
+	if err != nil {
+		t.Errorf("Failed to get Deployment\n")
+	}
+	foundImage :=foundDeployment.Spec.Template.Spec.Containers[0].Image
+	if foundImage != newImageName{
+		t.Errorf("Found %s as application image; wanted %s", foundImage, newImageName)
 	}
 	return nil
 }
@@ -233,6 +283,28 @@ func ScaleAndWaitUntilReady(f *framework.Framework, t *testing.T, server *webser
 		return err
 	}
 	t.Logf("Updated application %s size to %d\n", name, server.Spec.Replicas)
+
+	// check that the resource have been updated
+	err = WaitUntilReady(f, t, server)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func updateApplicationImage(f *framework.Framework, t *testing.T, server *webserversv1alpha1.WebServer, name string, namespace string, newImageName string) error {
+	context := goctx.TODO()
+
+	err := f.Client.Get(context, types.NamespacedName{Name: name, Namespace: namespace}, server)
+	if err != nil {
+		return err
+	}
+	server.Spec.WebImage.ApplicationImage = newImageName
+	err = f.Client.Update(context, server)
+	if err != nil {
+		return err
+	}
+	t.Logf("Updated application %s application image to %s\n", name, newImageName)
 
 	// check that the resource have been updated
 	err = WaitUntilReady(f, t, server)
@@ -338,7 +410,7 @@ func WaitUntilReady(f *framework.Framework, t *testing.T, server *webserversv1al
 			return true, nil
 		}
 
-		t.Logf("Waiting for full availability of %s pod list (%d/%d)\n", name, podList.Items, size)
+		// t.Logf("Waiting for full availability of %s pod list (%d/%d)\n", name, podList.Items, size)
 		return false, nil
 	})
 	if err != nil {
