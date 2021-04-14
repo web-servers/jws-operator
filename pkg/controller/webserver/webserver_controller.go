@@ -369,7 +369,7 @@ func (r *ReconcileWebServer) Reconcile(request reconcile.Request) (reconcile.Res
 		}
 
 		foundImage := foundDeployment.Spec.Template.Spec.Containers[0].Image
-		if foundImage != applicationImage{
+		if foundImage != applicationImage {
 			reqLogger.Info("WebServer application image change detected. Deployment update scheduled")
 			foundDeployment.Spec.Template.Spec.Containers[0].Image = applicationImage
 			updateDeployment = true
@@ -725,7 +725,7 @@ func (r *ReconcileWebServer) buildConfigForWebServer(t *webserversv1alpha1.WebSe
 				Source: buildv1.BuildSource{
 					Type: "Git",
 					Git: &buildv1.GitBuildSource{
-						URI: t.Spec.WebImageStream.WebSources.SourceRepositoryUrl,
+						URI: t.Spec.WebImageStream.WebSources.SourceRepositoryURL,
 						Ref: t.Spec.WebImageStream.WebSources.SourceRepositoryRef,
 					},
 					ContextDir: t.Spec.WebImageStream.WebSources.ContextDir,
@@ -991,10 +991,10 @@ func createEnvBuild(t *webserversv1alpha1.WebServer) []corev1.EnvVar {
 	if sources != nil {
 		params := sources.WebSourcesParams
 		if params != nil {
-			if params.MavenMirrorUrl != "" {
+			if params.MavenMirrorURL != "" {
 				env = append(env, corev1.EnvVar{
 					Name:  "MAVEN_MIRROR_URL",
-					Value: params.MavenMirrorUrl,
+					Value: params.MavenMirrorURL,
 				})
 			}
 			if params.ArtifactDir != "" {

@@ -6,7 +6,7 @@ import (
 )
 
 // MakeBasicWebServer creates a basic WebServer resource
-func MakeBasicWebServer(ns, name, applicationImage string, size int32) *webserversv1alpha1.WebServer {
+func makeBasicWebServer(namespace string, name string, applicationImage string, replicas int32) *webserversv1alpha1.WebServer {
 	return &webserversv1alpha1.WebServer{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "WebServer",
@@ -14,10 +14,10 @@ func MakeBasicWebServer(ns, name, applicationImage string, size int32) *webserve
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
-			Namespace: ns,
+			Namespace: namespace,
 		},
 		Spec: webserversv1alpha1.WebServerSpec{
-			Replicas:        size,
+			Replicas:        replicas,
 			ApplicationName: name,
 			WebImage: &webserversv1alpha1.WebImageSpec{
 				ApplicationImage: applicationImage,
@@ -27,7 +27,7 @@ func MakeBasicWebServer(ns, name, applicationImage string, size int32) *webserve
 }
 
 // MakeImageStreamWebServer creates a WebServer using an ImageStream
-func MakeImageStreamWebServer(ns, name, imageStreamName string, imageStreamNamespace string, size int32) *webserversv1alpha1.WebServer {
+func makeImageStreamWebServer(namespace string, name string, imageStreamName string, imageStreamNamespace string, replicas int32) *webserversv1alpha1.WebServer {
 	return &webserversv1alpha1.WebServer{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "WebServer",
@@ -35,10 +35,10 @@ func MakeImageStreamWebServer(ns, name, imageStreamName string, imageStreamNames
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
-			Namespace: ns,
+			Namespace: namespace,
 		},
 		Spec: webserversv1alpha1.WebServerSpec{
-			Replicas:        size,
+			Replicas:        replicas,
 			ApplicationName: name,
 			WebImageStream: &webserversv1alpha1.WebImageStreamSpec{
 				ImageStreamName:      imageStreamName,
@@ -48,30 +48,18 @@ func MakeImageStreamWebServer(ns, name, imageStreamName string, imageStreamNames
 	}
 }
 
-// MakeSourcesWebServer creates a WebServer using an ImageStream and sources
-func MakeSourcesWebServer(ns, name, imageStreamName string, imageStreamNamespace string, url string, size int32) *webserversv1alpha1.WebServer {
-	return &webserversv1alpha1.WebServer{
-		TypeMeta: metav1.TypeMeta{
-			Kind:       "WebServer",
-			APIVersion: "web.servers.org/v1alpha1",
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
-			Namespace: ns,
-		},
-		Spec: webserversv1alpha1.WebServerSpec{
-			Replicas:             size,
-			ApplicationName:      name,
-			UseSessionClustering: true,
-			WebImageStream: &webserversv1alpha1.WebImageStreamSpec{
-				ImageStreamName:      imageStreamName,
-				ImageStreamNamespace: imageStreamNamespace,
-				WebSources: &webserversv1alpha1.WebSourcesSpec{
-					SourceRepositoryUrl: url,
-					SourceRepositoryRef: "master",
-					ContextDir:          "/",
-				},
-			},
+// makeSourcesWebServer creates a WebServer using an ImageStream and sources
+func makeSourcesWebServer(namespace string, name string, imageStreamName string, imageStreamNamespace string, URL string, replicas int32) *webserversv1alpha1.WebServer {
+	webServer := makeImageStreamWebServer(namespace, name, imageStreamName, imageStreamNamespace, replicas)
+	webServer.Spec.UseSessionClustering = true
+	webServer.Spec.WebImageStream = &webserversv1alpha1.WebImageStreamSpec{
+		ImageStreamName:      imageStreamName,
+		ImageStreamNamespace: imageStreamNamespace,
+		WebSources: &webserversv1alpha1.WebSourcesSpec{
+			SourceRepositoryURL: URL,
+			SourceRepositoryRef: "master",
+			ContextDir:          "/",
 		},
 	}
+	return webServer
 }

@@ -50,7 +50,7 @@ type WebImageStreamSpec struct {
 // (Optional) Source code information
 type WebSourcesSpec struct {
 	// URL for the repository of the application sources
-	SourceRepositoryUrl string `json:"sourceRepositoryUrl"`
+	SourceRepositoryURL string `json:"sourceRepositoryUrl"`
 	// Branch in the source repository
 	SourceRepositoryRef string `json:"sourceRepositoryRef"`
 	// Subdirectory in the source repository
@@ -62,7 +62,7 @@ type WebSourcesSpec struct {
 // (Optional) Sources related parameters
 type WebSourcesParamsSpec struct {
 	// URL to a maven repository
-	MavenMirrorUrl string `json:"mavenMirrorUrl,omitempty"`
+	MavenMirrorURL string `json:"mavenMirrorUrl,omitempty"`
 	// Directory where the jar/war is created
 	ArtifactDir string `json:"artifactDir,omitempty"`
 	// Secret for a generic web hook
