@@ -24,24 +24,39 @@ func TestWebServer54(t *testing.T) {
 		t.Fatalf("failed to add custom resource scheme to framework: %v", err)
 	}
 	// run subtests
-	t.Run("BasicTest", webServerBasicTest)
-	t.Run("UpdateApplicationImageTest", webServerUpdateApplicationImageTest)
-	t.Run("ImageStreamTest", webServerImageStreamTest)
-	t.Run("SourcesTest", webServerSourcesTest)
+	t.Run("ApplicationImageBasicTest", webServerApplicationImageBasicTest)
+	t.Run("ApplicationImageScaleTest", webServerApplicationImageScaleTest)
+	t.Run("ApplicationImageUpdateTest", webServerApplicationImageUpdateTest)
+	t.Run("ImageStreamBasicTest", webServerImageStreamBasicTest)
+	t.Run("ImageStreamScaleTest", webServerImageStreamScaleTest)
+	t.Run("SourcesBasicTest", webServerSourcesBasicTest)
+	t.Run("SourcesScaleTest", webServerSourcesScaleTest)
 }
 
-func webServerBasicTest(t *testing.T) {
-	webserversframework.WebServerBasicTest(t, "quay.io/jfclere/jws-image:5.4", "/health")
+func webServerApplicationImageBasicTest(t *testing.T) {
+	webserversframework.WebServerApplicationImageBasicTest(t, "quay.io/jfclere/jws-image:5.4", "/health")
 }
 
-func webServerUpdateApplicationImageTest(t *testing.T) {
-	webserversframework.WebServerUpdateApplicationImageTest(t, "quay.io/jfclere/jws-image:5.4", "quay.io/jfclere/jws-image:5.4.1", "/health")
+func webServerApplicationImageScaleTest(t *testing.T) {
+	webserversframework.WebServerApplicationImageScaleTest(t, "quay.io/jfclere/jws-image:5.4", "/health")
 }
 
-func webServerImageStreamTest(t *testing.T) {
-	webserversframework.WebServerImageStreamTest(t, "jboss-webserver54-openjdk8-tomcat9-ubi8-openshift", "/health")
+func webServerApplicationImageUpdateTest(t *testing.T) {
+	webserversframework.WebServerApplicationImageUpdateTest(t, "quay.io/jfclere/jws-image:5.4", "quay.io/jfclere/jws-image:5.4.1", "/health")
 }
 
-func webServerSourcesTest(t *testing.T) {
-	webserversframework.WebServerSourcesTest(t, "jboss-webserver54-openjdk8-tomcat9-ubi8-openshift", "https://github.com/jfclere/demo-webapp", "/demo-1.0/demo")
+func webServerImageStreamBasicTest(t *testing.T) {
+	webserversframework.WebServerImageStreamBasicTest(t, "jboss-webserver54-openjdk8-tomcat9-ubi8-openshift", "/health")
+}
+
+func webServerImageStreamScaleTest(t *testing.T) {
+	webserversframework.WebServerImageStreamScaleTest(t, "jboss-webserver54-openjdk8-tomcat9-ubi8-openshift", "/health")
+}
+
+func webServerSourcesBasicTest(t *testing.T) {
+	webserversframework.WebServerSourcesBasicTest(t, "jboss-webserver54-openjdk8-tomcat9-ubi8-openshift", "https://github.com/jfclere/demo-webapp", "/demo-1.0/demo")
+}
+
+func webServerSourcesScaleTest(t *testing.T) {
+	webserversframework.WebServerSourcesScaleTest(t, "jboss-webserver54-openjdk8-tomcat9-ubi8-openshift", "https://github.com/jfclere/demo-webapp", "/demo-1.0/demo")
 }

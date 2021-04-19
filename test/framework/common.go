@@ -46,7 +46,7 @@ type DemoResult struct {
 
 var (
 	retryInterval        = time.Second * 5
-	timeout              = time.Minute * 5
+	timeout              = time.Minute * 10
 	cleanupRetryInterval = time.Second * 1
 	cleanupTimeout       = time.Second * 5
 )
@@ -54,10 +54,7 @@ var (
 var name string
 var namespace string
 
-func init() {
-	name = "example-webserver-" + strconv.FormatInt(time.Now().UnixNano(), 10)
-}
-
+// webServerTestSetup sets up the context and framework for the test
 func webServerTestSetup(t *testing.T) (*test.Context, *test.Framework) {
 	testContext := test.NewContext(t)
 	err := testContext.InitializeClusterResources(&test.CleanupOptions{TestContext: testContext, Timeout: cleanupTimeout, RetryInterval: cleanupRetryInterval})
@@ -67,6 +64,7 @@ func webServerTestSetup(t *testing.T) (*test.Context, *test.Framework) {
 	}
 	t.Log("Initialized cluster resources")
 	namespace, err = testContext.GetOperatorNamespace()
+	name = strings.ToLower(strings.Split(t.Name(), "/")[1])
 	if err != nil {
 		defer testContext.Cleanup()
 		t.Fatalf("Failed to get namespace for testing context '%v': %v", testContext, err)
@@ -77,128 +75,133 @@ func webServerTestSetup(t *testing.T) (*test.Context, *test.Framework) {
 	return testContext, framework
 }
 
-// WebServerBasicTest runs basic operator tests
-func WebServerBasicTest(t *testing.T, imageName string, testURI string) {
+// WebServerApplicationImageBasicTest tests the deployment of an application image operator
+func WebServerApplicationImageBasicTest(t *testing.T, imageName string, testURI string) {
 	testContext, framework := webServerTestSetup(t)
-	defer testContext.Cleanup()
 
-	webServer := makeBasicWebServer(namespace, name, imageName, 1)
+	webServer := makeApplicationImageWebServer(namespace, name, imageName, 1)
 
-	err := webServerScaleTest(t, framework, testContext, webServer, testURI)
-	if err != nil {
-		t.Fatal(err)
-	}
+	webServerBasicTest(t, framework, testContext, webServer, testURI)
+
+	testContext.Cleanup()
 }
 
-// WebServerChangeApplicationImageTest test if the application image is updated correctly
-func WebServerUpdateApplicationImageTest(t *testing.T, imageName string, newImageName string, testURI string) {
+// WebServerApplicationImageScaleTest tests the scaling of an application image operator
+func WebServerApplicationImageScaleTest(t *testing.T, imageName string, testURI string) {
 	testContext, framework := webServerTestSetup(t)
-	defer testContext.Cleanup()
 
-	webServer := makeBasicWebServer(namespace, name, imageName, 1)
+	webServer := makeApplicationImageWebServer(namespace, name, imageName, 1)
 
-	err := webServerApplicationImageUpdateTest(t, framework, testContext, webServer, newImageName, testURI)
-	if err != nil {
-		t.Fatal(err)
-	}
+	webServerScaleTest(t, framework, testContext, webServer, testURI)
+
+	testContext.Cleanup()
 }
 
-// WebServermageStreamTest runs Image Stream operator tests
-func WebServerImageStreamTest(t *testing.T, imageStreamName string, testURI string) {
+// WebServerApplicationImageUpdateTest test the application image update feature of an application image operator
+func WebServerApplicationImageUpdateTest(t *testing.T, imageName string, newImageName string, testURI string) {
 	testContext, framework := webServerTestSetup(t)
-	defer testContext.Cleanup()
+
+	webServer := makeApplicationImageWebServer(namespace, name, imageName, 1)
+
+	webServerApplicationImageUpdateTest(t, framework, testContext, webServer, newImageName, testURI)
+
+	testContext.Cleanup()
+}
+
+// WebServerImageStreamBasicTest tests the deployment of an Image Stream operator
+func WebServerImageStreamBasicTest(t *testing.T, imageStreamName string, testURI string) {
+	testContext, framework := webServerTestSetup(t)
 
 	webServer := makeImageStreamWebServer(namespace, name, imageStreamName, namespace, 1)
 
-	err := webServerScaleTest(t, framework, testContext, webServer, testURI)
-	if err != nil {
-		t.Fatal(err)
-	}
+	webServerBasicTest(t, framework, testContext, webServer, testURI)
 
+	testContext.Cleanup()
 }
 
-func WebServerSourcesTest(t *testing.T, imageStreamName string, gitURL string, testURI string) {
+// WebServerImageStreamScaleTest tests the scaling of an Image Stream operator
+func WebServerImageStreamScaleTest(t *testing.T, imageStreamName string, testURI string) {
 	testContext, framework := webServerTestSetup(t)
-	defer testContext.Cleanup()
+
+	webServer := makeImageStreamWebServer(namespace, name, imageStreamName, namespace, 1)
+
+	webServerScaleTest(t, framework, testContext, webServer, testURI)
+
+	testContext.Cleanup()
+}
+
+// WebServerSourcesBasicTest tests the deployment of an Image Stream operator with sources
+func WebServerSourcesBasicTest(t *testing.T, imageStreamName string, gitURL string, testURI string) {
+	testContext, framework := webServerTestSetup(t)
 
 	webServer := makeSourcesWebServer(namespace, name, imageStreamName, namespace, gitURL, 1)
 
-	err := webServerScaleTest(t, framework, testContext, webServer, testURI)
-	if err != nil {
-		t.Fatal(err)
-	}
+	webServerBasicTest(t, framework, testContext, webServer, testURI)
+
+	testContext.Cleanup()
 }
 
-func webServerScaleTest(t *testing.T, framework *test.Framework, testContext *test.Context, webServer *webserversv1alpha1.WebServer, testURI string) error {
+// WebServerSourcesScaleTest tests the scaling of an Image Stream operator with sources
+func WebServerSourcesScaleTest(t *testing.T, imageStreamName string, gitURL string, testURI string) {
+	testContext, framework := webServerTestSetup(t)
 
-	err := deployWebServer(framework, testContext, t, webServer)
-	if err != nil {
-		return err
-	}
+	webServer := makeSourcesWebServer(namespace, name, imageStreamName, namespace, gitURL, 1)
+
+	webServerScaleTest(t, framework, testContext, webServer, testURI)
+
+	testContext.Cleanup()
+}
+
+// webServerBasicTest tests if the deployed pods of the operator are working
+func webServerBasicTest(t *testing.T, framework *test.Framework, testContext *test.Context, webServer *webserversv1alpha1.WebServer, testURI string) {
+
+	deployWebServer(framework, testContext, t, webServer)
+
+	webServerRouteTest(framework, t, name, namespace, testURI, false, nil)
+
+}
+
+// webServerScaleTest tests if the deployed pods of the operator are working properly after scaling
+func webServerScaleTest(t *testing.T, framework *test.Framework, testContext *test.Context, webServer *webserversv1alpha1.WebServer, testURI string) {
+
+	deployWebServer(framework, testContext, t, webServer)
 
 	// scale up test.
-	err = webServerScale(t, framework, testContext, webServer, testURI, 4)
-	if err != nil {
-		return err
-	}
+	webServerScale(t, framework, testContext, webServer, testURI, 4)
+
+	webServerRouteTest(framework, t, name, namespace, testURI, false, nil)
 
 	// scale down test.
-	err = webServerScale(t, framework, testContext, webServer, testURI, 1)
-	if err != nil {
-		return err
-	}
+	webServerScale(t, framework, testContext, webServer, testURI, 1)
 
-	return nil
+	webServerRouteTest(framework, t, name, namespace, testURI, false, nil)
 }
 
-func webServerScale(t *testing.T, framework *test.Framework, testContext *test.Context, webServer *webserversv1alpha1.WebServer, testURI string, newReplicasValue int32) error {
+// webServerScale changes the replica number of the WebServer resource
+func webServerScale(t *testing.T, framework *test.Framework, testContext *test.Context, webServer *webserversv1alpha1.WebServer, testURI string, newReplicasValue int32) {
 
 	err := framework.Client.Get(context.TODO(), types.NamespacedName{Name: name, Namespace: namespace}, webServer)
 	if err != nil {
-		return err
+		t.Fatal(err)
 	}
 
 	webServer.Spec.Replicas = newReplicasValue
 
-	err = updateWebServer(framework, t, webServer, name, namespace)
-	if err != nil {
-		return err
-	}
+	updateWebServer(framework, t, webServer, name, namespace)
 
-	t.Logf("Updated application %s replica size to %d\n", name, webServer.Spec.Replicas)
+	t.Logf("Updated application %s number of replicas to %d\n", name, webServer.Spec.Replicas)
 
-	_, err = testRouteWebServer(framework, t, name, namespace, testURI, false, nil)
-	if err != nil {
-		return err
-	}
-	return nil
 }
 
-func webServerApplicationImageUpdateTest(t *testing.T, framework *test.Framework, testContext *test.Context, webServer *webserversv1alpha1.WebServer, newImageName string, testURI string) error {
+// webServerApplicationImageUpdateTest tests if the deployed pods of the operator are working properly after an application image update
+func webServerApplicationImageUpdateTest(t *testing.T, framework *test.Framework, testContext *test.Context, webServer *webserversv1alpha1.WebServer, newImageName string, testURI string) {
 
-	err := deployWebServer(framework, testContext, t, webServer)
-	if err != nil {
-		t.Fatal(err)
-	}
+	deployWebServer(framework, testContext, t, webServer)
 
-	// WebServer resource needs to be refreshed before being updated
-	// to avoid "the object has been modified" errors
-	err = framework.Client.Get(context.TODO(), types.NamespacedName{Name: name, Namespace: namespace}, webServer)
-	if err != nil {
-		return err
-	}
-
-	webServer.Spec.WebImage.ApplicationImage = newImageName
-
-	err = updateWebServer(framework, t, webServer, name, namespace)
-	if err != nil {
-		return err
-	}
-
-	t.Logf("Updated application image of WebServer %s to %s\n", name, newImageName)
+	webServerApplicationImageUpdate(t, framework, testContext, webServer, newImageName, testURI)
 
 	foundDeployment := &kbappsv1.Deployment{}
-	err = framework.Client.Get(context.TODO(), types.NamespacedName{Name: name, Namespace: namespace}, foundDeployment)
+	err := framework.Client.Get(context.TODO(), types.NamespacedName{Name: name, Namespace: namespace}, foundDeployment)
 	if err != nil {
 		t.Errorf("Failed to get Deployment\n")
 	}
@@ -208,40 +211,55 @@ func webServerApplicationImageUpdateTest(t *testing.T, framework *test.Framework
 		t.Errorf("Found %s as application image; wanted %s", foundImage, newImageName)
 	}
 
-	return nil
 }
 
-func updateWebServer(framework *test.Framework, t *testing.T, webServer *webserversv1alpha1.WebServer, name string, namespace string) error {
+// webServerApplicationImageUpdate changes the application image of the WebServer resource
+func webServerApplicationImageUpdate(t *testing.T, framework *test.Framework, testContext *test.Context, webServer *webserversv1alpha1.WebServer, newImageName string, testURI string) {
+
+	// WebServer resource needs to be refreshed before being updated
+	// to avoid "the object has been modified" errors
+	err := framework.Client.Get(context.TODO(), types.NamespacedName{Name: name, Namespace: namespace}, webServer)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	webServer.Spec.WebImage.ApplicationImage = newImageName
+
+	updateWebServer(framework, t, webServer, name, namespace)
+
+	t.Logf("Updated application image of WebServer %s to %s\n", name, newImageName)
+
+}
+
+// updateWebServer updates the WebServer resource and waits until the new deployment is ready
+func updateWebServer(framework *test.Framework, t *testing.T, webServer *webserversv1alpha1.WebServer, name string, namespace string) {
 
 	err := framework.Client.Update(context.TODO(), webServer)
 	if err != nil {
-		return err
+		t.Fatal(err)
 	}
 
 	t.Logf("WebServer %s updated\n", name)
 
 	// Waits until the pods are deployed
-	err = waitUntilReady(framework, t, webServer)
-	if err != nil {
-		return err
-	}
-	return nil
+	waitUntilReady(framework, t, webServer)
+
 }
 
 // deployWebServer deploys a WebServer resource and waits until the pods are online
-func deployWebServer(framework *test.Framework, testContext *test.Context, t *testing.T, server *webserversv1alpha1.WebServer) error {
+func deployWebServer(framework *test.Framework, testContext *test.Context, t *testing.T, webServer *webserversv1alpha1.WebServer) {
 	// use Context's create helper to create the object and add a cleanup function for the new object
-	err := framework.Client.Create(context.TODO(), server, &test.CleanupOptions{TestContext: testContext, Timeout: cleanupTimeout, RetryInterval: cleanupRetryInterval})
+	err := framework.Client.Create(context.TODO(), webServer, &test.CleanupOptions{TestContext: testContext, Timeout: cleanupTimeout, RetryInterval: cleanupRetryInterval})
 	if err != nil {
-		return err
+		t.Fatal(err)
 	}
 
 	// removing finalizers explicitly otherwise the removal could hang
 	testContext.AddCleanupFn(
 		func() error {
 			// Removing deployment for not putting finalizers back to the WebServer
-			name := server.ObjectMeta.Name
-			namespace := server.ObjectMeta.Namespace
+			name := webServer.ObjectMeta.Name
+			namespace := webServer.ObjectMeta.Namespace
 			deployment, err := framework.KubeClient.AppsV1().Deployments(namespace).Get("jws-operator", metav1.GetOptions{})
 			if err == nil && deployment != nil {
 				t.Logf("Cleaning deployment '%v'\n", deployment.Name)
@@ -270,29 +288,25 @@ func deployWebServer(framework *test.Framework, testContext *test.Context, t *te
 		},
 	)
 
-	err = waitUntilReady(framework, t, server)
-	if err != nil {
-		return err
-	}
+	waitUntilReady(framework, t, webServer)
 
 	t.Logf("Application %s is deployed ", name)
 
-	return nil
 }
 
-// waitUntilReady waits until the number of pods matches the server spec size.
-func waitUntilReady(framework *test.Framework, t *testing.T, server *webserversv1alpha1.WebServer) error {
-	name := server.ObjectMeta.Name
-	size := server.Spec.Replicas
+// waitUntilReady waits until the number of pods matches the WebServer Spec replica number.
+func waitUntilReady(framework *test.Framework, t *testing.T, webServer *webserversv1alpha1.WebServer) {
+	name := webServer.ObjectMeta.Name
+	replicas := webServer.Spec.Replicas
 
-	t.Logf("Waiting until pods for %s are ready with size of %v", name, size)
+	t.Logf("Waiting until %[1]d/%[1]d pods for %s are ready", replicas, name)
 
 	err := wait.Poll(retryInterval, timeout, func() (done bool, err error) {
 
 		podList := &corev1.PodList{}
 		listOpts := []client.ListOption{
-			client.InNamespace(server.Namespace),
-			client.MatchingLabels(LabelsForWeb(server)),
+			client.InNamespace(webServer.Namespace),
+			client.MatchingLabels(labelsForWebServer(webServer)),
 		}
 		err = framework.Client.List(context.TODO(), podList, listOpts...)
 		if err != nil {
@@ -302,91 +316,105 @@ func waitUntilReady(framework *test.Framework, t *testing.T, server *webserversv
 				return false, nil
 			}
 			t.Logf("Got error when getting pod list %s: %s", name, err)
-			return false, err
+			t.Fatal(err)
 		}
 
 		// Testing for Ready
-		if arePodsReady(podList, size) {
+		if arePodsReady(podList, replicas) {
 			return true, nil
 		}
 
-		// t.Logf("Waiting for full availability of %s pod list (%d/%d)\n", name, podList.Items, size)
+		// t.Logf("Waiting for full availability of %s pod list (%d/%d)\n", name, podList.Items, replicas)
 		return false, nil
 	})
 	if err != nil {
-		return err
+		t.Fatal(err)
 	}
-	t.Logf("pods available (%d/%d)\n", size, size)
+	t.Logf("(%[1]d/%[1]d) pods are ready \n", replicas)
 
-	return nil
 }
 
+// waitForRoute checks if a Route is available up to 5 times
+func waitForRoute(t *testing.T, webServer *webserversv1alpha1.WebServer) {
+	for i := 1; i < 7; i++ {
+		if len(webServer.Status.Hosts) == 0 {
+			t.Logf("WebServer.Status.Hosts is empty. Attempt %d/5\n", i)
+			time.Sleep(1 * time.Second)
+		} else {
+			return
+		}
+	}
+	t.Fatal("Route resource not found")
+}
 
-// Test the route
-func testRouteWebServer(framework *test.Framework, t *testing.T, name string, namespace string, uri string, sticky bool, oldco *http.Cookie) (*http.Cookie, error) {
+// webServerRouteTest tests the Route created for the operator pods
+func webServerRouteTest(framework *test.Framework, t *testing.T, name string, namespace string, URI string, sticky bool, oldCookie *http.Cookie) *http.Cookie {
 
 	webServer := &webserversv1alpha1.WebServer{}
 	err := framework.Client.Get(context.TODO(), types.NamespacedName{Name: name, Namespace: namespace}, webServer)
 	if err != nil {
-		return nil, err
+		t.Fatal(err)
 	}
-	t.Logf("route:  (%s)\n", webServer.Status.Hosts)
-	url := "http://" + webServer.Status.Hosts[0] + uri
-	req, err := http.NewRequest("GET", url, nil)
+
+	waitForRoute(t, webServer)
+
+	t.Logf("Route:  (%s)\n", webServer.Status.Hosts)
+	URL := "http://" + webServer.Status.Hosts[0] + URI
+	req, err := http.NewRequest("GET", URL, nil)
 	if err != nil {
-		return nil, err
+		t.Fatal(err)
 	}
-	if oldco != nil {
-		req.AddCookie(oldco)
-		t.Logf("doing get:  (%s) cookie: (%s)\n", url, oldco.Raw)
+	if oldCookie != nil {
+		req.AddCookie(oldCookie)
+		t.Logf("GET:  (%s) cookie: (%s)\n", URL, oldCookie.Raw)
 	} else {
-		t.Logf("doing get:  (%s)\n", url)
+		t.Logf("GET:  (%s)\n", URL)
 	}
 	client := &http.Client{}
 	res, err := client.Do(req)
 	if err != nil {
-		return nil, err
+		t.Fatal(err)
 	}
 	body, err := ioutil.ReadAll(res.Body)
 	res.Body.Close()
 	if err != nil {
-		return nil, err
+		t.Fatal(err)
 	}
 	if res.StatusCode != 200 {
 		t.Logf("body: %s\n", body)
-		return nil, errors.New(url + " returns: " + strconv.Itoa(res.StatusCode))
+		t.Fatal(errors.New(URL + " returns: " + strconv.Itoa(res.StatusCode)))
 	}
 	if sticky {
 		// Do stickyness test.
 
 		// read the SESSIONID cookie
-		cookie := res.Cookies()
-		sessionco := &http.Cookie{}
-		sessionco = nil
-		for _, co := range cookie {
-			t.Logf("1-cookies: %s", co.Raw)
-			if co.Name == "JSESSIONID" {
-				sessionco = co
+		cookies := res.Cookies()
+		sessionCookie := &http.Cookie{}
+		sessionCookie = nil
+		for _, cookie := range cookies {
+			t.Logf("1-cookies: %s", cookie.Raw)
+			if cookie.Name == "JSESSIONID" {
+				sessionCookie = cookie
 			}
 		}
-		if oldco != nil {
-			if sessionco != nil {
-				return nil, errors.New(url + " unexpected JSESSIONID cookies")
+		if oldCookie != nil {
+			if sessionCookie != nil {
+				t.Fatal(errors.New(URL + " returns unexpected JSESSIONID cookies"))
 			}
-			sessionco = oldco
+			sessionCookie = oldCookie
 		} else {
-			if sessionco == nil {
-				return nil, errors.New(url + " doesn't return JSESSIONID cookies")
+			if sessionCookie == nil {
+				t.Fatal(errors.New(URL + " doesn't return JSESSIONID cookies"))
 			}
 		}
 
 		// Parse the response.
-		var oldresult DemoResult
-		json.Unmarshal(body, &oldresult)
+		var oldResult DemoResult
+		json.Unmarshal(body, &oldResult)
 		counter := 1
-		if oldco != nil {
+		if oldCookie != nil {
 			// Read previous value and increase it.
-			counter = oldresult.Counter
+			counter = oldResult.Counter
 			counter++
 		}
 		t.Logf("%d - body: %s\n", counter, body)
@@ -395,57 +423,57 @@ func testRouteWebServer(framework *test.Framework, t *testing.T, name string, na
 		time.Sleep(10 * time.Second)
 
 		hostnames := make([]string, 0)
-		hostnames = append(hostnames, oldresult.Hostname)
+		hostnames = append(hostnames, oldResult.Hostname)
 		for {
 			// Do a another request.
-			req, err := http.NewRequest("GET", url, nil)
+			req, err := http.NewRequest("GET", URL, nil)
 			if err != nil {
-				return nil, err
+				t.Fatal(err)
 			}
-			req.AddCookie(sessionco)
+			req.AddCookie(sessionCookie)
 			client = &http.Client{}
 			res, err = client.Do(req)
 			if err != nil {
-				return nil, err
+				t.Fatal(err)
 			}
-			newbody, err := ioutil.ReadAll(res.Body)
+			newBody, err := ioutil.ReadAll(res.Body)
 			res.Body.Close()
 			if err != nil {
-				return nil, err
+				t.Fatal(err)
 			}
 			if res.StatusCode != 200 {
-				t.Logf("body: %s\n", newbody)
-				return nil, errors.New(url + "second request returns: " + strconv.Itoa(res.StatusCode))
+				t.Logf("body: %s\n", newBody)
+				t.Fatal(errors.New(URL + " second request returns: " + strconv.Itoa(res.StatusCode)))
 			}
-			t.Logf("%d - body: %s\n", counter, newbody)
-			cookie = res.Cookies()
-			newsessionco := &http.Cookie{}
-			newsessionco = nil
-			for _, co := range cookie {
-				t.Logf("2-cookies: %s", co.Raw)
-				if co.Name == "JSESSIONID" {
-					t.Logf("Found cookies: %s", co.Raw)
-					newsessionco = co
+			t.Logf("%d - body: %s\n", counter, newBody)
+			cookies = res.Cookies()
+			newSessionCookie := &http.Cookie{}
+			newSessionCookie = nil
+			for _, cookie := range cookies {
+				t.Logf("2-cookies: %s", cookie.Raw)
+				if cookie.Name == "JSESSIONID" {
+					t.Logf("Found cookies: %s", cookie.Raw)
+					newSessionCookie = cookie
 				}
 			}
-			if newsessionco != nil {
-				t.Logf("cookies new: %s old: %s", newsessionco.Raw, sessionco.Raw)
-				return nil, errors.New(url + " Not sticky!!!")
+			if newSessionCookie != nil {
+				t.Logf("Cookies new: %s old: %s", newSessionCookie.Raw, sessionCookie.Raw)
+				t.Fatal(errors.New(URL + " Not sticky!!!"))
 			}
 
 			// Check the counter in the body.
 			var result DemoResult
-			json.Unmarshal(newbody, &result)
+			json.Unmarshal(newBody, &result)
 			t.Logf("Demo counter: %d", result.Counter)
 			if result.Counter != counter {
-				return nil, errors.New(url + " NOTOK, counter should be " + strconv.Itoa(counter) + "... Not sticky!!!")
+				t.Fatal(errors.New(URL + " NOTOK, counter should be " + strconv.Itoa(counter) + "... Not sticky!!!"))
 			}
 
 			// And that pod name has changed...
-			t.Logf("Demo POD: %s and %s", result.Hostname, strings.Join(hostnames, ","))
+			t.Logf("Demo pod: %s and %s", result.Hostname, strings.Join(hostnames, ","))
 			found := false
 			for _, hostname := range hostnames {
-				t.Logf("Demo POD: %s and %s", result.Hostname, hostname)
+				t.Logf("Demo pod: %s and %s", result.Hostname, hostname)
 				if hostname == result.Hostname {
 					found = true
 				}
@@ -454,26 +482,25 @@ func testRouteWebServer(framework *test.Framework, t *testing.T, name string, na
 				// We are on same pod... retry?...
 				if webServer.Spec.Replicas == 1 {
 					// Only one pod done...
-					return sessionco, nil
+					return sessionCookie
 				}
-				t.Logf("%s NOTOK, on the same POD... Too sticky!!! retrying", url)
+				t.Logf("%s NOTOK, on the same pod... Too sticky!!! retrying", URL)
 			} else {
 				hostnames = append(hostnames, result.Hostname)
 				if int32(len(hostnames)) == webServer.Spec.Replicas {
-					return sessionco, nil
+					return sessionCookie
 				}
 			}
 			counter++
 			time.Sleep(10 * time.Second)
 		}
 	}
-	return nil, nil
+	return nil
 }
 
-
-// Check that all the pods are ready
-func arePodsReady(podList *corev1.PodList, size int32) bool {
-	if int32(len(podList.Items)) != size {
+// arePodsReady checks that all the pods are ready
+func arePodsReady(podList *corev1.PodList, replicas int32) bool {
+	if int32(len(podList.Items)) != replicas {
 		return false
 	}
 	for _, pod := range podList.Items {
@@ -484,8 +511,8 @@ func arePodsReady(podList *corev1.PodList, size int32) bool {
 	return true
 }
 
-// IsOperatorLocal returns true if the LOCAL_OPERATOR env var is set to true.
-func IsOperatorLocal() bool {
+// isOperatorLocal returns true if the LOCAL_OPERATOR env var is set to true.
+func isOperatorLocal() bool {
 	val, ok := os.LookupEnv("LOCAL_OPERATOR")
 	if !ok {
 		return false
@@ -497,19 +524,18 @@ func IsOperatorLocal() bool {
 	return local
 }
 
-
-// LabelsForWeb return a map of labels that are used for identification
+// labelsForWebServer return a map of labels that are used for identification
 //  of objects belonging to the particular WebServer instance
-func LabelsForWeb(j *webserversv1alpha1.WebServer) map[string]string {
+func labelsForWebServer(webServer *webserversv1alpha1.WebServer) map[string]string {
 	labels := map[string]string{
-		"deploymentConfig": j.Spec.ApplicationName,
-		"WebServer":        j.Name,
+		"deploymentConfig": webServer.Spec.ApplicationName,
+		"WebServer":        webServer.Name,
 	}
-	// labels["app.kubernetes.io/name"] = j.Name
+	// labels["app.kubernetes.io/name"] = webServer.Name
 	// labels["app.kubernetes.io/managed-by"] = os.Getenv("LABEL_APP_MANAGED_BY")
 	// labels["app.openshift.io/runtime"] = os.Getenv("LABEL_APP_RUNTIME")
-	if j.Labels != nil {
-		for labelKey, labelValue := range j.Labels {
+	if webServer.Labels != nil {
+		for labelKey, labelValue := range webServer.Labels {
 			labels[labelKey] = labelValue
 		}
 	}
