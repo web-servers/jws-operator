@@ -83,8 +83,10 @@ run-kubernetes: push
 test: test-e2e-5-local
 
 test-e2e-5-local: setup-e2e-test
-	oc create -f xpaas-streams/jws54-tomcat9-image-stream.json -n ${NAMESPACE} || true
-	LOCAL_OPERATOR=true OPERATOR_NAME=jws-operator ./operator-sdk-e2e-tests test local ./test/e2e/5 --verbose --debug  --operator-namespace ${NAMESPACE} --up-local --local-operator-flags "--zap-devel --zap-level=5" --global-manifest ./deploy/crds/web.servers.org_webservers_crd.yaml --go-test-flags "-timeout=30m"
+	oc delete namespace "jws-e2e-tests" || true
+	oc new-project "jws-e2e-tests" || true
+	oc create -f xpaas-streams/jws54-tomcat9-image-stream.json -n jws-e2e-tests || true
+	LOCAL_OPERATOR=true OPERATOR_NAME=jws-operator-1 ./operator-sdk-e2e-tests test local ./test/e2e/5 --verbose --debug --operator-namespace jws-e2e-tests --local-operator-flags "--zap-devel --zap-level=5" --global-manifest ./deploy/crds/web.servers.org_webservers_crd.yaml --go-test-flags "-timeout=30m"
 
 generate-csv:
 	operator-sdk generate crds

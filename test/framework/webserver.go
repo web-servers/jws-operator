@@ -6,7 +6,7 @@ import (
 )
 
 // MakeBasicWebServer creates a basic WebServer resource
-func makeBasicWebServer(namespace string, name string, applicationImage string, replicas int32) *webserversv1alpha1.WebServer {
+func makeApplicationImageWebServer(namespace string, name string, applicationImage string, replicas int32) *webserversv1alpha1.WebServer {
 	return &webserversv1alpha1.WebServer{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "WebServer",
