@@ -763,13 +763,13 @@ func commandForServerXml(useKUBEPing bool) map[string]string {
 	cmd := make(map[string]string)
 	if useKUBEPing {
 		cmd["test.sh"] = "FILE=`find /opt -name server.xml`\n" +
-			"grep -q DNSMembershipProvider ${FILE}\n" +
+			"grep -q MembershipProvider ${FILE}\n" +
 			"if [ $? -ne 0 ]; then\n" +
 			"  sed -i '/cluster.html/a        <Cluster className=\"org.apache.catalina.ha.tcp.SimpleTcpCluster\" channelSendOptions=\"6\">\\n <Channel className=\"org.apache.catalina.tribes.group.GroupChannel\">\\n <Membership className=\"org.apache.catalina.tribes.membership.cloud.CloudMembershipService\" membershipProviderClassName=\"org.apache.catalina.tribes.membership.cloud.KubernetesMembershipProvider\"/>\\n </Channel>\\n </Cluster>\\n' ${FILE}\n" +
 			"fi\n"
 	} else {
 		cmd["test.sh"] = "FILE=`find /opt -name server.xml`\n" +
-			"grep -q DNSMembershipProvider ${FILE}\n" +
+			"grep -q MembershipProvider ${FILE}\n" +
 			"if [ $? -ne 0 ]; then\n" +
 			"  sed -i '/cluster.html/a        <Cluster className=\"org.apache.catalina.ha.tcp.SimpleTcpCluster\" channelSendOptions=\"6\">\\n <Channel className=\"org.apache.catalina.tribes.group.GroupChannel\">\\n <Membership className=\"org.apache.catalina.tribes.membership.cloud.CloudMembershipService\" membershipProviderClassName=\"org.apache.catalina.tribes.membership.cloud.DNSMembershipProvider\"/>\\n </Channel>\\n </Cluster>\\n' ${FILE}\n" +
 			"fi\n"
