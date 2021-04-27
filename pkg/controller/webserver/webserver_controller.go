@@ -77,14 +77,16 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 		IsController: true,
 		OwnerType:    &webserversv1alpha1.WebServer{},
 	}
-	for _, obj := range []runtime.Object{&appsv1.DeploymentConfig{}, &kbappsv1.Deployment{}, &corev1.Service{}} {
+	for _, obj := range []runtime.Object{&kbappsv1.Deployment{}, &corev1.Service{}} {
 		if err = c.Watch(&source.Kind{Type: obj}, &enqueueRequestForOwner); err != nil {
 			return err
 		}
 	}
 	if isOpenShift(mgr.GetConfig()) {
-		if err = c.Watch(&source.Kind{Type: &routev1.Route{}}, &enqueueRequestForOwner); err != nil {
-			return err
+		for _, obj := range []runtime.Object{&appsv1.DeploymentConfig{}, &routev1.Route{}} {
+			if err = c.Watch(&source.Kind{Type: obj}, &enqueueRequestForOwner); err != nil {
+				return err
+			}
 		}
 	}
 
