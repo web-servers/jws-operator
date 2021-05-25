@@ -780,7 +780,7 @@ func commandForServerXml(useKUBEPing bool) map[string]string {
 }
 
 // createLivenessProbe returns a custom probe if the serverLivenessScript string is defined and not empty in the Custom Resource.
-// Otherwise, it returns nil
+// Otherwise, it uses the default /health Valve via curl.
 //
 // If defined, serverLivenessScript must be a shell script that
 // complies to the Kubernetes probes requirements and use the following format
@@ -792,12 +792,21 @@ func createLivenessProbe(t *webserversv1alpha1.WebServer, health *webserversv1al
 	}
 	if livenessProbeScript != "" {
 		return createCustomProbe(t, livenessProbeScript)
+	} else {
+		/* Use the default one */
+		return &corev1.Probe{
+			Handler: corev1.Handler{
+				HTTPGet: &corev1.HTTPGetAction{
+					Path: "/health",
+					Port: intstr.FromInt(8080),
+				},
+			},
+		}
 	}
-	return nil
 }
 
 // createReadinessProbe returns a custom probe if the serverReadinessScript string is defined and not empty in the Custom Resource.
-// Otherwise, it use the default /health Valve via curl.
+// Otherwise, it uses the default /health Valve via curl.
 //
 // If defined, serverReadinessScript must be a shell script that
 // complies to the Kubernetes probes requirements and use the following format
