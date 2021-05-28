@@ -34,15 +34,16 @@ func TestWebServer54(t *testing.T) {
 }
 
 func webServerApplicationImageBasicTest(t *testing.T) {
-	webserversframework.WebServerApplicationImageBasicTest(t, "quay.io/jfclere/jws-image:5.4", "/health")
+	webserversframework.WebServerApplicationImageBasicTest(t, "quay.io/jfclere/tomcat10:latest", "/health")
 }
 
 func webServerApplicationImageScaleTest(t *testing.T) {
-	webserversframework.WebServerApplicationImageScaleTest(t, "quay.io/jfclere/jws-image:5.4", "/health")
+	webserversframework.WebServerApplicationImageScaleTest(t, "quay.io/jfclere/tomcat10:latest", "/health")
 }
 
+// TODO create second image to actually test the update
 func webServerApplicationImageUpdateTest(t *testing.T) {
-	webserversframework.WebServerApplicationImageUpdateTest(t, "quay.io/jfclere/jws-image:5.4", "quay.io/jfclere/jws-image:5.4.1", "/health")
+	webserversframework.WebServerApplicationImageUpdateTest(t, "quay.io/jfclere/tomcat10:latest", "quay.io/pitprok/tomcat10:latest", "/health")
 }
 
 func webServerImageStreamBasicTest(t *testing.T) {
