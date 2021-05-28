@@ -31,8 +31,36 @@ type WebServerSpec struct {
 type WebImageSpec struct {
 	// The name of the application image to be deployed
 	ApplicationImage string `json:"applicationImage"`
+	// The source code for a webapp to be built and deployed
+	WebApp *WebAppSpec `json:"webApp,omitempty"`
 	// Pod health checks information
 	WebServerHealthCheck *WebServerHealthCheckSpec `json:"webServerHealthCheck,omitempty"`
+}
+
+// WebApp contains all the information required to build and deploy a web application
+type WebAppSpec struct {
+	// Name of the web application (default: ROOT)
+	Name string `json:"name,omitempty"`
+	// URL for the repository of the application sources
+	SourceRepositoryURL string `json:"sourceRepositoryURL"`
+	// Branch in the source repository
+	SourceRepositoryRef string `json:"sourceRepositoryRef,omitempty"`
+	// Subdirectory in the source repository
+	SourceRepositoryContextDir string `json:"contextDir,omitempty"`
+	// The path on which the application war will be mounted (default:/usr/local/tomcat/webapps/)
+	DeployPath string `json:"deployPath,omitempty"`
+	// The size that the PersistentVolumeClaim needs to be in order to contain the application war (default 1Gi)
+	ApplicationSizeLimit string `json:"applicationSizeLimit,omitempty"`
+	// The information required to build the application
+	Builder *BuilderSpec `json:"builder"`
+}
+
+// Builder contains all the information required to build the web application
+type BuilderSpec struct {
+	// Image of the container where the web application will be built
+	Image string `json:"image"`
+	// The script that the BuilderImage will use to build the application war and move it to /mnt
+	ApplicationBuildScript string `json:"applicationBuildScript,omitempty"`
 }
 
 // (Deployment method 2) Imagestream

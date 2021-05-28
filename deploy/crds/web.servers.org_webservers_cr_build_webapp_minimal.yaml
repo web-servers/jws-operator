@@ -1,0 +1,15 @@
+apiVersion: web.servers.org/v1alpha1
+kind: WebServer
+metadata:
+  name: example-image-build-webapp-minimal-webserver
+spec:
+  applicationName: jws-app
+  replicas: 2
+  webImage:
+    applicationImage: quay.io/jfclere/tomcat10:latest
+    webApp:
+      sourceRepositoryURL: https://github.com/jfclere/demo-webapp
+      # sourceRepositoryRef is not required by default but it is needed to get the correct source code for the webapp
+      sourceRepositoryRef: "jakartaEE"
+      builder:
+        image: maven:3.8.1-openjdk-8
