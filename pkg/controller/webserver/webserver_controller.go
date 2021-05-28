@@ -2,6 +2,7 @@ package webserver
 
 import (
 	"context"
+	"fmt"
 	"reflect"
 	"sort"
 	"strconv"
@@ -10,6 +11,7 @@ import (
 
 	"k8s.io/apimachinery/pkg/util/intstr"
 
+	"github.com/go-logr/logr"
 	webserversv1alpha1 "github.com/web-servers/jws-operator/pkg/apis/webservers/v1alpha1"
 
 	appsv1 "github.com/openshift/api/apps/v1"
@@ -20,6 +22,7 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -41,6 +44,7 @@ import (
 var (
 	log = logf.Log.WithName("controller_webserver")
 )
+var reqLogger logr.Logger
 
 /**
 * USER ACTION REQUIRED: This is a scaffold file intended for the user to modify with their own Controller
@@ -113,13 +117,13 @@ type ReconcileWebServer struct {
 // The Controller will requeue the Request to be processed again if the returned error is non-nil or
 // Result.Requeue is true, otherwise upon completion it will remove the work from the queue.
 func (r *ReconcileWebServer) Reconcile(request reconcile.Request) (reconcile.Result, error) {
-	reqLogger := log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
+	reqLogger = log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
 	reqLogger.Info("Reconciling WebServer")
 	updateStatus := false
 	requeue := false
 	updateDeployment := false
 
-	// Fetch the WebServer tomcat
+	// Fetch the WebServer
 	webServer := &webserversv1alpha1.WebServer{}
 	err := r.client.Get(context.TODO(), request.NamespacedName, webServer)
 	if err != nil {
@@ -134,6 +138,8 @@ func (r *ReconcileWebServer) Reconcile(request reconcile.Request) (reconcile.Res
 		reqLogger.Error(err, "Failed to get WebServer resource")
 		return reconcile.Result{}, err
 	}
+
+	webServer = r.addDefaultValues(webServer)
 
 	ser := r.serviceForWebServer(webServer)
 	// Check if the Service for the Route exists
@@ -351,6 +357,60 @@ func (r *ReconcileWebServer) Reconcile(request reconcile.Request) (reconcile.Res
 			return reconcile.Result{Requeue: true}, nil
 		}
 	} else {
+
+		// Check if a webapp needs to be built
+		if webServer.Spec.WebImage.WebApp != nil && webServer.Spec.WebImage.WebApp.SourceRepositoryURL != "" && webServer.Spec.WebImage.WebApp.Builder != nil && webServer.Spec.WebImage.WebApp.Builder.Image != "" {
+
+			// Check if a Persistent Volume Claim already exists, if not create a new one
+			pvc := r.persistentVolumeClaimForWebServer(webServer)
+			err = r.client.Get(context.TODO(), types.NamespacedName{Name: pvc.Name, Namespace: pvc.Namespace}, pvc)
+			if err != nil && errors.IsNotFound(err) {
+				reqLogger.Info("Creating a new PersistentVolumeClaim.", "PersistentVolumeClaim.Namespace", pvc.Namespace, "PersistentVolumeClaim.Name", pvc.Name)
+				err = r.client.Create(context.TODO(), pvc)
+				if err != nil && !errors.IsAlreadyExists(err) {
+					reqLogger.Error(err, "Failed to create a new PersistentVolumeClaim.", "PersistentVolumeClaim.Namespace", pvc.Namespace, "PersistentVolumeClaim.Name", pvc.Name)
+					return reconcile.Result{}, err
+				}
+				// Persistent Volume Claim created successfully - return and requeue
+				return reconcile.Result{Requeue: true}, nil
+			} else if err != nil {
+				reqLogger.Error(err, "Failed to get PersistentVolumeClaim.")
+				return reconcile.Result{}, err
+			}
+
+			// Check if the build pod already exists, if not create a new one
+			buildPod := r.buildPodForWebServer(webServer)
+			err = r.client.Get(context.TODO(), types.NamespacedName{Name: buildPod.Name, Namespace: buildPod.Namespace}, buildPod)
+			if err != nil && errors.IsNotFound(err) {
+				reqLogger.Info("Creating a new Build Pod.", "BuildPod.Namespace", buildPod.Namespace, "BuildPod.Name", buildPod.Name)
+				err = r.client.Create(context.TODO(), buildPod)
+				if err != nil && !errors.IsAlreadyExists(err) {
+					reqLogger.Error(err, "Failed to create a new Build Pod.", "BuildPod.Namespace", buildPod.Namespace, "BuildPod.Name", buildPod.Name)
+					return reconcile.Result{}, err
+				}
+				// Build pod created successfully - return and requeue
+				return reconcile.Result{Requeue: true}, nil
+			} else if err != nil {
+				reqLogger.Error(err, "Failed to get the Build Pod.")
+				return reconcile.Result{}, err
+			}
+
+			if buildPod.Status.Phase != corev1.PodSucceeded {
+				switch buildPod.Status.Phase {
+				case corev1.PodFailed:
+					reqLogger.Info("Application build failed: " + buildPod.Status.Message)
+				case corev1.PodPending:
+					reqLogger.Info("Application build pending")
+				case corev1.PodRunning:
+					reqLogger.Info("Application is still being built")
+				default:
+					reqLogger.Info("Unknown build pod status")
+				}
+				return reconcile.Result{RequeueAfter: (5 * time.Second)}, nil
+			}
+
+		}
+
 		// Check if the Deployment already exists, if not create a new one
 		foundDeployment := &kbappsv1.Deployment{}
 		err = r.client.Get(context.TODO(), types.NamespacedName{Name: webServer.Spec.ApplicationName, Namespace: webServer.Namespace}, foundDeployment)
@@ -473,6 +533,33 @@ func (r *ReconcileWebServer) Reconcile(request reconcile.Request) (reconcile.Res
 	return reconcile.Result{}, nil
 }
 
+func (r *ReconcileWebServer) addDefaultValues(t *webserversv1alpha1.WebServer) *webserversv1alpha1.WebServer {
+
+	if t.Spec.WebImage != nil && t.Spec.WebImage.WebApp != nil {
+		webApp := t.Spec.WebImage.WebApp
+		if webApp.Name == "" {
+			reqLogger.Info("WebServer.Spec.Image.WebApp.Name is not set, setting value to 'ROOT'")
+			webApp.Name = "ROOT"
+		}
+		if webApp.DeployPath == "" {
+			reqLogger.Info("WebServer.Spec.Image.WebApp.DeployPath is not set, setting value to '/deployments/'")
+			webApp.DeployPath = "/deployments/"
+		}
+		if webApp.ApplicationSizeLimit == "" {
+			reqLogger.Info("WebServer.Spec.Image.WebApp.ApplicationSizeLimit is not set, setting value to '1Gi'")
+			webApp.ApplicationSizeLimit = "1Gi"
+		}
+
+		if webApp.Builder.ApplicationBuildScript == "" {
+			reqLogger.Info("WebServer.Spec.Image.WebApp.Builder.ApplicationBuildScript is not set, generating default build script")
+			webApp.Builder.ApplicationBuildScript = generateWebAppBuildScript(t)
+		}
+	}
+
+	return t
+
+}
+
 func (r *ReconcileWebServer) serviceForWebServer(t *webserversv1alpha1.WebServer) *corev1.Service {
 
 	service := &corev1.Service{
@@ -540,6 +627,7 @@ func (r *ReconcileWebServer) roleBindingForWebServer(t *webserversv1alpha1.WebSe
 			Name: "default",
 		}},
 	}
+
 	controllerutil.SetControllerReference(t, rolebinding, r.scheme)
 	return rolebinding
 }
@@ -599,6 +687,139 @@ func (r *ReconcileWebServer) deploymentConfigForWebServer(t *webserversv1alpha1.
 
 	controllerutil.SetControllerReference(t, deploymentConfig, r.scheme)
 	return deploymentConfig
+}
+
+func (r *ReconcileWebServer) persistentVolumeClaimForWebServer(t *webserversv1alpha1.WebServer) *corev1.PersistentVolumeClaim {
+	pvc := &corev1.PersistentVolumeClaim{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: "k8s.io/api/apps/v1",
+			Kind:       "PersistentVolumeClaimVolumeSource",
+		},
+		ObjectMeta: objectMetaForWebServer(t, t.Spec.ApplicationName),
+		Spec: corev1.PersistentVolumeClaimSpec{
+			AccessModes: []corev1.PersistentVolumeAccessMode{
+				"ReadWriteOnce",
+			},
+			Resources: corev1.ResourceRequirements{
+				Requests: corev1.ResourceList{
+					"storage": resource.MustParse(t.Spec.WebImage.WebApp.ApplicationSizeLimit),
+				},
+			},
+		},
+	}
+
+	controllerutil.SetControllerReference(t, pvc, r.scheme)
+	return pvc
+}
+
+func (r *ReconcileWebServer) buildPodForWebServer(t *webserversv1alpha1.WebServer) *corev1.Pod {
+	name := t.Spec.ApplicationName + "-build"
+	objectMeta := objectMetaForWebServer(t, name)
+	objectMeta.Labels["WebServer"] = t.Name
+	terminationGracePeriodSeconds := int64(60)
+	pod := &corev1.Pod{
+		ObjectMeta: objectMeta,
+		Spec: corev1.PodSpec{
+			TerminationGracePeriodSeconds: &terminationGracePeriodSeconds,
+			RestartPolicy:                 "OnFailure",
+			Volumes: []corev1.Volume{
+				{
+					Name: "app-volume",
+					VolumeSource: corev1.VolumeSource{
+						PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{ClaimName: t.Spec.ApplicationName},
+					},
+				},
+			},
+			Containers: []corev1.Container{
+				{
+					Name:  "war",
+					Image: t.Spec.WebImage.WebApp.Builder.Image,
+					Command: []string{
+						"/bin/sh",
+						"-c",
+					},
+					Args: []string{
+						t.Spec.WebImage.WebApp.Builder.ApplicationBuildScript,
+					},
+					VolumeMounts: []corev1.VolumeMount{
+						{
+							Name:      "app-volume",
+							MountPath: "/mnt",
+						},
+					},
+				},
+			},
+		},
+	}
+
+	controllerutil.SetControllerReference(t, pod, r.scheme)
+	return pod
+}
+
+func generateWebAppBuildScript(t *webserversv1alpha1.WebServer) string {
+	webApp := t.Spec.WebImage.WebApp
+	webAppWarFileName := webApp.Name + ".war"
+	webAppSourceRepositoryURL := webApp.SourceRepositoryURL
+	webAppSourceRepositoryRef := webApp.SourceRepositoryRef
+	webAppSourceRepositoryContextDir := webApp.SourceRepositoryContextDir
+
+	return fmt.Sprintf(`
+		webAppWarFileName=%s;
+		webAppSourceRepositoryURL=%s;
+		webAppSourceRepositoryRef=%s;
+		webAppSourceRepositoryContextDir=%s;
+
+		# Some pods don't have root privileges, so the build takes place in /tmp
+		cd tmp;
+
+		# Create a custom .m2 repo in a location where no root privileges are required
+		mkdir -p /tmp/.m2/repo;
+
+		# Create custom maven settings that change the location of the .m2 repo
+		echo '<settings xmlns="http://maven.apache.org/SETTINGS/1.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"' >> /tmp/.m2/settings.xml
+		echo 'xsi:schemaLocation="http://maven.apache.org/SETTINGS/1.0.0 https://maven.apache.org/xsd/settings-1.0.0.xsd">' >> /tmp/.m2/settings.xml
+		echo '<localRepository>/tmp/.m2/repo</localRepository>' >> /tmp/.m2/settings.xml
+		echo '</settings>' >> /tmp/.m2/settings.xml
+
+		if [ -z ${webAppSourceRepositoryURL} ]; then
+			echo "Need an URL like https://github.com/jfclere/demo-webapp.git";
+			exit 1;
+		fi;
+
+		git clone ${webAppSourceRepositoryURL};
+		if [ $? -ne 0 ]; then
+			echo "Can't clone ${webAppSourceRepositoryURL}";
+			exit 1;
+		fi;
+
+		# Get the name of the source code directory
+		DIR=$(echo ${webAppSourceRepositoryURL##*/});
+		DIR=$(echo ${DIR%%.*});
+
+		cd ${DIR};
+
+		if [ ! -z ${webAppSourceRepositoryRef} ]; then
+			git checkout ${webAppSourceRepositoryRef};
+		fi;
+
+		if [ ! -z ${webAppSourceRepositoryContextDir} ]; then
+			cd ${webAppSourceRepositoryContextDir};
+		fi;
+
+		# Builds the webapp using the custom maven settings
+		mvn clean install -gs /tmp/.m2/settings.xml;
+		if [ $? -ne 0 ]; then
+			echo "mvn install failed please check the pom.xml in ${webAppSourceRepositoryURL}";
+			exit 1;
+		fi
+
+		# Copies the resulting war to the mounted persistent volume
+		cp target/*.war /mnt/${webAppWarFileName};`,
+		webAppWarFileName,
+		webAppSourceRepositoryURL,
+		webAppSourceRepositoryRef,
+		webAppSourceRepositoryContextDir,
+	)
 }
 
 func (r *ReconcileWebServer) deploymentForWebServer(t *webserversv1alpha1.WebServer, useKUBEPing bool) *kbappsv1.Deployment {
@@ -1057,20 +1278,29 @@ func createBuildTriggerPolicy(t *webserversv1alpha1.WebServer) []buildv1.BuildTr
 
 // Create the VolumeMounts
 func createVolumeMounts(t *webserversv1alpha1.WebServer) []corev1.VolumeMount {
+	var volm []corev1.VolumeMount
 	if t.Spec.UseSessionClustering {
-		volm := []corev1.VolumeMount{{
+		volm = append(volm, corev1.VolumeMount{
 			Name:      "webserver-" + t.Name,
 			MountPath: "/test/my-files",
-		}}
-		return volm
+		})
 	}
-	return nil
+	if t.Spec.WebImage != nil && t.Spec.WebImage.WebApp != nil {
+		webAppWarFileName := t.Spec.WebImage.WebApp.Name + ".war"
+			volm = append(volm, corev1.VolumeMount{
+				Name:      "app-volume",
+				MountPath: t.Spec.WebImage.WebApp.DeployPath + webAppWarFileName,
+				SubPath:   webAppWarFileName,
+			})
+	}
+	return volm
 }
 
 // Create the Volumes
 func createVolumes(t *webserversv1alpha1.WebServer) []corev1.Volume {
+	var vol []corev1.Volume
 	if t.Spec.UseSessionClustering {
-		vol := []corev1.Volume{{
+		vol = append(vol, corev1.Volume{
 			Name: "webserver-" + t.Name,
 			VolumeSource: corev1.VolumeSource{
 				ConfigMap: &corev1.ConfigMapVolumeSource{
@@ -1079,8 +1309,18 @@ func createVolumes(t *webserversv1alpha1.WebServer) []corev1.Volume {
 					},
 				},
 			},
-		}}
-		return vol
+		})
 	}
-	return nil
+	if t.Spec.WebImage != nil && t.Spec.WebImage.WebApp != nil {
+		vol = append(vol, corev1.Volume{
+			Name: "app-volume",
+			VolumeSource: corev1.VolumeSource{
+				PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
+					ClaimName: t.Spec.ApplicationName,
+					ReadOnly:  true,
+				},
+			},
+		})
+	}
+	return vol
 }

@@ -1,0 +1,72 @@
+apiVersion: web.servers.org/v1alpha1
+kind: WebServer
+metadata:
+  name: example-image-build-webapp-full-webserver
+spec:
+  applicationName: jws-app
+  replicas: 2
+  webImage:
+    applicationImage: quay.io/jfclere/tomcat10:latest
+    webApp:
+      name: demo-1
+      sourceRepositoryURL: https://github.com/jfclere/demo-webapp
+      sourceRepositoryRef: "jakartaEE"
+      contextDir: .
+      deployPath: /deployments/
+      applicationSizeLimit: 1Gi
+      builder:
+        image: maven:3.8.1-openjdk-8
+        # This is what the default build script looks like with the above specs
+        applicationBuildScript :
+          |
+          webAppWarFileName="demo-1.war";
+          webAppSourceRepositoryURL="https://github.com/jfclere/demo-webapp";
+          webAppSourceRepositoryRef="jakartaEE";
+          webAppSourceRepositoryContextDir=".";
+
+          # Some pods don't have root privileges, so the build takes place in /tmp
+          cd tmp;
+
+          # Create a custom .m2 repo in a location where no root privileges are required
+          mkdir -p /tmp/.m2/repo;
+
+          # Create custom maven settings that change the location of the .m2 repo
+          echo '<settings xmlns="http://maven.apache.org/SETTINGS/1.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"' >> /tmp/.m2/settings.xml
+          echo 'xsi:schemaLocation="http://maven.apache.org/SETTINGS/1.0.0 https://maven.apache.org/xsd/settings-1.0.0.xsd">' >> /tmp/.m2/settings.xml
+          echo '<localRepository>/tmp/.m2/repo</localRepository>' >> /tmp/.m2/settings.xml
+          echo '</settings>' >> /tmp/.m2/settings.xml
+
+          if [ -z ${webAppSourceRepositoryURL} ]; then
+            echo "Need an URL like https://github.com/jfclere/demo-webapp.git";
+            exit 1;
+          fi;
+
+          git clone ${webAppSourceRepositoryURL};
+          if [ $? -ne 0 ]; then
+            echo "Can't clone ${webAppSourceRepositoryURL}";
+            exit 1;
+          fi;
+
+          # Get the name of the source code directory
+          DIR=$(echo ${webAppSourceRepositoryURL##*/});
+          DIR=$(echo ${DIR%%.*});
+
+          cd ${DIR};
+
+          if [ ! -z ${webAppSourceRepositoryRef} ]; then
+            git checkout ${webAppSourceRepositoryRef};
+          fi;
+
+          if [ ! -z ${webAppSourceRepositoryContextDir} ]; then
+            cd ${webAppSourceRepositoryContextDir};
+          fi;
+
+          # Builds the webapp using the custom maven settings
+          mvn clean install -gs /tmp/.m2/settings.xml;
+          if [ $? -ne 0 ]; then
+            echo "mvn install failed please check the pom.xml in ${webAppSourceRepositoryURL}";
+            exit 1;
+          fi
+
+          # Copies the resulting war to the mounted persistent volume
+          cp target/*.war /mnt/${webAppWarFileName};
