@@ -80,9 +80,13 @@ run-kubernetes: push
 	kubectl create -f deploy/role_binding.yaml
 	kubectl apply -f deploy/operator.yaml
 
-test: test-e2e-5-local
+test: test-local
 
-test-e2e-5-local: setup-e2e-test
+test-local: test-e2e-5
+
+test-remote: push test-e2e-5
+
+test-e2e-5: setup-e2e-test
 	oc delete namespace "jws-e2e-tests" || true
 	oc new-project "jws-e2e-tests" || true
 	oc create -f xpaas-streams/jws54-tomcat9-image-stream.json -n jws-e2e-tests || true
