@@ -200,7 +200,7 @@ spec:
   applicationName: jws-app
   replicas: 2
   webImage:
-    applicationImage: quay.io/jfclere/jws-image:5.4
+    applicationImage: quay.io/jfclere/tomcat10:latest
 ```
 
 6. Then deploy your webapp.
