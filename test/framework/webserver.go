@@ -58,7 +58,6 @@ func makeSourcesWebServer(namespace string, name string, imageStreamName string,
 		WebSources: &webserversv1alpha1.WebSourcesSpec{
 			SourceRepositoryURL: URL,
 			SourceRepositoryRef: "master",
-			ContextDir:          "/",
 		},
 	}
 	return webServer

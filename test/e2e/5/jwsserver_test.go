@@ -41,7 +41,6 @@ func webServerApplicationImageScaleTest(t *testing.T) {
 	webserversframework.WebServerApplicationImageScaleTest(t, "quay.io/jfclere/tomcat10:latest", "/health")
 }
 
-// TODO create second image to actually test the update
 func webServerApplicationImageUpdateTest(t *testing.T) {
 	webserversframework.WebServerApplicationImageUpdateTest(t, "quay.io/jfclere/tomcat10:latest", "quay.io/pitprok/tomcat10:latest", "/health")
 }

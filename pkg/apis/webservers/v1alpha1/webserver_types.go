@@ -80,9 +80,9 @@ type WebSourcesSpec struct {
 	// URL for the repository of the application sources
 	SourceRepositoryURL string `json:"sourceRepositoryUrl"`
 	// Branch in the source repository
-	SourceRepositoryRef string `json:"sourceRepositoryRef"`
+	SourceRepositoryRef string `json:"sourceRepositoryRef,omitempty"`
 	// Subdirectory in the source repository
-	ContextDir string `json:"contextDir"`
+	ContextDir string `json:"contextDir,omitempty"`
 	// (Optional) Sources related parameters
 	WebSourcesParams *WebSourcesParamsSpec `json:"webSourcesParams,omitempty"`
 }

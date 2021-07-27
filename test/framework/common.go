@@ -306,7 +306,7 @@ func waitUntilReady(framework *test.Framework, t *testing.T, webServer *webserve
 		podList := &corev1.PodList{}
 		listOpts := []client.ListOption{
 			client.InNamespace(webServer.Namespace),
-			client.MatchingLabels(labelsForWebServer(webServer)),
+			client.MatchingLabels(generateLabelsForWebServer(webServer)),
 		}
 		err = framework.Client.List(context.TODO(), podList, listOpts...)
 		if err != nil {
@@ -524,9 +524,9 @@ func isOperatorLocal() bool {
 	return local
 }
 
-// labelsForWebServer return a map of labels that are used for identification
+// generateLabelsForWebServer return a map of labels that are used for identification
 //  of objects belonging to the particular WebServer instance
-func labelsForWebServer(webServer *webserversv1alpha1.WebServer) map[string]string {
+func generateLabelsForWebServer(webServer *webserversv1alpha1.WebServer) map[string]string {
 	labels := map[string]string{
 		"deploymentConfig": webServer.Spec.ApplicationName,
 		"WebServer":        webServer.Name,
