@@ -76,10 +76,10 @@ func webServerTestSetup(t *testing.T) (*test.Context, *test.Framework) {
 }
 
 // WebServerApplicationImageBasicTest tests the deployment of an application image operator
-func WebServerApplicationImageBasicTest(t *testing.T, imageName string, testURI string) {
+func WebServerApplicationImageBasicTest(t *testing.T, image string, testURI string) {
 	testContext, framework := webServerTestSetup(t)
 
-	webServer := makeApplicationImageWebServer(namespace, name, imageName, 1)
+	webServer := makeApplicationImageWebServer(namespace, name, image, 1)
 
 	webServerBasicTest(t, framework, testContext, webServer, testURI)
 
@@ -87,10 +87,10 @@ func WebServerApplicationImageBasicTest(t *testing.T, imageName string, testURI 
 }
 
 // WebServerApplicationImageScaleTest tests the scaling of an application image operator
-func WebServerApplicationImageScaleTest(t *testing.T, imageName string, testURI string) {
+func WebServerApplicationImageScaleTest(t *testing.T, image string, testURI string) {
 	testContext, framework := webServerTestSetup(t)
 
-	webServer := makeApplicationImageWebServer(namespace, name, imageName, 1)
+	webServer := makeApplicationImageWebServer(namespace, name, image, 1)
 
 	webServerScaleTest(t, framework, testContext, webServer, testURI)
 
@@ -98,12 +98,34 @@ func WebServerApplicationImageScaleTest(t *testing.T, imageName string, testURI 
 }
 
 // WebServerApplicationImageUpdateTest test the application image update feature of an application image operator
-func WebServerApplicationImageUpdateTest(t *testing.T, imageName string, newImageName string, testURI string) {
+func WebServerApplicationImageUpdateTest(t *testing.T, image string, newImageName string, testURI string) {
 	testContext, framework := webServerTestSetup(t)
 
-	webServer := makeApplicationImageWebServer(namespace, name, imageName, 1)
+	webServer := makeApplicationImageWebServer(namespace, name, image, 1)
 
 	webServerApplicationImageUpdateTest(t, framework, testContext, webServer, newImageName, testURI)
+
+	testContext.Cleanup()
+}
+
+// WebServerApplicationImageSourcesBasicTest tests the deployment of an application image with sources
+func WebServerApplicationImageSourcesBasicTest(t *testing.T, image string, sourceRepositoryURL string, sourceRepositoryRef string, testURI string) {
+	testContext, framework := webServerTestSetup(t)
+
+	webServer := makeApplicationImageSourcesWebServer(namespace, name, image, sourceRepositoryURL, sourceRepositoryRef, 1)
+
+	webServerBasicTest(t, framework, testContext, webServer, testURI)
+
+	testContext.Cleanup()
+}
+
+// WebServerApplicationImageSourcesBasicTest tests the scaling of an application image with sources
+func WebServerApplicationImageSourcesScaleTest(t *testing.T, image string, sourceRepositoryURL string, sourceRepositoryRef string, testURI string) {
+	testContext, framework := webServerTestSetup(t)
+
+	webServer := makeApplicationImageSourcesWebServer(namespace, name, image, sourceRepositoryURL, sourceRepositoryRef, 1)
+
+	webServerScaleTest(t, framework, testContext, webServer, testURI)
 
 	testContext.Cleanup()
 }
@@ -130,22 +152,22 @@ func WebServerImageStreamScaleTest(t *testing.T, imageStreamName string, testURI
 	testContext.Cleanup()
 }
 
-// WebServerSourcesBasicTest tests the deployment of an Image Stream operator with sources
-func WebServerSourcesBasicTest(t *testing.T, imageStreamName string, gitURL string, testURI string) {
+// WebServerImageStreamSourcesBasicTest tests the deployment of an Image Stream operator with sources
+func WebServerImageStreamSourcesBasicTest(t *testing.T, imageStreamName string, sourceRepositoryURL string, sourceRepositoryRef string, testURI string) {
 	testContext, framework := webServerTestSetup(t)
 
-	webServer := makeSourcesWebServer(namespace, name, imageStreamName, namespace, gitURL, 1)
+	webServer := makeImageStreamSourcesWebServer(namespace, name, imageStreamName, namespace, sourceRepositoryURL, sourceRepositoryRef, 1)
 
 	webServerBasicTest(t, framework, testContext, webServer, testURI)
 
 	testContext.Cleanup()
 }
 
-// WebServerSourcesScaleTest tests the scaling of an Image Stream operator with sources
-func WebServerSourcesScaleTest(t *testing.T, imageStreamName string, gitURL string, testURI string) {
+// WebServerImageStreamSourcesScaleTest tests the scaling of an Image Stream operator with sources
+func WebServerImageStreamSourcesScaleTest(t *testing.T, imageStreamName string, sourceRepositoryURL string, sourceRepositoryRef string, testURI string) {
 	testContext, framework := webServerTestSetup(t)
 
-	webServer := makeSourcesWebServer(namespace, name, imageStreamName, namespace, gitURL, 1)
+	webServer := makeImageStreamSourcesWebServer(namespace, name, imageStreamName, namespace, sourceRepositoryURL, sourceRepositoryRef, 1)
 
 	webServerScaleTest(t, framework, testContext, webServer, testURI)
 
