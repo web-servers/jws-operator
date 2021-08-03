@@ -49,6 +49,47 @@ spec:
                 applicationImage:
                   description: The name of the application image to be deployed
                   type: string
+                webApp:
+                  description: The source code for a webapp to be built and deployed
+                  properties:
+                    applicationSizeLimit:
+                      description: The size that the PersistentVolumeClaim needs to
+                        be in order to contain the application war (default 1Gi)
+                      type: string
+                    builder:
+                      description: The information required to build the application
+                      properties:
+                        applicationBuildScript:
+                          description: The script that the BuilderImage will use to
+                            build the application war and move it to /mnt
+                          type: string
+                        image:
+                          description: Image of the container where the web application
+                            will be built
+                          type: string
+                      required:
+                      - image
+                      type: object
+                    contextDir:
+                      description: Subdirectory in the source repository
+                      type: string
+                    deployPath:
+                      description: The path on which the application war will be mounted
+                        (default:/usr/local/tomcat/webapps/)
+                      type: string
+                    name:
+                      description: 'Name of the web application (default: ROOT)'
+                      type: string
+                    sourceRepositoryRef:
+                      description: Branch in the source repository
+                      type: string
+                    sourceRepositoryURL:
+                      description: URL for the repository of the application sources
+                      type: string
+                  required:
+                  - builder
+                  - sourceRepositoryURL
+                  type: object
                 webServerHealthCheck:
                   description: Pod health checks information
                   properties:
@@ -114,8 +155,6 @@ spec:
                           type: string
                       type: object
                   required:
-                  - contextDir
-                  - sourceRepositoryRef
                   - sourceRepositoryUrl
                   type: object
               required:

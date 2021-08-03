@@ -65,12 +65,6 @@ run-openshift: push
 	oc create -f deploy/role.yaml
 	oc create -f deploy/role_binding.yaml
 	oc apply -f deploy/operator.yaml
-clean-openshift:
-	oc delete -f deploy/crds/web.servers.org_webservers_crd.yaml
-	oc delete -f deploy/service_account.yaml
-	oc delete -f deploy/role.yaml
-	oc delete -f deploy/role_binding.yaml
-
 
 ## run-kubernetes                           Run the Tomcat operator on kubernetes.
 run-kubernetes: push
@@ -80,13 +74,19 @@ run-kubernetes: push
 	kubectl create -f deploy/role_binding.yaml
 	kubectl apply -f deploy/operator.yaml
 
+clean-cluster:
+	kubectl delete -f deploy/crds/web.servers.org_webservers_crd.yaml || true
+	kubectl delete -f deploy/service_account.yaml || true
+	kubectl delete -f deploy/role.yaml || true
+	kubectl delete -f deploy/role_binding.yaml || true
+
 test: test-local
 
 test-local: test-e2e-5
 
 test-remote: push test-e2e-5
 
-test-e2e-5: setup-e2e-test
+test-e2e-5: clean-cluster build setup-e2e-test
 	oc delete namespace "jws-e2e-tests" || true
 	oc new-project "jws-e2e-tests" || true
 	oc create -f xpaas-streams/jws54-tomcat9-image-stream.json -n jws-e2e-tests || true

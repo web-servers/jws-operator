@@ -3,7 +3,6 @@ module github.com/web-servers/jws-operator
 go 1.13
 
 require (
-	github.com/go-logr/logr v0.1.0
 	github.com/go-openapi/spec v0.19.4
 	github.com/openshift/api v3.9.0+incompatible
 	github.com/operator-framework/operator-sdk v0.17.2

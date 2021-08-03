@@ -10,6 +10,7 @@ spec:
     imageStreamNamespace: openshift
     imageStreamName: jboss-webserver54-openjdk8-tomcat9-ubi8-openshift
     webSources:
-      sourceRepositoryUrl: https://github.com/jboss-openshift/openshift-quickstarts.git
-      sourceRepositoryRef: "1.2"
-      contextDir: tomcat-websocket-chat
+      sourceRepositoryUrl: https://github.com/jfclere/demo-webapp
+      # sourceRepositoryUrl: https://github.com/jboss-openshift/openshift-quickstarts.git
+      # sourceRepositoryRef: "1.2"
+      # contextDir: tomcat-websocket-chat
