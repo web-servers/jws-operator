@@ -282,7 +282,7 @@ func deployWebServer(framework *test.Framework, testContext *test.Context, t *te
 			// Removing deployment for not putting finalizers back to the WebServer
 			name := webServer.ObjectMeta.Name
 			namespace := webServer.ObjectMeta.Namespace
-			deployment, err := framework.KubeClient.AppsV1().Deployments(namespace).Get("jws-operator", metav1.GetOptions{})
+			deployment, err := framework.KubeClient.AppsV1().Deployments(namespace).Get(context.TODO(), "jws-operator", metav1.GetOptions{})
 			if err == nil && deployment != nil {
 				t.Logf("Cleaning deployment '%v'\n", deployment.Name)
 				framework.Client.Delete(context.TODO(), deployment)
