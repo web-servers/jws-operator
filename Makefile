@@ -10,9 +10,6 @@ CONTAINER_IMAGE ?= "${IMAGE}"
 setup:
 	./build/setup-operator-sdk.sh
 
-setup-e2e-test:
-	./build/setup-operator-sdk-e2e-tests.sh
-
 ## tidy                                     Ensures modules are tidy.
 tidy:
 	export GOPROXY=proxy.golang.org
@@ -25,8 +22,8 @@ vendor: go.mod go.sum
 
 ## codegen                                  Ensures code is generated.
 codegen: setup
-	operator-sdk generate k8s
-	operator-sdk generate openapi
+	./operator-sdk generate k8s
+	./operator-sdk generate openapi
 
 ## build/_output/bin/                       Creates the directory where the executable is outputted.
 build/_output/bin/:
@@ -86,15 +83,15 @@ test-local: test-e2e-5
 
 test-remote: push test-e2e-5
 
-test-e2e-5: clean-cluster build setup-e2e-test
+test-e2e-5: clean-cluster build setup
 	oc delete namespace "jws-e2e-tests" || true
 	oc new-project "jws-e2e-tests" || true
 	oc create -f xpaas-streams/jws54-tomcat9-image-stream.json -n jws-e2e-tests || true
-	LOCAL_OPERATOR=true OPERATOR_NAME=jws-operator-1 ./operator-sdk-e2e-tests test local ./test/e2e/5 --verbose --debug --operator-namespace jws-e2e-tests --local-operator-flags "--zap-devel --zap-level=5" --global-manifest ./deploy/crds/web.servers.org_webservers_crd.yaml --go-test-flags "-timeout=30m"
+	LOCAL_OPERATOR=true OPERATOR_NAME=jws-operator-1 ./operator-sdk test local ./test/e2e/5 --verbose --debug --operator-namespace jws-e2e-tests --local-operator-flags "--zap-devel --zap-level=5" --global-manifest ./deploy/crds/web.servers.org_webservers_crd.yaml --go-test-flags "-timeout=30m"
 
 generate-csv:
-	operator-sdk generate crds
-	operator-sdk generate csv --verbose --csv-version $(VERSION) --update-crds
+	./operator-sdk generate crds
+	./operator-sdk generate csv --verbose --csv-version $(VERSION) --update-crds
 	mkdir manifests/jws/$(VERSION)/ || true
 	mv deploy/olm-catalog/jws-operator/manifests/* manifests/jws/$(VERSION)/
 	rm -r deploy/olm-catalog
