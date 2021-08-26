@@ -1,4 +1,4 @@
-IMAGE ?= docker.io/${USER}/jws-operator:latest
+IMAGE ?= quay.io/${USER}/jws-operator:latest
 PROG  := jws-operator
 NAMESPACE :=`oc project -q`
 VERSION ?= 1.1.0
@@ -23,6 +23,7 @@ vendor: go.mod go.sum
 ## codegen                                  Ensures code is generated.
 codegen: setup
 	./operator-sdk generate k8s
+	./operator-sdk generate crds --crd-version=v1
 	./operator-sdk generate openapi
 
 ## build/_output/bin/                       Creates the directory where the executable is outputted.
