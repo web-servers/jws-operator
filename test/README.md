@@ -27,7 +27,7 @@ spec:
   applicationName: example-webserver-123456
   replicas: 1
   webImage:
-    applicationImage: quay.io/jfclere/jws-image:5.4
+    applicationImage: registry.redhat.io/jboss-webserver-5/webserver55-openjdk8-tomcat9-openshift-rhel8
 ```
 The test starts the pod, waits for it, scale to 2 replicas, waits for them and check that http://route_host/health is returning 200.
 

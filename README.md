@@ -191,7 +191,7 @@ make run-openshift
   applicationName: jws-app
   replicas: 2
   webImage:
-    applicationImage: quay.io/jfclere/jws-image:5.4
+    applicationImage: registry.redhat.io/jboss-webserver-5/webserver55-openjdk8-tomcat9-openshift-rhel8
 ```
 
 6. Then deploy your webapp.

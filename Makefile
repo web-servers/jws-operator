@@ -1,4 +1,4 @@
-IMAGE ?= docker.io/${USER}/jws-operator:latest
+IMAGE ?= quay.io/${USER}/jws-operator:latest
 PROG  := jws-operator
 NAMESPACE :=`oc project -q`
 
@@ -7,9 +7,6 @@ NAMESPACE :=`oc project -q`
 ## setup                                    Ensure the operator-sdk is installed.
 setup:
 	./build/setup-operator-sdk.sh
-
-setup-e2e-test:
-	./build/setup-operator-sdk-e2e-tests.sh
 
 ## tidy                                     Ensures modules are tidy.
 tidy:
@@ -24,6 +21,7 @@ vendor: go.mod go.sum
 ## codegen                                  Ensures code is generated.
 codegen: setup
 	operator-sdk generate k8s
+	operator-sdk generate crds --crd-version=v1
 	operator-sdk generate openapi
 
 ## build/_output/bin/                       Creates the directory where the executable is outputted.
@@ -73,10 +71,16 @@ run-kubernetes:
 	kubectl create -f deploy/role_binding.yaml
 	kubectl apply -f deploy/operator.yaml
 
+clean-cluster:
+	kubectl delete -f deploy/crds/web.servers.org_webservers_crd.yaml || true
+	kubectl delete -f deploy/service_account.yaml || true
+	kubectl delete -f deploy/role.yaml || true
+	kubectl delete -f deploy/role_binding.yaml || true
+
 test: test-e2e-17-local
 
-test-e2e-17-local: setup-e2e-test
-	LOCAL_OPERATOR=true OPERATOR_NAME=jws-operator ./operator-sdk-e2e-tests test local ./test/e2e/17.0 --verbose --debug  --operator-namespace ${NAMESPACE} --up-local --local-operator-flags "--zap-devel --zap-level=5" --global-manifest ./deploy/crds/web.servers.org_webservers_crd.yaml
+test-e2e-17-local: setup
+	LOCAL_OPERATOR=true OPERATOR_NAME=jws-operator operator-sdk test local ./test/e2e/17.0 --verbose --debug  --operator-namespace ${NAMESPACE} --up-local --local-operator-flags "--zap-devel --zap-level=5" --global-manifest ./deploy/crds/web.servers.org_webservers_crd.yaml
 
 
 help : Makefile

@@ -109,7 +109,7 @@ func webServerBasicServerScaleTest(t *testing.T, f *framework.Framework, ctx *fr
 	name := "example-webserver-" + unixEpoch()
 	// create webServer custom resource
 	// webServer := MakeBasicWebServer(namespace, name, "quay.io/jws-quickstarts/jws-operator-quickstart:"+applicationTag, 1)
-	webServer := MakeBasicWebServer(namespace, name, "quay.io/jfclere/jws-image:5.4", 1)
+	webServer := MakeBasicWebServer(namespace, name, "registry.redhat.io/jboss-webserver-5/webserver54-openjdk8-tomcat9-openshift-rhel8", 1)
 	err = CreateAndWaitUntilReady(f, ctx, t, webServer)
 	if err != nil {
 		return err
