@@ -57,7 +57,8 @@ generate-operator.yaml:
 	sed 's|@OP_IMAGE_TAG@|$(IMAGE)|' deploy/operator.template > deploy/operator.yaml
 
 ## run-openshift                            Run the JWS operator on OpenShift.
-run-openshift: push
+run-openshift: generate-operator.yaml
+	echo "Using $(IMAGE) make sure you push before"
 	oc create -f deploy/crds/web.servers.org_webservers_crd.yaml
 	oc create -f deploy/service_account.yaml
 	oc create -f deploy/role.yaml
@@ -65,7 +66,8 @@ run-openshift: push
 	oc apply -f deploy/operator.yaml
 
 ## run-kubernetes                           Run the Tomcat operator on kubernetes.
-run-kubernetes: push
+run-kubernetes: generate-operator.yaml
+	echo "Using $(IMAGE) make sure you push before"
 	kubectl create -f deploy/crds/web.servers.org_webservers_crd.yaml
 	kubectl create -f deploy/service_account.yaml
 	kubectl create -f deploy/role.yaml
