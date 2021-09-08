@@ -14,6 +14,7 @@ type WebServerSpec struct {
 	// Add custom validation using kubebuilder tags: https://book-v1.book.kubebuilder.io/beyond_basics/generating_crd.html
 
 	// The base for the names of the deployed application resources
+	// +kubebuilder:validation:Pattern=^[a-z]([-a-z0-9]*[a-z0-9])?$
 	ApplicationName string `json:"applicationName"`
 	// The desired number of replicas for the application
 	// +kubebuilder:validation:Minimum=0
