@@ -45,6 +45,8 @@ var (
 // add adds a new Controller to mgr with r as the reconcile.Reconciler
 //		Owns(&kbappsv1.Deployment{}). (NOT OK???)
 func (r *WebServerReconciler) SetupWithManager(mgr ctrl.Manager) error {
+	r.isOpenShift = isOpenShift(mgr.GetConfig())
+	r.useKUBEPing = true
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&webserversv1alpha1.WebServer{}).
 		Complete(r)
