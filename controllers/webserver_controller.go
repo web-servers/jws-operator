@@ -93,6 +93,7 @@ type WebServerReconciler struct {
 
 // +kubebuilder:rbac:groups=web.servers.org,resources=webservers,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=web.servers.org,resources=webservers/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=web.servers.org,resources=webservers/finalizers,verbs=update
 
 // +kubebuilder:rbac:groups="rbac.authorization.k8s.io",resources=rolebindings,verbs=create;get;list;watch
 

@@ -138,6 +138,12 @@ rules:
 - apiGroups:
   - web.servers.org
   resources:
+  - webservers/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - web.servers.org
+  resources:
   - webservers/status
   verbs:
   - get
