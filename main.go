@@ -31,6 +31,11 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
+	appsv1 "github.com/openshift/api/apps/v1"
+	buildv1 "github.com/openshift/api/build/v1"
+	imagev1 "github.com/openshift/api/image/v1"
+	routev1 "github.com/openshift/api/route/v1"
+
 	webserversv1alpha1 "github.com/web-servers/jws-operator/api/v1alpha1"
 	"github.com/web-servers/jws-operator/controllers"
 	//+kubebuilder:scaffold:imports
@@ -44,7 +49,15 @@ var (
 func init() {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
 
+	// Adding our self
 	utilruntime.Must(webserversv1alpha1.AddToScheme(scheme))
+
+	// Adding the openshift stuff
+	utilruntime.Must(routev1.AddToScheme(scheme))
+	utilruntime.Must(imagev1.AddToScheme(scheme))
+	utilruntime.Must(buildv1.AddToScheme(scheme))
+	utilruntime.Must(appsv1.AddToScheme(scheme))
+
 	//+kubebuilder:scaffold:scheme
 }
 

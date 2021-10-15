@@ -34,10 +34,6 @@ func (r *WebServerReconciler) generateObjectMeta(webServer *webserversv1alpha1.W
 func (r *WebServerReconciler) generateRoutingService(webServer *webserversv1alpha1.WebServer) *corev1.Service {
 
 	service := &corev1.Service{
-		TypeMeta: metav1.TypeMeta{
-			APIVersion: "apps/v1",
-			Kind:       "Service",
-		},
 		ObjectMeta: r.generateObjectMeta(webServer, webServer.Spec.ApplicationName),
 		Spec: corev1.ServiceSpec{
 			Ports: []corev1.ServicePort{{
@@ -58,10 +54,6 @@ func (r *WebServerReconciler) generateRoutingService(webServer *webserversv1alph
 
 func (r *WebServerReconciler) generateRoleBinding(webServer *webserversv1alpha1.WebServer) *rbac.RoleBinding {
 	rolebinding := &rbac.RoleBinding{
-		TypeMeta: metav1.TypeMeta{
-			APIVersion: "rbac.authorization.k8s.io/v1beta",
-			Kind:       "RoleBinding",
-		},
 		ObjectMeta: r.generateObjectMeta(webServer, "webserver-"+webServer.Name),
 		RoleRef: rbac.RoleRef{
 			APIGroup: "rbac.authorization.k8s.io",
@@ -81,10 +73,6 @@ func (r *WebServerReconciler) generateRoleBinding(webServer *webserversv1alpha1.
 func (r *WebServerReconciler) generateServiceForDNS(webServer *webserversv1alpha1.WebServer) *corev1.Service {
 
 	service := &corev1.Service{
-		TypeMeta: metav1.TypeMeta{
-			APIVersion: "apps/v1",
-			Kind:       "Service",
-		},
 		ObjectMeta: r.generateObjectMeta(webServer, "webserver-"+webServer.Name),
 		Spec: corev1.ServiceSpec{
 			ClusterIP: "None",
@@ -106,10 +94,6 @@ func (r *WebServerReconciler) generateServiceForDNS(webServer *webserversv1alpha
 func (r *WebServerReconciler) generateConfigMapForDNS(webServer *webserversv1alpha1.WebServer) *corev1.ConfigMap {
 
 	cmap := &corev1.ConfigMap{
-		TypeMeta: metav1.TypeMeta{
-			APIVersion: "apps/v1",
-			Kind:       "ConfigMap",
-		},
 		ObjectMeta: r.generateObjectMeta(webServer, "webserver-"+webServer.Name),
 		Data:       r.generateCommandForServerXml(),
 	}
@@ -120,10 +104,6 @@ func (r *WebServerReconciler) generateConfigMapForDNS(webServer *webserversv1alp
 
 func (r *WebServerReconciler) generatePersistentVolumeClaim(webServer *webserversv1alpha1.WebServer) *corev1.PersistentVolumeClaim {
 	pvc := &corev1.PersistentVolumeClaim{
-		TypeMeta: metav1.TypeMeta{
-			APIVersion: "k8s.io/api/apps/v1",
-			Kind:       "PersistentVolumeClaimVolumeSource",
-		},
 		ObjectMeta: r.generateObjectMeta(webServer, webServer.Spec.ApplicationName),
 		Spec: corev1.PersistentVolumeClaimSpec{
 			AccessModes: []corev1.PersistentVolumeAccessMode{
@@ -190,10 +170,6 @@ func (r *WebServerReconciler) generateDeployment(webServer *webserversv1alpha1.W
 	replicas := int32(webServer.Spec.Replicas)
 	podTemplateSpec := r.generatePodTemplate(webServer, webServer.Spec.WebImage.ApplicationImage)
 	deployment := &kbappsv1.Deployment{
-		TypeMeta: metav1.TypeMeta{
-			APIVersion: "k8s.io/api/apps/v1",
-			Kind:       "Deployment",
-		},
 		ObjectMeta: r.generateObjectMeta(webServer, webServer.Spec.ApplicationName),
 		Spec: kbappsv1.DeploymentSpec{
 			Strategy: kbappsv1.DeploymentStrategy{
@@ -217,10 +193,6 @@ func (r *WebServerReconciler) generateDeployment(webServer *webserversv1alpha1.W
 func (r *WebServerReconciler) generateImageStream(webServer *webserversv1alpha1.WebServer) *imagev1.ImageStream {
 
 	imageStream := &imagev1.ImageStream{
-		TypeMeta: metav1.TypeMeta{
-			APIVersion: "image.openshift.io/v1",
-			Kind:       "ImageStream",
-		},
 		ObjectMeta: r.generateObjectMeta(webServer, webServer.Spec.ApplicationName),
 	}
 
@@ -231,10 +203,6 @@ func (r *WebServerReconciler) generateImageStream(webServer *webserversv1alpha1.
 func (r *WebServerReconciler) generateBuildConfig(webServer *webserversv1alpha1.WebServer) *buildv1.BuildConfig {
 
 	buildConfig := &buildv1.BuildConfig{
-		TypeMeta: metav1.TypeMeta{
-			APIVersion: "build.openshift.io/v1",
-			Kind:       "BuildConfig",
-		},
 		ObjectMeta: r.generateObjectMeta(webServer, webServer.Spec.ApplicationName),
 		Spec: buildv1.BuildConfigSpec{
 			CommonSpec: buildv1.CommonSpec{
@@ -338,10 +306,6 @@ func (r *WebServerReconciler) generateDeploymentConfig(webServer *webserversv1al
 	replicas := int32(1)
 	podTemplateSpec := r.generatePodTemplate(webServer, webServer.Spec.ApplicationName)
 	deploymentConfig := &appsv1.DeploymentConfig{
-		TypeMeta: metav1.TypeMeta{
-			APIVersion: "apps.openshift.io/v1",
-			Kind:       "DeploymentConfig",
-		},
 		ObjectMeta: r.generateObjectMeta(webServer, webServer.Spec.ApplicationName),
 		Spec: appsv1.DeploymentConfigSpec{
 			Strategy: appsv1.DeploymentStrategy{
@@ -381,10 +345,6 @@ func (r *WebServerReconciler) generateRoute(webServer *webserversv1alpha1.WebSer
 		"description": "Route for application's http service.",
 	}
 	route := &routev1.Route{
-		TypeMeta: metav1.TypeMeta{
-			APIVersion: "route.openshift.io/v1",
-			Kind:       "Route",
-		},
 		ObjectMeta: objectMeta,
 		Spec: routev1.RouteSpec{
 			To: routev1.RouteTargetReference{
