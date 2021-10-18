@@ -39,6 +39,8 @@ rules:
   - delete
   - get
   - list
+  - update
+  - watch
 - apiGroups:
   - build.openshift.io
   resources:
@@ -48,6 +50,7 @@ rules:
   - delete
   - get
   - list
+  - watch
 - apiGroups:
   - build.openshift.io
   resources:
@@ -57,12 +60,23 @@ rules:
   - delete
   - get
   - list
+  - watch
 - apiGroups:
   - ""
   resources:
   - namespaces
   verbs:
   - get
+- apiGroups:
+  - ""
+  resources:
+  - persistentvolumeclaims
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - watch
 - apiGroups:
   - ""
   resources:
@@ -98,6 +112,7 @@ rules:
   - delete
   - get
   - list
+  - watch
 - apiGroups:
   - monitoring.coreos.com
   resources:

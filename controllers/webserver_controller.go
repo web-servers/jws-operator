@@ -71,6 +71,7 @@ type WebServerReconciler struct {
 // and it is probably needing a _very_ carefull check here too !!
 // +kubebuilder:rbac:groups="core",resources=pods,verbs=create;get;list;delete;watch
 // +kubebuilder:rbac:groups="core",resources=services,verbs=create;get;list;delete;watch
+// +kubebuilder:rbac:groups="core",resources=persistentvolumeclaims,verbs=create;get;list;delete;watch
 // +kubebuilder:rbac:groups="core",resources=services/finalizers,verbs=update
 // +kubebuilder:rbac:groups="core",resources=namespaces,verbs=get
 
@@ -78,14 +79,14 @@ type WebServerReconciler struct {
 // +kubebuilder:rbac:groups="apps",resources=deployments,verbs=create;get;list;delete;watch;update;patch
 // +kubebuilder:rbac:groups="apps",resources=deployments/finalizers,verbs=update
 
-// +kubebuilder:rbac:groups="apps.openshift.io",resources=deploymentconfigs,verbs=create;get;list;delete
+// +kubebuilder:rbac:groups="apps.openshift.io",resources=deploymentconfigs,verbs=create;get;list;delete;update;watch
 
 // +kubebuilder:rbac:groups=monitoring.coreos.com,resources=servicemonitors,verbs=create;get;
 
-// +kubebuilder:rbac:groups=image.openshift.io,resources=imagestreams,verbs=create;get;list;delete
+// +kubebuilder:rbac:groups=image.openshift.io,resources=imagestreams,verbs=create;get;list;delete;watch
 
-// +kubebuilder:rbac:groups=build.openshift.io,resources=buildconfigs,verbs=create;get;list;delete
-// +kubebuilder:rbac:groups=build.openshift.io,resources=builds,verbs=create;get;list;delete
+// +kubebuilder:rbac:groups=build.openshift.io,resources=buildconfigs,verbs=create;get;list;delete;watch
+// +kubebuilder:rbac:groups=build.openshift.io,resources=builds,verbs=create;get;list;delete;watch
 
 // +kubebuilder:rbac:groups=apps.openshift.io,resources=deploymentconfigs,verbs=create;get;list;delete
 

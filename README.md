@@ -38,7 +38,7 @@ $ git clone https://github.com/web-servers/jws-operator.git
 $ export IMG=docker.io/${USER}/jws-operator:v0.0.1
 $ cd jws-operator
 $ podman login docker.io
-$ make docker-build docker-push
+$ make manifests docker-build docker-push
 ```
 
 Note the Makefile uses _go mod tidy_, _go mod vendor_ then _go build_ to build the executable and podman to build and push the image.
