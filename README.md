@@ -6,51 +6,12 @@ This repository contains the source code of a simple Openshift Operator that man
 
 This prototype mimics the features provided by the [JWS Tomcat8 Basic Template](https://github.com/openshift/openshift-ansible/blob/release-3.11/roles/openshift_examples/files/examples/x86_64/xpaas-templates/jws31-tomcat8-basic-s2i.json). It allows the automated deployment of Tomcat instances.
 
-## Development Workflow (how the operator was created)
+## Development Workflow
 
 The prototype has been written in Golang. It uses the [operator-sdk](https://github.com/operator-framework/operator-sdk) as development Framework and project manager. This SDK allows the generation of source code to increase productivity. It is solely used to conveniently write and build an Openshift or Kubernetes operator (the end-user does not need the operator-sdk to deploy a pre-build version of the operator)·
 
-The development workflow used in this prototype is standard to all Operator development:
+The development workflow used in this prototype is standard to all Operator development, check the operator SDK doc for that.
 
-1. Install the operator-sdk version we need
-
-```bash
-$ make setup
-```
-
-2 . Add a Custom Resource Definition
-
-```bash
-$ operator-sdk add api --api-version=web.servers.org/v1alpha1 --kind=WebServer
-```
-
-3. Define its attributes (by editing the generated file _webserver_types.go_)
-4. Update the generated code. This needs to be done every time CRDs are altered
-
-```bash
-$ operator-sdk generate k8s
-```
-
-5. Define the specifications of the CRD (by editing the generated file _deploy/crds/web.servers.org_webservers_crd.yaml_) and update the generated code (if needed)
-
-6. Add a Controller for that Custom Resource
-
-```bash
-$ operator-sdk add controller --api-version=web.servers.org/v1alpha1 --kind=WebServer
-```
-
-7. Write the Controller logic and adapt roles to give permissions to necessary resources
-8. Generate the CRD and CSV doing the following (adjust the version when needed):
-
-```bash
-$ operator-sdk generate crds
-$ operator-sdk generate csv --csv-version 1.0.0
-```
-9. Copy the web.servers.org_webservers_crd.yaml in the manifests/jws/${version} and build the catalog bundle
-```bash
-cp deploy/crds/web.servers.org_webservers_crd.yaml manifests/jws/1.0.0/web.servers.org_webservers_crd.yaml
-make catalog
-```
 ## Building the Operator
 
 ### Requirements
@@ -74,10 +35,10 @@ You will need to push it to a Docker Registry accessible by your Openshift Serve
 $ mkdir -p $GOPATH/src/github.com/web-servers
 $ cd $GOPATH/src/github.com/web-servers
 $ git clone https://github.com/web-servers/jws-operator.git
-$ export IMAGE=docker.io/${USER}/jws-operator:v0.0.1
+$ export IMG=docker.io/${USER}/jws-operator:v0.0.1
 $ cd jws-operator
 $ podman login docker.io
-$ make push
+$ make manifests docker-build docker-push
 ```
 
 Note the Makefile uses _go mod tidy_, _go mod vendor_ then _go build_ to build the executable and podman to build and push the image.
@@ -105,17 +66,16 @@ $ oc create -f xpaas-streams/jws54-tomcat9-image-stream.json -n openshift
 ```
 
 As the image stream isn't namespace-specific, creating this resource in the _openshift_ project makes it convenient to reuse it across multiple namespaces. The following resources, which are more specific, will need to be created for every namespace.
-If you don't use the **-n openshift** or use another ImageStream name you will have to adjust the imageStreamNamespace: to \$NAMESPACE and imageStreamName: to the correct value in the Custom Resource file _deploy/crds/jws_v1alpha1_tomcat_cr.yaml_.
+If you don't use the **-n openshift** or use another ImageStream name you will have to adjust the imageStreamNamespace: to \$NAMESPACE and imageStreamName: to the correct value in the Custom Resource file _config/samples/jws_v1alpha1_tomcat_cr.yaml_.
 
 4. Create the necessary resources
 
 
 ```bash
-make generate-operator.yaml
-make run-openshift
+make deploy
 ```
 
-5. Create a Tomcat instance (Custom Resource). An example has been provided in _deploy/crds/web.servers.org_webservers_imagestream_cr.yaml_ .
+5. Create a Tomcat instance (Custom Resource). An example has been provided in _config/samples/web.servers.org_webservers_imagestream_cr.yaml_ .
    Make sure to adjust sourceRepositoryUrl, sourceRepositoryRef (branch) and contextDir (subdirectory) to you webapp sources, branch and context.
    like:
 
@@ -134,7 +94,7 @@ make run-openshift
 6. Then deploy your webapp.
 
 ```bash
-$ oc apply -f deploy/crds/web.servers.org_webservers_imagestream_cr.yaml
+$ oc apply -f config/samples/web.servers.org_webservers_imagestream_cr.yaml
 ```
 
 7. If the DNS is not setup in your Openshift installation, you will need to add the resulting route to your local `/etc/hosts` file in order to resolve the URL. It has point to the IP address of the node running the router. You can determine this address by running `oc get endpoints` with a cluster-admin user.
@@ -189,7 +149,7 @@ make generate-operator.yaml
 make run-openshift
 ```
 
-5. Create a Tomcat instance (Custom Resource). An example has been provided in _deploy/crds/web.servers.org_webservers_cr.yaml_
+5. Create a Tomcat instance (Custom Resource). An example has been provided in _config/samples/web.servers.org_webservers_cr.yaml_
 
 ```
 apiVersion: web.servers.org/v1alpha1
@@ -206,7 +166,7 @@ spec:
 6. Then deploy your webapp.
 
 ```bash
-$ oc apply -f deploy/crds/web.servers.org_webservers_cr.yaml
+$ oc apply -f config/samples/web.servers.org_webservers_cr.yaml
 ```
 
 6. On kubernetes you have to create a balancer to expose the service and later something depending on your cloud to expose the application
@@ -224,14 +184,16 @@ The service jws-balancer then can be used to expose the application.
 
 ```bash
 oc delete webserver.web.servers.org/example-webserver
-oc delete deployment.apps/jws-operator
+oc delete deployment.apps/jws-operator --namespace jws-operator-system
+```
+
+or better to clean everything:
+```bash
+oc delete webserver.web.servers.org/example-webserver
+make undeploy
 ```
 
 Note that the first _oc delete_ deletes what the operator creates for the example-webserver application, these second _oc delete_ deletes the operator and all resource it needs to run. The ImageStream can be deleted manually if needed.
-
-10. What is supported?
-
-10.1 changing the number of running replicas for the application: in your Custom Resource change _replicas: 2_ to the value you want.
 
 ## Configuring Readiness or Liveness probes:
 
