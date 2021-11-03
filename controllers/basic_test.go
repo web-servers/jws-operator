@@ -68,6 +68,9 @@ var _ = Describe("WebServer controller", func() {
 				return true
 			}, timeout, retryInterval).Should(BeTrue())
 
+			// remove the created webserver
+			Expect(k8sClient.Delete(ctx, webserver)).Should(Succeed())
+
 		})
 	})
 })
