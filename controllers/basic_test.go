@@ -20,12 +20,6 @@ import (
 	webserversv1alpha1 "github.com/web-servers/jws-operator/api/v1alpha1"
 )
 
-var (
-	retryInterval = time.Second * 5
-	// timeout       = time.Minute * 10
-	timeout = time.Minute * 2
-)
-
 var _ = Describe("WebServer controller", func() {
 	Context("First Test", func() {
 		It("Basic test", func() {
@@ -45,6 +39,14 @@ var _ = Describe("WebServer controller", func() {
 					},
 				},
 			}
+
+                       // make sure we cleanup at the end of this test.
+                        defer func() {
+                                Expect(k8sClient.Delete(context.Background(), webserver)).Should(Succeed())
+                                time.Sleep(time.Second * 5)
+                        }()
+
+                        // create the webserver
 			Expect(k8sClient.Create(ctx, webserver)).Should(Succeed())
 
 			// Check it is started.

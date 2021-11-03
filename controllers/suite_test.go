@@ -21,6 +21,7 @@ import (
 	// "os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	ctrl "sigs.k8s.io/controller-runtime"
 
@@ -47,6 +48,12 @@ var k8sClient client.Client
 var testEnv *envtest.Environment
 var ctx context.Context
 var cancel context.CancelFunc
+
+var (
+	retryInterval = time.Second * 5
+	// timeout       = time.Minute * 10
+	timeout = time.Minute * 2
+)
 
 func TestAPIs(t *testing.T) {
 	RegisterFailHandler(Fail)
