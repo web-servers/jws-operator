@@ -90,7 +90,7 @@ type WebServerReconciler struct {
 
 // +kubebuilder:rbac:groups=apps.openshift.io,resources=deploymentconfigs,verbs=create;get;list;delete
 
-// +kubebuilder:rbac:groups=route.openshift.io,resources=routes,verbs=create;get;list;delete
+// +kubebuilder:rbac:groups=route.openshift.io,resources=routes,verbs=create;get;list;delete;watch
 
 // +kubebuilder:rbac:groups=web.servers.org,resources=webservers,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=web.servers.org,resources=webservers/status,verbs=get;update;patch
