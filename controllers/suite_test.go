@@ -48,6 +48,7 @@ var k8sClient client.Client
 var testEnv *envtest.Environment
 var ctx context.Context
 var cancel context.CancelFunc
+var thetest *testing.T
 
 var (
 	retryInterval = time.Second * 5
@@ -57,6 +58,7 @@ var (
 
 func TestAPIs(t *testing.T) {
 	RegisterFailHandler(Fail)
+	thetest = t
 
 	RunSpecsWithDefaultAndCustomReporters(t,
 		"Controller Suite",
