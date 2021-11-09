@@ -371,19 +371,6 @@ func waitUntilReady(clt client.Client, ctx context.Context, t *testing.T, webSer
 	return nil
 }
 
-// waitForRoute checks if a Route is available up to 5 times
-func waitForRoute(t *testing.T, webServer *webserversv1alpha1.WebServer) {
-	for i := 1; i < 10; i++ {
-		if len(webServer.Status.Hosts) == 0 {
-			t.Logf("WebServer.Status.Hosts is empty. Attempt %d/10\n", i)
-			time.Sleep(10 * time.Second)
-		} else {
-			return
-		}
-	}
-	t.Fatal("Route resource not found")
-}
-
 // webServerRouteTest tests the Route created for the operator pods
 func webServerRouteTest(clt client.Client, ctx context.Context, t *testing.T, webServer *webserversv1alpha1.WebServer, URI string, sticky bool, oldCookie *http.Cookie) (sessionCookie *http.Cookie, err error) {
 
@@ -405,8 +392,6 @@ func webServerRouteTest(clt client.Client, ctx context.Context, t *testing.T, we
 	if err != nil {
 		return nil, err
 	}
-
-	// waitForRoute(t, webServer)
 
 	t.Logf("Route:  (%s)\n", curwebServer.Status.Hosts)
 	URL := "http://" + curwebServer.Status.Hosts[0] + URI
