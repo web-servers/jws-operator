@@ -138,6 +138,7 @@ rules:
   - delete
   - get
   - list
+  - watch
 - apiGroups:
   - web.servers.org
   resources:
