@@ -26,15 +26,19 @@ The webImage controls how to deploy pods from existing images.
 It has the applicationImage (Mandatory), webApp (might be empty) and webServerHealthCheck (a default is used when empty)
 
 
-### applicationImage (to deploy an existing image)
+### applicationImage (to deploy an existing image or build from an existing image)
 The URL of the image you want to use with the operator. For example:
 
 ```
 applicationImage: docker.io/jfclere/tomcat-demo
 ```
+### imagePullSecret
+The secret to use to pull images for the repository, the secret must contain the key .dockerconfigjson and will be mounted by
+the operator to be used like --authfile /mount_point/.dockerconfigjson to pull the image to deploy the pods. 
+
 ### webApp
 Describes how the operator will build the webapp to add to application image, if not present the application is just deployed.
-It has the sourceRepositoryUrl (Mandatory), sourceRepositoryRef, contextDir, deployPath and builder. 
+It has the sourceRepositoryUrl (Mandatory), sourceRepositoryRef, contextDir, deployPath, webAppWarImage, webAppWarImagePushSecret and builder. 
 
 ### webServerHealthCheck
 Describes how the operator will create the health check for the created pods.
@@ -202,6 +206,13 @@ For the formats see the README.md.
 ### serverLivenessScript
 The script that checks if the pod is running. It's use is optional.
 
+### webAppWarImage (webapp)
+That is the URL of images where the operator will push what he builds.
+
+### webAppWarImagePushSecret (webapp)
+The secret to use to push images to the repository, the secret must contain the key .dockerconfigjson and will be mounted by
+the operator to be used like --authfile /mount_point/.dockerconfigjson to push the image to repository. 
+
 ### builder (webapp)
 It describes how the webapp is build and the docker image is made and push to a docker repository.
 
@@ -210,5 +221,8 @@ That is the image to use to build
 ```
 builder: quay.io/jfclere/tomcat10-buildah
 ```
-#### applicationBuildScript
+#### imagePullSecret (webapp.builder)
+That is the secret use to pull the image for the image builder.
+
+#### applicationBuildScript (webapp.builder)
 That is the script to use to build and push the image, if empty a default script using maven and buildah is used.
