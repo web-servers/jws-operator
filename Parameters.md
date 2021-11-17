@@ -34,6 +34,7 @@ applicationImage: docker.io/jfclere/tomcat-demo
 ```
 ### webApp
 Describes how the operator will build the webapp to add to application image, if not present the application is just deployed.
+It has the sourceRepositoryUrl (Mandatory), sourceRepositoryRef, contextDir, webSourcesParams and builder. 
 
 ### webServerHealthCheck
 Describes how the operator will create the health check for the created pods.
