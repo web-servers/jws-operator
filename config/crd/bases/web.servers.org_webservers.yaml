@@ -54,13 +54,12 @@ spec:
                   applicationImage:
                     description: The name of the application image to be deployed
                     type: string
+                  imagePullSecret:
+                    description: secret to pull from the docker repository
+                    type: string
                   webApp:
                     description: The source code for a webapp to be built and deployed
                     properties:
-                      applicationSizeLimit:
-                        description: The size that the PersistentVolumeClaim needs
-                          to be in order to contain the application war (default 1Gi)
-                        type: string
                       builder:
                         description: The information required to build the application
                         properties:
@@ -91,9 +90,17 @@ spec:
                       sourceRepositoryURL:
                         description: URL for the repository of the application sources
                         type: string
+                      webAppWarImage:
+                        description: Docker repository to push the built image
+                        type: string
+                      webAppWarImagePushSecret:
+                        description: secret to push to the docker repository
+                        type: string
                     required:
                     - builder
                     - sourceRepositoryURL
+                    - webAppWarImage
+                    - webAppWarImagePushSecret
                     type: object
                   webServerHealthCheck:
                     description: Pod health checks information

@@ -31,6 +31,8 @@ type WebServerSpec struct {
 type WebImageSpec struct {
 	// The name of the application image to be deployed
 	ApplicationImage string `json:"applicationImage"`
+	// secret to pull from the docker repository
+	ImagePullSecret string `json:"imagePullSecret,omitempty"`
 	// The source code for a webapp to be built and deployed
 	WebApp *WebAppSpec `json:"webApp,omitempty"`
 	// Pod health checks information
@@ -49,8 +51,10 @@ type WebAppSpec struct {
 	SourceRepositoryContextDir string `json:"contextDir,omitempty"`
 	// The path on which the application war will be mounted (default:/usr/local/tomcat/webapps/)
 	DeployPath string `json:"deployPath,omitempty"`
-	// The size that the PersistentVolumeClaim needs to be in order to contain the application war (default 1Gi)
-	ApplicationSizeLimit string `json:"applicationSizeLimit,omitempty"`
+	// Docker repository to push the built image
+	WebAppWarImage string `json:"webAppWarImage"`
+	// secret to push to the docker repository
+	WebAppWarImagePushSecret string `json:"webAppWarImagePushSecret"`
 	// The information required to build the application
 	Builder *BuilderSpec `json:"builder"`
 }

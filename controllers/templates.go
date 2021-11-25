@@ -14,7 +14,6 @@ import (
 
 	kbappsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	rbac "k8s.io/api/rbac/v1"
@@ -102,25 +101,6 @@ func (r *WebServerReconciler) generateConfigMapForDNS(webServer *webserversv1alp
 	return cmap
 }
 
-func (r *WebServerReconciler) generatePersistentVolumeClaim(webServer *webserversv1alpha1.WebServer) *corev1.PersistentVolumeClaim {
-	pvc := &corev1.PersistentVolumeClaim{
-		ObjectMeta: r.generateObjectMeta(webServer, webServer.Spec.ApplicationName),
-		Spec: corev1.PersistentVolumeClaimSpec{
-			AccessModes: []corev1.PersistentVolumeAccessMode{
-				"ReadWriteOnce",
-			},
-			Resources: corev1.ResourceRequirements{
-				Requests: corev1.ResourceList{
-					"storage": resource.MustParse(webServer.Spec.WebImage.WebApp.ApplicationSizeLimit),
-				},
-			},
-		},
-	}
-
-	controllerutil.SetControllerReference(webServer, pvc, r.Scheme)
-	return pvc
-}
-
 func (r *WebServerReconciler) generateBuildPod(webServer *webserversv1alpha1.WebServer) *corev1.Pod {
 	name := webServer.Spec.ApplicationName + "-build"
 	objectMeta := r.generateObjectMeta(webServer, name)
@@ -135,7 +115,7 @@ func (r *WebServerReconciler) generateBuildPod(webServer *webserversv1alpha1.Web
 				{
 					Name: "app-volume",
 					VolumeSource: corev1.VolumeSource{
-						PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{ClaimName: webServer.Spec.ApplicationName},
+						Secret: &corev1.SecretVolumeSource{SecretName: webServer.Spec.WebImage.WebApp.WebAppWarImagePushSecret},
 					},
 				},
 			},
@@ -143,6 +123,7 @@ func (r *WebServerReconciler) generateBuildPod(webServer *webserversv1alpha1.Web
 				{
 					Name:  "war",
 					Image: webServer.Spec.WebImage.WebApp.Builder.Image,
+					/* TODO: For the moment let's use the default build.sh file in image
 					Command: []string{
 						"/bin/sh",
 						"-c",
@@ -150,10 +131,12 @@ func (r *WebServerReconciler) generateBuildPod(webServer *webserversv1alpha1.Web
 					Args: []string{
 						webServer.Spec.WebImage.WebApp.Builder.ApplicationBuildScript,
 					},
+					*/
 					VolumeMounts: []corev1.VolumeMount{
 						{
 							Name:      "app-volume",
-							MountPath: "/mnt",
+							MountPath: "/auth",
+							ReadOnly:  true,
 						},
 					},
 				},
@@ -168,7 +151,12 @@ func (r *WebServerReconciler) generateBuildPod(webServer *webserversv1alpha1.Web
 func (r *WebServerReconciler) generateDeployment(webServer *webserversv1alpha1.WebServer) *kbappsv1.Deployment {
 
 	replicas := int32(webServer.Spec.Replicas)
-	podTemplateSpec := r.generatePodTemplate(webServer, webServer.Spec.WebImage.ApplicationImage)
+	// With a builder we use the WebAppWarImage (webServer.Spec.WebImage.WebApp.WebAppWarImage)
+	applicationimage := webServer.Spec.WebImage.ApplicationImage
+	if webServer.Spec.WebImage.WebApp != nil {
+		applicationimage = webServer.Spec.WebImage.WebApp.WebAppWarImage
+	}
+	podTemplateSpec := r.generatePodTemplate(webServer, applicationimage)
 	deployment := &kbappsv1.Deployment{
 		ObjectMeta: r.generateObjectMeta(webServer, webServer.Spec.ApplicationName),
 		Spec: kbappsv1.DeploymentSpec{
@@ -391,8 +379,20 @@ func (r *WebServerReconciler) generatePodTemplate(webServer *webserversv1alpha1.
 				VolumeMounts: r.generateVolumeMounts(webServer),
 			}},
 			Volumes: r.generateVolumes(webServer),
+			// Add the imagePullSecret to imagePullSecrets
+			ImagePullSecrets: r.generateimagePullSecrets(webServer),
 		},
 	}
+}
+
+// generateimagePullSecrets
+func (r *WebServerReconciler) generateimagePullSecrets(webServer *webserversv1alpha1.WebServer) []corev1.LocalObjectReference {
+	if webServer.Spec.WebImage != nil && webServer.Spec.WebImage.ImagePullSecret != "" {
+		imgps := make([]corev1.LocalObjectReference, 0)
+		imgps = append(imgps, corev1.LocalObjectReference{Name: webServer.Spec.WebImage.ImagePullSecret})
+		return imgps
+	}
+	return nil
 }
 
 // generateLivenessProbe returns a custom probe if the serverLivenessScript string is defined and not empty in the Custom Resource.
@@ -497,14 +497,6 @@ func (r *WebServerReconciler) generateVolumeMounts(webServer *webserversv1alpha1
 			MountPath: "/test/my-files",
 		})
 	}
-	if webServer.Spec.WebImage != nil && webServer.Spec.WebImage.WebApp != nil {
-		webAppWarFileName := webServer.Spec.WebImage.WebApp.Name + ".war"
-		volm = append(volm, corev1.VolumeMount{
-			Name:      "app-volume",
-			MountPath: webServer.Spec.WebImage.WebApp.DeployPath + webAppWarFileName,
-			SubPath:   webAppWarFileName,
-		})
-	}
 	return volm
 }
 
@@ -519,17 +511,6 @@ func (r *WebServerReconciler) generateVolumes(webServer *webserversv1alpha1.WebS
 					LocalObjectReference: corev1.LocalObjectReference{
 						Name: "webserver-" + webServer.Name,
 					},
-				},
-			},
-		})
-	}
-	if webServer.Spec.WebImage != nil && webServer.Spec.WebImage.WebApp != nil {
-		vol = append(vol, corev1.Volume{
-			Name: "app-volume",
-			VolumeSource: corev1.VolumeSource{
-				PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
-					ClaimName: webServer.Spec.ApplicationName,
-					ReadOnly:  true,
 				},
 			},
 		})

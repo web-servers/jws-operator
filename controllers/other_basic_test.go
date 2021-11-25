@@ -31,6 +31,10 @@ var _ = Describe("WebServer controller", func() {
 		It("Other Basic test", func() {
 			By("By creating a new WebServer")
 			fmt.Printf("By creating a new WebServer\n")
+			if !noskip {
+				fmt.Printf("other_basic_testy skipped\n")
+				return
+			}
 			ctx := context.Background()
 			name := "other-basic-test"
 			namespace := "default"

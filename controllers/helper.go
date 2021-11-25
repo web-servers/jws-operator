@@ -59,7 +59,7 @@ func (r *WebServerReconciler) getWebServer(request reconcile.Request) (*webserve
 			// Owned objects are automatically garbage collected. For additional cleanup logic use finalizers.
 			// Return and don't requeue
 			log.Info("WebServer resource not found. Ignoring since object must have been deleted")
-			return webServer, nil
+			return webServer, err
 		}
 		// Error reading the object - requeue the request.
 		log.Error(err, "Failed to get WebServer resource")
@@ -80,14 +80,12 @@ func (r *WebServerReconciler) setDefaultValues(webServer *webserversv1alpha1.Web
 			log.Info("WebServer.Spec.Image.WebApp.DeployPath is not set, setting value to '/deployments/'")
 			webApp.DeployPath = "/deployments/"
 		}
-		if webApp.ApplicationSizeLimit == "" {
-			log.Info("WebServer.Spec.Image.WebApp.ApplicationSizeLimit is not set, setting value to '1Gi'")
-			webApp.ApplicationSizeLimit = "1Gi"
-		}
 
 		if webApp.Builder.ApplicationBuildScript == "" {
-			log.Info("WebServer.Spec.Image.WebApp.Builder.ApplicationBuildScript is not set, generating default build script")
-			webApp.Builder.ApplicationBuildScript = r.generateWebAppBuildScript(webServer)
+			log.Info("WebServer.Spec.Image.WebApp.Builder.ApplicationBuildScript is not set, will use the default build script")
+		}
+		if webApp.WebAppWarImagePushSecret == "" {
+			log.Info("WebServer.Spec.Image.WebApp.WebAppWarImagePushSecret is not set!!!")
 		}
 	}
 
@@ -485,10 +483,10 @@ func (r *WebServerReconciler) getPodStatus(pods []corev1.Pod) ([]webserversv1alp
 }
 
 // updateWebServerStatus updates status of the WebServer resource.
-func (r *WebServerReconciler) updateWebServerStatus(webServer *webserversv1alpha1.WebServer, client client.Client) error {
+func (r *WebServerReconciler) updateWebServerStatus(webServer *webserversv1alpha1.WebServer, client client.Client, ctx context.Context) error {
 	log.Info("Updating the status of WebServer")
 
-	if err := client.Status().Update(context.Background(), webServer); err != nil {
+	if err := r.Status().Update(ctx, webServer); err != nil {
 		log.Error(err, "Failed to update the status of WebServer")
 		return err
 	}
