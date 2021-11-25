@@ -1,7 +1,6 @@
 # Parameters to use in CRD
 
 ## replicas (mandatory all configuration)
-
 The number of pods of the JBoss Web Server image you want to run.
 
 ```
@@ -9,7 +8,6 @@ The number of pods of the JBoss Web Server image you want to run.
 ```
 
 ## applicationName (mandatory all configuration)
-
 The name of the application, it must be unique in the namespace/project. Note that it is used to create the route to access
 to that application.
 
@@ -18,26 +16,39 @@ to that application.
 ```
 
 ## useSessionClustering (off if not filled)
-
 Use the DNSping session clustering if filled, default don't use session clustering (Note that image needs to be based on JWS images as the feature use ENV_FILES environment variable and a shell script to add the clustering in server.xml)
+
 ```
   useSessionClustering: true
 ```
+## webImage (to deploy from existing images)
+The webImage controls how to deploy pods from existing images.
+It has the applicationImage (Mandatory), webApp (might be empty) and webServerHealthCheck (a default is used when empty)
 
-## applicationImage (customized images) (Method 1)
 
+### applicationImage (to deploy an existing image or build from an existing image)
 The URL of the image you want to use with the operator. For example:
 
 ```
 applicationImage: docker.io/jfclere/tomcat-demo
 ```
+### imagePullSecret
+The secret to use to pull images for the repository, the secret must contain the key .dockerconfigjson and will be mounted by
+the operator to be used like --authfile /mount_point/.dockerconfigjson to pull the image to deploy the pods. 
 
-## webImageStream (Method 2)
+### webApp
+Describes how the operator will build the webapp to add to application image, if not present the application is just deployed.
+It has the sourceRepositoryUrl (Mandatory), sourceRepositoryRef, contextDir, deployPath, webAppWarImage, webAppWarImagePushSecret and builder. 
 
-The image stream that provides images to run or to build upon. The latest image in the stream is used.
+### webServerHealthCheck
+Describes how the operator will create the health check for the created pods.
 
-### imageStreamName (mandatory BuildImage)
 
+## webImageStream (to deploy from an ImageStream, openshift only)
+The webImageStream controls how the operator will use an ImageStream that provides images to run or to build upon. The latest image in the stream is used.
+It has the imageStreamName (Mandatory), imageStreamNamespace, webSources (might be empty) and webServerHealthCheck (a default is used when empty)
+
+### imageStreamName
 The name of the image stream you created to allow the operator to find the base images.
 
 ```bash
@@ -47,8 +58,7 @@ imagestream.image.openshift.io/jboss-webserver54-tomcat9-openshift created
 
 Here: imageStream: `jboss-webserver54-tomcat9-openshift:latest`
 
-### imageStreamNamespace (BuildImage only)
-
+### imageStreamNamespace
 The namespace/project in which you created the image stream
 
 ```bash
@@ -59,11 +69,10 @@ imagestream.image.openshift.io/jboss-webserver54-tomcat9-openshift created
 Here: imageStreamNamespace: jfc
 
 ### webSources
+Describes where the sources are located and how build them, if empty the latest image in ImageStream is deployed)
+It has the sourceRepositoryUrl (Mandatory), sourceRepositoryRef, ContextDir and webSourcesParams
 
-Describes where the sources are located and how build them
-
-#### sourceRepositoryUrl (Mandatory BuildImage)
-
+#### sourceRepositoryUrl
 The URL where the sources are located. The source should contain a maven pom.xml to allow for a maven build. The produced war is put
 in the webapps directory of image /opt/jws-5.x/tomcat/webapps. See `artifactDir` as well.
 
@@ -71,15 +80,14 @@ in the webapps directory of image /opt/jws-5.x/tomcat/webapps. See `artifactDir`
  sourceRepositoryUrl: 'https://github.com/jfclere/demo-webapp.git'
 ```
 
-#### sourceRepositoryRef (Mandatory BuildImage)
-
+#### sourceRepositoryRef
 The branch of the source repository that will be used.
 
 ```
-sourceRepositoryRef: master
+sourceRepositoryRef: main
 ```
 
-#### contextDir (BuildImage only)
+#### contextDir
 
 The sub directory where the pom.xml is located and where the `mvn install` should be run.
 
@@ -88,20 +96,16 @@ The sub directory where the pom.xml is located and where the `mvn install` shoul
 ```
 
 #### webSourcesParams
-
 Those are additional parameter of webSourcesParams to describe how to build the application images.
 
-##### artifactDir (BuidImage only)
-
+##### artifactDir (webSourcesParams)
 The artifactDir is a parameter of the SourceBuildStrategy the operator is using. It is the directory where maven places the war it creates for the webapp.
 The contents of artifactDir is copied in the webapps directory of the image used to deploy the application /opt/jws-5.x/tomcat/webapps. The default value is target.
 
-##### mavenMirrorUrl (BuildImage only)
-
+##### mavenMirrorUrl (webSourcesParams)
 The mavenMirrorUrl is a parameter of the SourceBuildStrategy the operator is using. It is the maven proxy URL that maven will use to build the webapp. It is required if the cluster doesn't have access to the Internet.
 
-##### genericWebhookSecret (BuildImage only)
-
+##### genericWebhookSecret (webSourcesParams)
 This explains how to use a secret for a generic webhook to trigger a build.
 
 1 - Create a base64 secret string:
@@ -140,6 +144,7 @@ genericWebhookSecret: jws-secret
 ```
 
 To test it:
+
 1 - get the URL:
 
 ```bash
@@ -153,7 +158,7 @@ oc describe BuildConfig | grep webhooks
 {}
 ```
 
-3 - Cut the URL replacing <secret> by its value (here jws-secret) and use the minimal JSON file:
+3 - Cut the URL replacing ${secret} by its value (here jws-secret) and use the minimal JSON file.
 
 ```bash
 curl -H "X-GitHub-Event: push" -H "Content-Type: application/json" -k -X POST --data-binary @payload.json https://api.jclere.rhmw-runtimes.net:6443/apis/build.openshift.io/v1/namespaces/jfc/buildconfigs/test/webhooks/jws-secret/generic
@@ -176,8 +181,7 @@ The build is triggered.
 
 Go to Setting+Webhooks+Add webhook in your github project and add the URL in the Payload URL, set Content type: application/json, Disable SSL verification if needed and click Add webhook. See https://docs.openshift.com/container-platform/4.6/builds/triggering-builds-build-hooks.html for more details.
 
-##### githubWebhookSecret (BuildImage only)
-
+##### githubWebhookSecret (webSourcesParams)
 That is a web hook specific to GitHub, it works like `genericWebhookSecret`
 
 ```
@@ -185,20 +189,40 @@ githubWebhookSecret: jws-secret
 ```
 Note that it is not possible to test the Github webhook by hands: The playload is generated by github and it is NOT empty.
 
-## webServerHealthCheck
 
+## webServerHealthCheck (webImage and webImageStream)
 The health check that the operator will use. The default behavior is to use the health valve which doesn't require any parameters.
 
 ### serverReadinessScript
-
 String for the pod readiness health check logic. If left empty the default health check is used (it checks http://localhost:8080/health using OpenShift internal)
 Example :
 
 ```
-  serverReadinessScript: /bin/bash -c " /usr/bin/curl --noproxy '*' -s 'http://localhost:8080/health' | /usr/bin/grep -i 'status.*UP'"
+serverReadinessScript: /bin/bash -c " /usr/bin/curl --noproxy '*' -s 'http://localhost:8080/health' | /usr/bin/grep -i 'status.*UP'"
 ```
 
 For the formats see the README.md.
 
 ### serverLivenessScript
 The script that checks if the pod is running. It's use is optional.
+
+### webAppWarImage (webapp)
+That is the URL of images where the operator will push what he builds.
+
+### webAppWarImagePushSecret (webapp)
+The secret to use to push images to the repository, the secret must contain the key .dockerconfigjson and will be mounted by
+the operator to be used like --authfile /mount_point/.dockerconfigjson to push the image to repository. 
+
+### builder (webapp)
+It describes how the webapp is build and the docker image is made and push to a docker repository.
+
+#### image (webapp.builder)
+That is the image to use to build
+```
+builder: quay.io/jfclere/tomcat10-buildah
+```
+#### imagePullSecret (webapp.builder)
+That is the secret use to pull the image for the image builder.
+
+#### applicationBuildScript (webapp.builder)
+That is the script to use to build and push the image, if empty a default script using maven and buildah is used.
