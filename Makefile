@@ -90,6 +90,9 @@ vet: ## Run go vet against code.
 test: manifests generate fmt vet envtest ## Run tests.
 	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) -p path)" go test ./... -coverprofile cover.out
 
+realtest: test
+	REALCLUSTER="YES" KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) -p path)" go test -timeout 20m ./... -coverprofile cover.out
+
 ##@ Build
 
 build: generate fmt vet ## Build manager binary.

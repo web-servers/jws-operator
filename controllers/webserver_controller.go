@@ -69,6 +69,7 @@ type WebServerReconciler struct {
 
 // It seems we shouldn't mess up directly in role.yaml...
 // and it is probably needing a _very_ carefull check here too !!
+// +kubebuilder:rbac:groups="core",resources=configmaps,verbs=create;get;list;delete;watch
 // +kubebuilder:rbac:groups="core",resources=pods,verbs=create;get;list;delete;watch
 // +kubebuilder:rbac:groups="core",resources=services,verbs=create;get;list;delete;watch
 // +kubebuilder:rbac:groups="core",resources=persistentvolumeclaims,verbs=create;get;list;delete;watch
@@ -96,7 +97,7 @@ type WebServerReconciler struct {
 // +kubebuilder:rbac:groups=web.servers.org,resources=webservers/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=web.servers.org,resources=webservers/finalizers,verbs=update
 
-// +kubebuilder:rbac:groups="rbac.authorization.k8s.io",resources=rolebindings,verbs=create;get;list;watch
+// +kubebuilder:rbac:groups="rbac.authorization.k8s.io",resources=rolebindings,verbs=create;grant;get;list;watch
 
 // Reconcile reads that state of the cluster for a WebServer object and makes changes based on the state read
 // and what is in the WebServer.Spec
@@ -122,6 +123,10 @@ func (r *WebServerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 	// Fetch the WebServer
 	webServer, err := r.getWebServer(req)
 	if err != nil {
+		if errors.IsNotFound(err) {
+			// Request object not found, could have been deleted after reconcile request.
+			return ctrl.Result{}, nil
+		}
 		return ctrl.Result{}, err
 	}
 
@@ -182,15 +187,9 @@ func (r *WebServerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		// Check if a webapp needs to be built
 		if webServer.Spec.WebImage.WebApp != nil && webServer.Spec.WebImage.WebApp.SourceRepositoryURL != "" && webServer.Spec.WebImage.WebApp.Builder != nil && webServer.Spec.WebImage.WebApp.Builder.Image != "" {
 
-			// Check if a Persistent Volume Claim already exists, and if not create a new one
-			pvc := r.generatePersistentVolumeClaim(webServer)
-			result, err = r.createPersistentVolumeClaim(webServer, pvc, pvc.Kind, pvc.Name, pvc.Namespace)
-			if err != nil || result != (ctrl.Result{}) {
-				return result, err
-			}
-
 			// Check if a build Pod for the webapp already exists, and if not create a new one
 			buildPod := r.generateBuildPod(webServer)
+			log.Info("WebServe createBuildPod: " + buildPod.Name + " in " + buildPod.Namespace + " using: " + buildPod.Spec.Volumes[0].VolumeSource.Secret.SecretName + " and: " + buildPod.Spec.Containers[0].Image)
 			result, err = r.createPod(webServer, buildPod, buildPod.Kind, buildPod.Name, buildPod.Namespace)
 			if err != nil || result != (ctrl.Result{}) {
 				return result, err
@@ -205,6 +204,7 @@ func (r *WebServerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 
 		// Check if a Deployment already exists, and if not create a new one
 		deployment := r.generateDeployment(webServer)
+		log.Info("WebServe createDeployment: " + deployment.Name + " in " + deployment.Namespace + " using: " + deployment.Spec.Template.Spec.Containers[0].Image)
 		result, err = r.createDeployment(webServer, deployment, deployment.Kind, deployment.Name, deployment.Namespace)
 		if err != nil || result != (ctrl.Result{}) {
 			log.Info("WebServer can't create deployment")
@@ -213,9 +213,12 @@ func (r *WebServerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 
 		foundImage := deployment.Spec.Template.Spec.Containers[0].Image
 		if foundImage != webServer.Spec.WebImage.ApplicationImage {
-			log.Info("WebServer application image change detected. Deployment update scheduled")
-			deployment.Spec.Template.Spec.Containers[0].Image = webServer.Spec.WebImage.ApplicationImage
-			updateDeployment = true
+			// if we are using a builder that it normal otherwise we need to redeploy.
+			if webServer.Spec.WebImage.WebApp == nil {
+				log.Info("WebServer application image change detected. Deployment update scheduled")
+				deployment.Spec.Template.Spec.Containers[0].Image = webServer.Spec.WebImage.ApplicationImage
+				updateDeployment = true
+			}
 		}
 
 		// Handle Scaling
@@ -356,7 +359,10 @@ func (r *WebServerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 	}
 
 	// Get the status of the active pods
-	podsStatus, requeue := r.getPodStatus(podList.Items)
+	podsStatus, newrequeue := r.getPodStatus(podList.Items)
+	if newrequeue {
+		requeue = true
+	}
 	if !reflect.DeepEqual(podsStatus, webServer.Status.Pods) {
 		log.Info("Status.Pods update scheduled")
 		webServer.Status.Pods = podsStatus
@@ -379,7 +385,7 @@ func (r *WebServerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 	}
 
 	if updateStatus {
-		err := r.updateWebServerStatus(webServer, r.Client)
+		err := r.updateWebServerStatus(webServer, r.Client, ctx)
 		if err != nil {
 			return ctrl.Result{}, err
 		}

@@ -18,7 +18,7 @@ package controllers
 
 import (
 	"context"
-	// "os"
+	"os"
 	"path/filepath"
 	"testing"
 	"time"
@@ -49,11 +49,11 @@ var testEnv *envtest.Environment
 var ctx context.Context
 var cancel context.CancelFunc
 var thetest *testing.T
+var noskip bool
 
 var (
 	retryInterval = time.Second * 5
-	// timeout       = time.Minute * 10
-	timeout = time.Minute * 2
+	timeout       = time.Minute * 10
 )
 
 func TestAPIs(t *testing.T) {
@@ -69,6 +69,12 @@ var _ = BeforeSuite(func() {
 	// Expect(os.Setenv("TEST_ASSET_KUBE_APISERVER", "/home/jfclere/go/bin/kube-apiserver")).To(Succeed())
 	// Expect(os.Setenv("TEST_ASSET_ETCD", "/home/jfclere/go/bin/etcd")).To(Succeed())
 	// Expect(os.Setenv("TEST_ASSET_KUBECTL", "/home/jfclere/go/bin/kubectl")).To(Succeed())
+	if os.Getenv("REALCLUSTER") != "" {
+		noskip = true
+		timeout = time.Minute * 20
+	} else {
+		noskip = false // Skip test that needs a real cluster
+	}
 
 	logf.SetLogger(zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)))
 

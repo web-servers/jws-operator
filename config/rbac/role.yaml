@@ -64,6 +64,16 @@ rules:
 - apiGroups:
   - ""
   resources:
+  - configmaps
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - watch
+- apiGroups:
+  - ""
+  resources:
   - namespaces
   verbs:
   - get
@@ -127,6 +137,7 @@ rules:
   verbs:
   - create
   - get
+  - grant
   - list
   - watch
 - apiGroups:

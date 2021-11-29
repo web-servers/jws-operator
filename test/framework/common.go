@@ -46,9 +46,8 @@ type DemoResult struct {
 }
 
 var (
-	retryInterval = time.Second * 5
-	// timeout              = time.Minute * 10
-	timeout              = time.Minute * 2
+	retryInterval        = time.Second * 5
+	timeout              = time.Minute * 10
 	cleanupRetryInterval = time.Second * 1
 	cleanupTimeout       = time.Second * 5
 )
@@ -100,9 +99,9 @@ func WebServerApplicationImageUpdateTest(clt client.Client, ctx context.Context,
 }
 
 // WebServerApplicationImageSourcesBasicTest tests the deployment of an application image with sources
-func WebServerApplicationImageSourcesBasicTest(clt client.Client, ctx context.Context, t *testing.T, namespace string, name string, image string, sourceRepositoryURL string, sourceRepositoryRef string, testURI string) (err error) {
+func WebServerApplicationImageSourcesBasicTest(clt client.Client, ctx context.Context, t *testing.T, namespace string, name string, image string, sourceRepositoryURL string, sourceRepositoryRef string, pushedimage string, pushsecret string, imagebuilder string, testURI string) (err error) {
 
-	webServer := makeApplicationImageSourcesWebServer(namespace, name, image, sourceRepositoryURL, sourceRepositoryRef, 1)
+	webServer := makeApplicationImageSourcesWebServer(namespace, name, image, sourceRepositoryURL, sourceRepositoryRef, pushedimage, pushsecret, imagebuilder, 1)
 
 	// cleanup
 	defer func() {
@@ -114,9 +113,9 @@ func WebServerApplicationImageSourcesBasicTest(clt client.Client, ctx context.Co
 }
 
 // WebServerApplicationImageSourcesBasicTest tests the scaling of an application image with sources
-func WebServerApplicationImageSourcesScaleTest(clt client.Client, ctx context.Context, t *testing.T, namespace string, name string, image string, sourceRepositoryURL string, sourceRepositoryRef string, testURI string) (err error) {
+func WebServerApplicationImageSourcesScaleTest(clt client.Client, ctx context.Context, t *testing.T, namespace string, name string, image string, sourceRepositoryURL string, sourceRepositoryRef string, pushedimage string, pushsecret string, imagebuilder string, testURI string) (err error) {
 
-	webServer := makeApplicationImageSourcesWebServer(namespace, name, image, sourceRepositoryURL, sourceRepositoryRef, 1)
+	webServer := makeApplicationImageSourcesWebServer(namespace, name, image, sourceRepositoryURL, sourceRepositoryRef, pushedimage, pushsecret, imagebuilder, 1)
 
 	// cleanup
 	defer func() {
@@ -264,8 +263,10 @@ func webServerApplicationImageUpdateTest(clt client.Client, ctx context.Context,
 
 	foundImage := foundDeployment.Spec.Template.Spec.Containers[0].Image
 	if foundImage != newImageName {
+		/* TODO: The test needs to be more cleaver here... */
 		t.Errorf("Found %s as application image; wanted %s", foundImage, newImageName)
 		return err
+		/* */
 	}
 	return nil
 
@@ -393,8 +394,16 @@ func webServerRouteTest(clt client.Client, ctx context.Context, t *testing.T, we
 		return nil, err
 	}
 
+	if len(curwebServer.Status.Hosts) == 0 {
+		t.Logf("WebServer.Status.Hosts is empty\n")
+		return nil, errors.New("Route is empty!")
+	}
 	t.Logf("Route:  (%s)\n", curwebServer.Status.Hosts)
 	URL := "http://" + curwebServer.Status.Hosts[0] + URI
+
+	// Wait a little to avoid 503 codes.
+	time.Sleep(10 * time.Second)
+
 	req, err := http.NewRequest("GET", URL, nil)
 	if err != nil {
 		t.Logf("GET: (%s) FAILED\n", URL)
@@ -419,7 +428,7 @@ func webServerRouteTest(clt client.Client, ctx context.Context, t *testing.T, we
 		return nil, err
 	}
 	if res.StatusCode != 200 {
-		t.Logf("body: %s\n", body)
+		t.Logf("FAIL status: %d body: %s\n", res.StatusCode, body)
 		return nil, errors.New(URL + " returns: " + strconv.Itoa(res.StatusCode))
 	}
 	if sticky {
