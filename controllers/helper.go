@@ -159,122 +159,102 @@ func (r *WebServerReconciler) generateWebAppBuildScript(webServer *webserversv1a
 	)
 }
 
-func (r *WebServerReconciler) createService(webServer *webserversv1alpha1.WebServer, resource *corev1.Service, resourceKind string, resourceName string, resourceNamespace string) (ctrl.Result, error) {
+func (r *WebServerReconciler) createService(webServer *webserversv1alpha1.WebServer, resource *corev1.Service, resourceName string, resourceNamespace string) (ctrl.Result, error) {
 	err := r.Client.Get(context.TODO(), client.ObjectKey{
 		Namespace: resourceNamespace,
 		Name:      resourceName,
 	}, resource)
 	if err != nil && errors.IsNotFound(err) {
 		// Create a new resource
-		log.Info("Creating a new "+resourceKind, resourceKind+".Namespace", resourceNamespace, resourceKind+".Name", resourceName)
+		log.Info("Creating a new Service: " + resourceName + " Namespace: " + resourceNamespace)
 		err = r.Client.Create(context.TODO(), resource)
 		if err != nil && !errors.IsAlreadyExists(err) {
-			log.Error(err, "Failed to create a new "+resourceKind, resourceKind+".Namespace", resourceNamespace, resourceKind+".Name", resourceName)
+			log.Error(err, "Failed to create a new Service: "+resourceName+" Namespace: "+resourceNamespace)
 			return reconcile.Result{}, err
 		}
 		// Resource created successfully - return and requeue
 		// return ctrl.Result{Requeue: true}, err
 		return ctrl.Result{Requeue: true}, nil
 	} else if err != nil {
-		log.Error(err, "Failed to get "+resourceKind)
+		log.Error(err, "Failed to get Service: "+resourceName)
 		return reconcile.Result{}, err
 	}
 	return reconcile.Result{}, err
 }
 
-func (r *WebServerReconciler) createRoleBinding(webServer *webserversv1alpha1.WebServer, resource *rbac.RoleBinding, resourceKind string, resourceName string, resourceNamespace string) (ctrl.Result, error) {
+// Test for the "view" RoleBinding and if not existing try to create it, if that fails we can't use useKUBEPing
+
+func (r *WebServerReconciler) createRoleBinding(webServer *webserversv1alpha1.WebServer, resource *rbac.RoleBinding, resourceName string, resourceNamespace string) (ctrl.Result, error) {
 	err := r.Client.Get(context.TODO(), client.ObjectKey{
 		Namespace: resourceNamespace,
 		Name:      resourceName,
 	}, resource)
 	if err != nil && errors.IsNotFound(err) {
 		// Create a new resource
-		log.Info("Creating a new "+resourceKind, resourceKind+".Namespace", resourceNamespace, resourceKind+".Name", resourceName)
+		log.Info("Creating a new RoleBinding: " + resourceName + " Namespace: " + resourceNamespace)
 		err = r.Client.Create(context.TODO(), resource)
 		if err != nil && !errors.IsAlreadyExists(err) {
-			log.Error(err, "Failed to create a new "+resourceKind, resourceKind+".Namespace", resourceNamespace, resourceKind+".Name", resourceName)
+			log.Error(err, "Failed to create a new RoleBinding: "+resourceName+" Namespace: "+resourceNamespace)
+			r.useKUBEPing = false
 			return reconcile.Result{}, err
 		}
 		// Resource created successfully - return and requeue
 		// return ctrl.Result{Requeue: true}, err
 		return ctrl.Result{Requeue: true}, nil
 	} else if err != nil {
-		log.Error(err, "Failed to get "+resourceKind)
+		log.Error(err, "Failed to get RoleBinding "+resourceName)
 		return reconcile.Result{}, err
 	}
 	return reconcile.Result{}, err
 }
 
-func (r *WebServerReconciler) createConfigMap(webServer *webserversv1alpha1.WebServer, resource *corev1.ConfigMap, resourceKind string, resourceName string, resourceNamespace string) (ctrl.Result, error) {
+func (r *WebServerReconciler) createConfigMap(webServer *webserversv1alpha1.WebServer, resource *corev1.ConfigMap, resourceName string, resourceNamespace string) (ctrl.Result, error) {
 	err := r.Client.Get(context.TODO(), client.ObjectKey{
 		Namespace: resourceNamespace,
 		Name:      resourceName,
 	}, resource)
 	if err != nil && errors.IsNotFound(err) {
 		// Create a new resource
-		log.Info("Creating a new "+resourceKind, resourceKind+".Namespace", resourceNamespace, resourceKind+".Name", resourceName)
+		log.Info("Creating a new ConfigMap: " + resourceName + " Namespace: " + resourceNamespace)
 		err = r.Client.Create(context.TODO(), resource)
 		if err != nil && !errors.IsAlreadyExists(err) {
-			log.Error(err, "Failed to create a new "+resourceKind, resourceKind+".Namespace", resourceNamespace, resourceKind+".Name", resourceName)
+			log.Error(err, "Failed to create a new ConfigMap: "+resourceName+" Namespace: "+resourceNamespace)
 			return reconcile.Result{}, err
 		}
 		// Resource created successfully - return and requeue
 		// return ctrl.Result{Requeue: true}, err
 		return ctrl.Result{Requeue: true}, nil
 	} else if err != nil {
-		log.Error(err, "Failed to get "+resourceKind)
+		log.Error(err, "Failed to get ConfigMap "+resourceName)
 		return reconcile.Result{}, err
 	}
 	return reconcile.Result{}, err
 }
 
-func (r *WebServerReconciler) createPersistentVolumeClaim(webServer *webserversv1alpha1.WebServer, resource *corev1.PersistentVolumeClaim, resourceKind string, resourceName string, resourceNamespace string) (ctrl.Result, error) {
+func (r *WebServerReconciler) createPod(webServer *webserversv1alpha1.WebServer, resource *corev1.Pod, resourceName string, resourceNamespace string) (ctrl.Result, error) {
 	err := r.Client.Get(context.TODO(), client.ObjectKey{
 		Namespace: resourceNamespace,
 		Name:      resourceName,
 	}, resource)
 	if err != nil && errors.IsNotFound(err) {
 		// Create a new resource
-		log.Info("Creating a new "+resourceKind, resourceKind+".Namespace", resourceNamespace, resourceKind+".Name", resourceName)
+		log.Info("Creating a new Pod: " + resourceName + " Namespace: " + resourceNamespace)
 		err = r.Client.Create(context.TODO(), resource)
 		if err != nil && !errors.IsAlreadyExists(err) {
-			log.Error(err, "Failed to create a new "+resourceKind, resourceKind+".Namespace", resourceNamespace, resourceKind+".Name", resourceName)
+			log.Error(err, "Failed to create a new Pod: "+resourceName+" Namespace: "+resourceNamespace)
 			return reconcile.Result{}, err
 		}
 		// Resource created successfully - return and requeue
 		// return ctrl.Result{Requeue: true}, err
 		return ctrl.Result{Requeue: true}, nil
 	} else if err != nil {
-		log.Error(err, "Failed to get "+resourceKind)
+		log.Error(err, "Failed to get Pod: "+resourceName)
 		return reconcile.Result{}, err
 	}
 	return reconcile.Result{}, err
 }
 
-func (r *WebServerReconciler) createPod(webServer *webserversv1alpha1.WebServer, resource *corev1.Pod, resourceKind string, resourceName string, resourceNamespace string) (ctrl.Result, error) {
-	err := r.Client.Get(context.TODO(), client.ObjectKey{
-		Namespace: resourceNamespace,
-		Name:      resourceName,
-	}, resource)
-	if err != nil && errors.IsNotFound(err) {
-		// Create a new resource
-		log.Info("Creating a new "+resourceKind, resourceKind+".Namespace", resourceNamespace, resourceKind+".Name", resourceName)
-		err = r.Client.Create(context.TODO(), resource)
-		if err != nil && !errors.IsAlreadyExists(err) {
-			log.Error(err, "Failed to create a new "+resourceKind, resourceKind+".Namespace", resourceNamespace, resourceKind+".Name", resourceName)
-			return reconcile.Result{}, err
-		}
-		// Resource created successfully - return and requeue
-		// return ctrl.Result{Requeue: true}, err
-		return ctrl.Result{Requeue: true}, nil
-	} else if err != nil {
-		log.Error(err, "Failed to get "+resourceKind)
-		return reconcile.Result{}, err
-	}
-	return reconcile.Result{}, err
-}
-
-func (r *WebServerReconciler) createDeployment(webServer *webserversv1alpha1.WebServer, resource *kbappsv1.Deployment, resourceKind string, resourceName string, resourceNamespace string) (ctrl.Result, error) {
+func (r *WebServerReconciler) createDeployment(webServer *webserversv1alpha1.WebServer, resource *kbappsv1.Deployment, resourceName string, resourceNamespace string) (ctrl.Result, error) {
 	err := r.Client.Get(context.TODO(), types.NamespacedName{Name: resourceName, Namespace: resourceNamespace}, resource)
 	// err := r.Client.Get(context.TODO(), client.ObjectKey{
 	// 	Namespace: resourceNamespace,
@@ -282,109 +262,109 @@ func (r *WebServerReconciler) createDeployment(webServer *webserversv1alpha1.Web
 	// }, resource)
 	if err != nil && errors.IsNotFound(err) {
 		// Create a new resource
-		log.Info("Creating a new "+resourceKind, resourceKind+".Namespace", resourceNamespace, resourceKind+".Name", resourceName)
+		log.Info("Creating a new Deployment: " + resourceName + " Namespace: " + resourceNamespace)
 		err = r.Client.Create(context.TODO(), resource)
 		if err != nil && !errors.IsAlreadyExists(err) {
-			log.Error(err, "Failed to create a new "+resourceKind, resourceKind+".Namespace", resourceNamespace, resourceKind+".Name", resourceName)
+			log.Error(err, "Failed to create a new Deployment: "+resourceName+" Namespace: "+resourceNamespace)
 			return reconcile.Result{}, err
 		}
 		// Resource created successfully - return and requeue
 		// return ctrl.Result{Requeue: true}, err
 		return ctrl.Result{Requeue: true}, nil
 	} else if err != nil {
-		log.Error(err, "Failed to get "+resourceKind)
+		log.Error(err, "Failed to get Deployment: "+resourceName)
 		return reconcile.Result{}, err
 	}
 	return reconcile.Result{}, err
 }
 
-func (r *WebServerReconciler) createImageStream(webServer *webserversv1alpha1.WebServer, resource *imagev1.ImageStream, resourceKind string, resourceName string, resourceNamespace string) (ctrl.Result, error) {
+func (r *WebServerReconciler) createImageStream(webServer *webserversv1alpha1.WebServer, resource *imagev1.ImageStream, resourceName string, resourceNamespace string) (ctrl.Result, error) {
 	err := r.Client.Get(context.TODO(), client.ObjectKey{
 		Namespace: resourceNamespace,
 		Name:      resourceName,
 	}, resource)
 	if err != nil && errors.IsNotFound(err) {
 		// Create a new resource
-		log.Info("Creating a new "+resourceKind, resourceKind+".Namespace", resourceNamespace, resourceKind+".Name", resourceName)
+		log.Info("Creating a new ImageStream: " + resourceName + " Namespace: " + resourceNamespace)
 		err = r.Client.Create(context.TODO(), resource)
 		if err != nil && !errors.IsAlreadyExists(err) {
-			log.Error(err, "Failed to create a new "+resourceKind, resourceKind+".Namespace", resourceNamespace, resourceKind+".Name", resourceName)
+			log.Error(err, "Failed to create a new ImageStream: "+resourceName+" Namespace: "+resourceNamespace)
 			return reconcile.Result{}, err
 		}
 		// Resource created successfully - return and requeue
 		// return ctrl.Result{Requeue: true}, err
 		return ctrl.Result{Requeue: true}, nil
 	} else if err != nil {
-		log.Error(err, "Failed to get "+resourceKind)
+		log.Error(err, "Failed to get ImageStream: "+resourceName)
 		return reconcile.Result{}, err
 	}
 	return reconcile.Result{}, err
 }
 
-func (r *WebServerReconciler) createBuildConfig(webServer *webserversv1alpha1.WebServer, resource *buildv1.BuildConfig, resourceKind string, resourceName string, resourceNamespace string) (ctrl.Result, error) {
+func (r *WebServerReconciler) createBuildConfig(webServer *webserversv1alpha1.WebServer, resource *buildv1.BuildConfig, resourceName string, resourceNamespace string) (ctrl.Result, error) {
 	err := r.Client.Get(context.TODO(), client.ObjectKey{
 		Namespace: resourceNamespace,
 		Name:      resourceName,
 	}, resource)
 	if err != nil && errors.IsNotFound(err) {
 		// Create a new resource
-		log.Info("Creating a new "+resourceKind, resourceKind+".Namespace", resourceNamespace, resourceKind+".Name", resourceName)
+		log.Info("Creating a new BuildConfig: " + resourceName + " Namespace: " + resourceNamespace)
 		err = r.Client.Create(context.TODO(), resource)
 		if err != nil && !errors.IsAlreadyExists(err) {
-			log.Error(err, "Failed to create a new "+resourceKind, resourceKind+".Namespace", resourceNamespace, resourceKind+".Name", resourceName)
+			log.Error(err, "Failed to create a new BuildConfig: "+resourceName+" Namespace: "+resourceNamespace)
 			return reconcile.Result{}, err
 		}
 		// Resource created successfully - return and requeue
 		// return ctrl.Result{Requeue: true}, err
 		return ctrl.Result{Requeue: true}, nil
 	} else if err != nil {
-		log.Error(err, "Failed to get "+resourceKind)
+		log.Error(err, "Failed to get BuildConfig: "+resourceName)
 		return reconcile.Result{}, err
 	}
 	return reconcile.Result{}, err
 }
 
-func (r *WebServerReconciler) createDeploymentConfig(webServer *webserversv1alpha1.WebServer, resource *appsv1.DeploymentConfig, resourceKind string, resourceName string, resourceNamespace string) (ctrl.Result, error) {
+func (r *WebServerReconciler) createDeploymentConfig(webServer *webserversv1alpha1.WebServer, resource *appsv1.DeploymentConfig, resourceName string, resourceNamespace string) (ctrl.Result, error) {
 	err := r.Client.Get(context.TODO(), client.ObjectKey{
 		Namespace: resourceNamespace,
 		Name:      resourceName,
 	}, resource)
 	if err != nil && errors.IsNotFound(err) {
 		// Create a new resource
-		log.Info("Creating a new "+resourceKind, resourceKind+".Namespace", resourceNamespace, resourceKind+".Name", resourceName)
+		log.Info("Creating a new DeploymentConfig: " + resourceName + " Namespace: " + resourceNamespace)
 		err = r.Client.Create(context.TODO(), resource)
 		if err != nil && !errors.IsAlreadyExists(err) {
-			log.Error(err, "Failed to create a new "+resourceKind, resourceKind+".Namespace", resourceNamespace, resourceKind+".Name", resourceName)
+			log.Error(err, "Failed to create a new DeploymentConfig: "+resourceName+" Namespace: "+resourceNamespace)
 			return reconcile.Result{}, err
 		}
 		// Resource created successfully - return and requeue
 		// return ctrl.Result{Requeue: true}, err
 		return ctrl.Result{Requeue: true}, nil
 	} else if err != nil {
-		log.Error(err, "Failed to get "+resourceKind)
+		log.Error(err, "Failed to get DeploymentConfig: "+resourceName)
 		return reconcile.Result{}, err
 	}
 	return reconcile.Result{}, err
 }
 
-func (r *WebServerReconciler) createRoute(webServer *webserversv1alpha1.WebServer, resource *routev1.Route, resourceKind string, resourceName string, resourceNamespace string) (ctrl.Result, error) {
+func (r *WebServerReconciler) createRoute(webServer *webserversv1alpha1.WebServer, resource *routev1.Route, resourceName string, resourceNamespace string) (ctrl.Result, error) {
 	err := r.Client.Get(context.TODO(), client.ObjectKey{
 		Namespace: resourceNamespace,
 		Name:      resourceName,
 	}, resource)
 	if err != nil && errors.IsNotFound(err) {
 		// Create a new resource
-		log.Info("Creating a new "+resourceKind, resourceKind+".Namespace", resourceNamespace, resourceKind+".Name", resourceName)
+		log.Info("Creating a new Route: " + resourceName + " Namespace: " + resourceNamespace)
 		err = r.Client.Create(context.TODO(), resource)
 		if err != nil && !errors.IsAlreadyExists(err) {
-			log.Error(err, "Failed to create a new "+resourceKind, resourceKind+".Namespace", resourceNamespace, resourceKind+".Name", resourceName)
+			log.Error(err, "Failed to create a new Route: "+resourceName+" Namespace: "+resourceNamespace)
 			return reconcile.Result{}, err
 		}
 		// Resource created successfully - return and requeue
 		// return ctrl.Result{Requeue: true}, err
 		return ctrl.Result{Requeue: true}, nil
 	} else if err != nil {
-		log.Error(err, "Failed to get "+resourceKind)
+		log.Error(err, "Failed to get Route: "+resourceName)
 		return reconcile.Result{}, err
 	}
 	return reconcile.Result{}, err
