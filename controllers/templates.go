@@ -137,6 +137,7 @@ func (r *WebServerReconciler) generateBuildPod(webServer *webserversv1alpha1.Web
 					},
 				},
 			},
+			/* Does not help it seems ServiceAccountName: "builder", */
 			Containers: []corev1.Container{
 				{
 					Name:  "war",
@@ -150,6 +151,27 @@ func (r *WebServerReconciler) generateBuildPod(webServer *webserversv1alpha1.Web
 						webServer.Spec.WebImage.WebApp.Builder.ApplicationBuildScript,
 					},
 					*/
+					// Actually the SA doesn't have that permission :( so that won't work with giving permissions.
+					// Doing the following allows it:
+					// oc adm policy add-scc-to-group privileged system:serviceaccounts:tomcat-in-the-cloud
+					/*
+						SecurityContext: &corev1.SecurityContext{
+							Privileged: &[]bool{true}[0],
+						},
+					*/
+					// here the permissions have to be added in a SecurityContextConstraint
+					// for example https://github.com/jfclere/tomcat-kubernetes/blob/main/scc.yaml
+					// kubectl create -f scc.yaml
+					// oc adm policy add-scc-to-group scc-jws system:serviceaccounts:tomcat-in-the-cloud
+					SecurityContext: &corev1.SecurityContext{
+						Capabilities: &corev1.Capabilities{
+							Add: []corev1.Capability{
+								// "CAP_SETGID", "CAP_SETUID",
+								"SETGID", "SETUID",
+							},
+						},
+					},
+					Env: r.generateEnvBuild(webServer),
 					VolumeMounts: []corev1.VolumeMount{
 						{
 							Name:      "app-volume",
@@ -169,14 +191,18 @@ func (r *WebServerReconciler) generateBuildPod(webServer *webserversv1alpha1.Web
 func (r *WebServerReconciler) generateDeployment(webServer *webserversv1alpha1.WebServer) *kbappsv1.Deployment {
 
 	replicas := int32(webServer.Spec.Replicas)
-	// With a builder we use the WebAppWarImage (webServer.Spec.WebImage.WebApp.WebAppWarImage)
 	applicationimage := webServer.Spec.WebImage.ApplicationImage
+	objectMeta := r.generateObjectMeta(webServer, webServer.Spec.ApplicationName)
+	objectMeta.Annotations = map[string]string{
+		"ApplicationImage": applicationimage,
+	}
+	// With a builder we use the WebAppWarImage (webServer.Spec.WebImage.WebApp.WebAppWarImage)
 	if webServer.Spec.WebImage.WebApp != nil {
 		applicationimage = webServer.Spec.WebImage.WebApp.WebAppWarImage
 	}
 	podTemplateSpec := r.generatePodTemplate(webServer, applicationimage)
 	deployment := &kbappsv1.Deployment{
-		ObjectMeta: r.generateObjectMeta(webServer, webServer.Spec.ApplicationName),
+		ObjectMeta: objectMeta,
 		Spec: kbappsv1.DeploymentSpec{
 			Strategy: kbappsv1.DeploymentStrategy{
 				Type: kbappsv1.RecreateDeploymentStrategyType,
@@ -247,10 +273,15 @@ func (r *WebServerReconciler) generateBuildConfig(webServer *webserversv1alpha1.
 	return buildConfig
 }
 
-// Create the env for the maven build
+// Create the env for the maven build and the pod builder
 func (r *WebServerReconciler) generateEnvBuild(webServer *webserversv1alpha1.WebServer) []corev1.EnvVar {
 	var env []corev1.EnvVar
-	sources := webServer.Spec.WebImageStream.WebSources
+	var sources *webserversv1alpha1.WebSourcesSpec
+	var webApp *webserversv1alpha1.WebAppSpec
+	if webServer.Spec.WebImageStream != nil {
+		sources = webServer.Spec.WebImageStream.WebSources
+	}
+	// BuildConfig EnvVar
 	if sources != nil {
 		params := sources.WebSourcesParams
 		if params != nil {
@@ -267,6 +298,53 @@ func (r *WebServerReconciler) generateEnvBuild(webServer *webserversv1alpha1.Web
 				})
 			}
 		}
+	}
+
+	// pod builder EnvVar
+	if webServer.Spec.WebImage != nil {
+		webApp = webServer.Spec.WebImage.WebApp
+	}
+	if webApp != nil {
+		// Name of the web application (default: ROOT.war)
+		if webApp.Name != "" {
+			env = append(env, corev1.EnvVar{
+				Name:  "webAppWarFileName",
+				Value: webApp.Name,
+			})
+		}
+		// URL for the repository of the application sources
+		if webApp.SourceRepositoryURL != "" {
+			env = append(env, corev1.EnvVar{
+				Name:  "webAppSourceRepositoryURL",
+				Value: webApp.SourceRepositoryURL,
+			})
+		}
+		// Branch in the source repository
+		if webApp.SourceRepositoryRef != "" {
+			env = append(env, corev1.EnvVar{
+				Name:  "webAppSourceRepositoryRef",
+				Value: webApp.SourceRepositoryRef,
+			})
+		}
+		// Subdirectory in the source repository
+		if webApp.SourceRepositoryContextDir != "" {
+			env = append(env, corev1.EnvVar{
+				Name:  "webAppSourceRepositoryContextDir",
+				Value: webApp.SourceRepositoryContextDir,
+			})
+		}
+		// Docker repository to push the built image
+		if webApp.WebAppWarImage != "" {
+			env = append(env, corev1.EnvVar{
+				Name:  "webAppWarImage",
+				Value: webApp.WebAppWarImage,
+			})
+		}
+		// Docker repository to pull the base image
+		env = append(env, corev1.EnvVar{
+			Name:  "webAppSourceImage",
+			Value: webServer.Spec.WebImage.ApplicationImage,
+		})
 	}
 	return env
 }

@@ -76,11 +76,6 @@ func (r *WebServerReconciler) setDefaultValues(webServer *webserversv1alpha1.Web
 			log.Info("WebServer.Spec.Image.WebApp.Name is not set, setting value to 'ROOT'")
 			webApp.Name = "ROOT"
 		}
-		if webApp.DeployPath == "" {
-			log.Info("WebServer.Spec.Image.WebApp.DeployPath is not set, setting value to '/deployments/'")
-			webApp.DeployPath = "/deployments/"
-		}
-
 		if webApp.Builder.ApplicationBuildScript == "" {
 			log.Info("WebServer.Spec.Image.WebApp.Builder.ApplicationBuildScript is not set, will use the default build script")
 		}

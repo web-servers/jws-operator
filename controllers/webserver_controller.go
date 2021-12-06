@@ -222,6 +222,12 @@ func (r *WebServerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 				log.Info("WebServer application image change detected. Deployment update scheduled")
 				deployment.Spec.Template.Spec.Containers[0].Image = webServer.Spec.WebImage.ApplicationImage
 				updateDeployment = true
+			} else {
+				// Here we need to check the annotation we have set after building.
+				annotations := deployment.Annotations
+				if annotations != nil {
+					log.Info("JFC: " + annotations["ApplicationImage"] + " was stored")
+				}
 			}
 		}
 

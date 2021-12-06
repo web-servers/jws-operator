@@ -27,12 +27,13 @@ func makeApplicationImageWebServer(namespace string, name string, applicationIma
 }
 
 // makeApplicationImageSourcesWebServer creates a WebServer using an application iamge and sources
-func makeApplicationImageSourcesWebServer(namespace string, name string, image string, sourceRepositoryURL string, sourceRepositoryRef string, pushedimage string, pushsecret string, imagebuilder string, replicas int32) *webserversv1alpha1.WebServer {
+func makeApplicationImageSourcesWebServer(namespace string, name string, image string, sourceRepositoryURL string, sourceRepositoryRef string, pushedimage string, pushsecret string, warname string, imagebuilder string, replicas int32) *webserversv1alpha1.WebServer {
 	webServer := makeApplicationImageWebServer(namespace, name, image, replicas)
 	webServer.Spec.UseSessionClustering = true
 	webServer.Spec.WebImage = &webserversv1alpha1.WebImageSpec{
 		ApplicationImage: image,
 		WebApp: &webserversv1alpha1.WebAppSpec{
+			Name:                     warname,
 			SourceRepositoryURL:      sourceRepositoryURL,
 			SourceRepositoryRef:      sourceRepositoryRef,
 			WebAppWarImagePushSecret: pushsecret,
