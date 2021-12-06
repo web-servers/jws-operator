@@ -51,17 +51,35 @@ func (r *WebServerReconciler) generateRoutingService(webServer *webserversv1alph
 	return service
 }
 
-func (r *WebServerReconciler) generateRoleBinding(webServer *webserversv1alpha1.WebServer) *rbac.RoleBinding {
+// Create something like:
+// oc policy add-role-to-user view system:serviceaccount:tomcat-in-the-cloud:default -n tomcat-in-the-cloud
+// does:
+// apiVersion: rbac.authorization.k8s.io/v1
+// kind: RoleBinding
+// metadata:
+//   name: view
+//   namespace: tomcat-in-the-cloud
+// roleRef:
+//   apiGroup: rbac.authorization.k8s.io
+//   kind: ClusterRole
+//   name: view
+// subjects:
+// - kind: ServiceAccount
+//   name: default
+//   namespace: tomcat-in-the-cloud
+
+func (r *WebServerReconciler) generateRoleBinding(webServer *webserversv1alpha1.WebServer, rolename string) *rbac.RoleBinding {
 	rolebinding := &rbac.RoleBinding{
-		ObjectMeta: r.generateObjectMeta(webServer, "webserver-"+webServer.Name),
+		ObjectMeta: r.generateObjectMeta(webServer, rolename),
 		RoleRef: rbac.RoleRef{
 			APIGroup: "rbac.authorization.k8s.io",
 			Kind:     "ClusterRole",
 			Name:     "view",
 		},
 		Subjects: []rbac.Subject{{
-			Kind: "ServiceAccount",
-			Name: "default",
+			Kind:      "ServiceAccount",
+			Name:      "default",
+			Namespace: webServer.Namespace,
 		}},
 	}
 

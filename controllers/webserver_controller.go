@@ -145,7 +145,7 @@ func (r *WebServerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 
 	// Check if a Service for routing already exists, and if not create a new one
 	routingService := r.generateRoutingService(webServer)
-	result, err = r.createService(webServer, routingService, routingService.Kind, routingService.Name, routingService.Namespace)
+	result, err = r.createService(webServer, routingService, routingService.Name, routingService.Namespace)
 	if err != nil || result != (ctrl.Result{}) {
 		return result, err
 	}
@@ -155,8 +155,12 @@ func (r *WebServerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		if r.useKUBEPing {
 
 			// Check if a RoleBinding for the KUBEPing exists, and if not create one.
-			rolebinding := r.generateRoleBinding(webServer)
-			result, err = r.createRoleBinding(webServer, rolebinding, rolebinding.Kind, rolebinding.Name, rolebinding.Namespace)
+			rolebinding := r.generateRoleBinding(webServer, "view")
+			//
+			// The example in docs seems to use view (name: view and roleRef ClusterRole/view for our ServiceAccount)
+			// like:
+			// oc policy add-role-to-user view system:serviceaccount:tomcat-in-the-cloud:default -n tomcat-in-the-cloud
+			result, err = r.createRoleBinding(webServer, rolebinding, "view", rolebinding.Namespace)
 			if err != nil || result != (ctrl.Result{}) {
 				return result, err
 			}
@@ -165,16 +169,16 @@ func (r *WebServerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 
 			// Check if a Service for DNSPing already exists, and if not create a new one
 			dnsService := r.generateServiceForDNS(webServer)
-			result, err = r.createService(webServer, dnsService, dnsService.Kind, dnsService.Name, dnsService.Namespace)
+			result, err = r.createService(webServer, dnsService, dnsService.Name, dnsService.Namespace)
 			if err != nil || result != (ctrl.Result{}) {
 				return result, err
 			}
 
 		}
 
-		// Check if a ConfigMap for the KUBEPing exists, and if not create one.
+		// Check if exists a ConfigMap for the server.xml <Cluster/> definition otherwise create it.
 		configMap := r.generateConfigMapForDNS(webServer)
-		result, err = r.createConfigMap(webServer, configMap, configMap.Kind, configMap.Name, configMap.Namespace)
+		result, err = r.createConfigMap(webServer, configMap, configMap.Name, configMap.Namespace)
 		if err != nil || result != (ctrl.Result{}) {
 			return result, err
 		}
@@ -190,7 +194,7 @@ func (r *WebServerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 			// Check if a build Pod for the webapp already exists, and if not create a new one
 			buildPod := r.generateBuildPod(webServer)
 			log.Info("WebServe createBuildPod: " + buildPod.Name + " in " + buildPod.Namespace + " using: " + buildPod.Spec.Volumes[0].VolumeSource.Secret.SecretName + " and: " + buildPod.Spec.Containers[0].Image)
-			result, err = r.createPod(webServer, buildPod, buildPod.Kind, buildPod.Name, buildPod.Namespace)
+			result, err = r.createPod(webServer, buildPod, buildPod.Name, buildPod.Namespace)
 			if err != nil || result != (ctrl.Result{}) {
 				return result, err
 			}
@@ -205,7 +209,7 @@ func (r *WebServerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		// Check if a Deployment already exists, and if not create a new one
 		deployment := r.generateDeployment(webServer)
 		log.Info("WebServe createDeployment: " + deployment.Name + " in " + deployment.Namespace + " using: " + deployment.Spec.Template.Spec.Containers[0].Image)
-		result, err = r.createDeployment(webServer, deployment, deployment.Kind, deployment.Name, deployment.Namespace)
+		result, err = r.createDeployment(webServer, deployment, deployment.Name, deployment.Namespace)
 		if err != nil || result != (ctrl.Result{}) {
 			log.Info("WebServer can't create deployment")
 			return result, err
@@ -250,7 +254,7 @@ func (r *WebServerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 
 			// Check if an Image Stream already exists, and if not create a new one
 			imageStream := r.generateImageStream(webServer)
-			result, err = r.createImageStream(webServer, imageStream, imageStream.Kind, imageStream.Name, imageStream.Namespace)
+			result, err = r.createImageStream(webServer, imageStream, imageStream.Name, imageStream.Namespace)
 			if err != nil || result != (ctrl.Result{}) {
 				return result, err
 			}
@@ -261,7 +265,7 @@ func (r *WebServerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 
 			// Check if a BuildConfig already exists, and if not create a new one
 			buildConfig := r.generateBuildConfig(webServer)
-			result, err = r.createBuildConfig(webServer, buildConfig, buildConfig.Kind, buildConfig.Name, buildConfig.Namespace)
+			result, err = r.createBuildConfig(webServer, buildConfig, buildConfig.Name, buildConfig.Namespace)
 			if err != nil || result != (ctrl.Result{}) {
 				return result, err
 			}
@@ -292,7 +296,7 @@ func (r *WebServerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 
 		// Check if a DeploymentConfig already exists and if not, create a new one
 		deploymentConfig := r.generateDeploymentConfig(webServer, imageStreamName, imageStreamNamespace)
-		result, err = r.createDeploymentConfig(webServer, deploymentConfig, deploymentConfig.Kind, deploymentConfig.Name, deploymentConfig.Namespace)
+		result, err = r.createDeploymentConfig(webServer, deploymentConfig, deploymentConfig.Name, deploymentConfig.Namespace)
 		if err != nil || result != (ctrl.Result{}) {
 			return result, err
 		}
@@ -326,7 +330,7 @@ func (r *WebServerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 
 		// Check if a Route already exists, and if not create a new one
 		route := r.generateRoute(webServer)
-		result, err = r.createRoute(webServer, route, route.Kind, route.Name, route.Namespace)
+		result, err = r.createRoute(webServer, route, route.Name, route.Namespace)
 		if err != nil || result != (ctrl.Result{}) {
 			return result, err
 		}
