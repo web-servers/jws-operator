@@ -38,7 +38,7 @@ the operator to be used like --authfile /mount_point/.dockerconfigjson to pull t
 
 ### webApp
 Describes how the operator will build the webapp to add to application image, if not present the application is just deployed.
-It has the sourceRepositoryUrl (Mandatory), sourceRepositoryRef, contextDir, deployPath, webAppWarImage, webAppWarImagePushSecret and builder. 
+It has the sourceRepositoryUrl (Mandatory), sourceRepositoryRef, contextDir, webAppWarImage, webAppWarImagePushSecret,Name and builder. 
 
 ### webServerHealthCheck
 Describes how the operator will create the health check for the created pods.
@@ -205,6 +205,9 @@ For the formats see the README.md.
 
 ### serverLivenessScript
 The script that checks if the pod is running. It's use is optional.
+
+### Name (webapp)
+The name of the webapp, default: ROOT.war
 
 ### webAppWarImage (webapp)
 That is the URL of images where the operator will push what he builds.
