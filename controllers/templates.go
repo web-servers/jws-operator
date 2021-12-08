@@ -138,6 +138,7 @@ func (r *WebServerReconciler) generateBuildPod(webServer *webserversv1alpha1.Web
 				},
 			},
 			/* Does not help it seems ServiceAccountName: "builder", */
+			ServiceAccountName: "builder",
 			Containers: []corev1.Container{
 				{
 					Name:  "war",
@@ -163,14 +164,16 @@ func (r *WebServerReconciler) generateBuildPod(webServer *webserversv1alpha1.Web
 					// for example https://github.com/jfclere/tomcat-kubernetes/blob/main/scc.yaml
 					// kubectl create -f scc.yaml
 					// oc adm policy add-scc-to-group scc-jws system:serviceaccounts:tomcat-in-the-cloud
-					SecurityContext: &corev1.SecurityContext{
-						Capabilities: &corev1.Capabilities{
-							Add: []corev1.Capability{
-								// "CAP_SETGID", "CAP_SETUID",
-								"SETGID", "SETUID",
+					/*
+						SecurityContext: &corev1.SecurityContext{
+							Capabilities: &corev1.Capabilities{
+								Add: []corev1.Capability{
+									// "CAP_SETGID", "CAP_SETUID",
+									"SETGID", "SETUID",
+								},
 							},
 						},
-					},
+					*/
 					Env: r.generateEnvBuild(webServer),
 					VolumeMounts: []corev1.VolumeMount{
 						{
