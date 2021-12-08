@@ -124,6 +124,15 @@ func (r *WebServerReconciler) generateBuildPod(webServer *webserversv1alpha1.Web
 	objectMeta := r.generateObjectMeta(webServer, name)
 	objectMeta.Labels["WebServer"] = webServer.Name
 	terminationGracePeriodSeconds := int64(60)
+	serviceAccountName := ""
+	var securityContext *corev1.SecurityContext
+	if r.isOpenShift {
+		serviceAccountName = "builder"
+	} else {
+		securityContext = &corev1.SecurityContext{
+			Privileged: &[]bool{true}[0],
+		}
+	}
 	pod := &corev1.Pod{
 		ObjectMeta: objectMeta,
 		Spec: corev1.PodSpec{
@@ -138,7 +147,7 @@ func (r *WebServerReconciler) generateBuildPod(webServer *webserversv1alpha1.Web
 				},
 			},
 			/* Does not help it seems ServiceAccountName: "builder", */
-			ServiceAccountName: "builder",
+			ServiceAccountName: serviceAccountName,
 			Containers: []corev1.Container{
 				{
 					Name:  "war",
@@ -174,7 +183,8 @@ func (r *WebServerReconciler) generateBuildPod(webServer *webserversv1alpha1.Web
 							},
 						},
 					*/
-					Env: r.generateEnvBuild(webServer),
+					SecurityContext: securityContext,
+					Env:             r.generateEnvBuild(webServer),
 					VolumeMounts: []corev1.VolumeMount{
 						{
 							Name:      "app-volume",
