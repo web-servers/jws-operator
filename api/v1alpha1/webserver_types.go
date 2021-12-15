@@ -41,7 +41,7 @@ type WebImageSpec struct {
 
 // WebApp contains all the information required to build and deploy a web application
 type WebAppSpec struct {
-	// Name of the web application (default: ROOT)
+	// Name of the web application (default: ROOT.war)
 	Name string `json:"name,omitempty"`
 	// URL for the repository of the application sources
 	SourceRepositoryURL string `json:"sourceRepositoryURL"`
@@ -49,8 +49,6 @@ type WebAppSpec struct {
 	SourceRepositoryRef string `json:"sourceRepositoryRef,omitempty"`
 	// Subdirectory in the source repository
 	SourceRepositoryContextDir string `json:"contextDir,omitempty"`
-	// The path on which the application war will be mounted (default:/usr/local/tomcat/webapps/)
-	DeployPath string `json:"deployPath,omitempty"`
 	// Docker repository to push the built image
 	WebAppWarImage string `json:"webAppWarImage"`
 	// secret to push to the docker repository

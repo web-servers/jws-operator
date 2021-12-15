@@ -99,9 +99,11 @@ func WebServerApplicationImageUpdateTest(clt client.Client, ctx context.Context,
 }
 
 // WebServerApplicationImageSourcesBasicTest tests the deployment of an application image with sources
+// we use testURI.war instead of ROOT.war and the servlet is /demo there
 func WebServerApplicationImageSourcesBasicTest(clt client.Client, ctx context.Context, t *testing.T, namespace string, name string, image string, sourceRepositoryURL string, sourceRepositoryRef string, pushedimage string, pushsecret string, imagebuilder string, testURI string) (err error) {
 
-	webServer := makeApplicationImageSourcesWebServer(namespace, name, image, sourceRepositoryURL, sourceRepositoryRef, pushedimage, pushsecret, imagebuilder, 1)
+	warname := testURI + ".war"
+	webServer := makeApplicationImageSourcesWebServer(namespace, name, image, sourceRepositoryURL, sourceRepositoryRef, pushedimage, pushsecret, warname, imagebuilder, 1)
 
 	// cleanup
 	defer func() {
@@ -109,13 +111,15 @@ func WebServerApplicationImageSourcesBasicTest(clt client.Client, ctx context.Co
 		time.Sleep(time.Second * 5)
 	}()
 
-	return webServerBasicTest(clt, ctx, t, webServer, testURI)
+	return webServerBasicTest(clt, ctx, t, webServer, "/"+testURI+"/demo")
 }
 
 // WebServerApplicationImageSourcesBasicTest tests the scaling of an application image with sources
+// we use testURI.war instead of ROOT.war and the servlet is /demo there
 func WebServerApplicationImageSourcesScaleTest(clt client.Client, ctx context.Context, t *testing.T, namespace string, name string, image string, sourceRepositoryURL string, sourceRepositoryRef string, pushedimage string, pushsecret string, imagebuilder string, testURI string) (err error) {
 
-	webServer := makeApplicationImageSourcesWebServer(namespace, name, image, sourceRepositoryURL, sourceRepositoryRef, pushedimage, pushsecret, imagebuilder, 1)
+	warname := testURI + ".war"
+	webServer := makeApplicationImageSourcesWebServer(namespace, name, image, sourceRepositoryURL, sourceRepositoryRef, pushedimage, pushsecret, warname, imagebuilder, 1)
 
 	// cleanup
 	defer func() {
@@ -123,7 +127,7 @@ func WebServerApplicationImageSourcesScaleTest(clt client.Client, ctx context.Co
 		time.Sleep(time.Second * 5)
 	}()
 
-	return webServerScaleTest(clt, ctx, t, webServer, testURI)
+	return webServerScaleTest(clt, ctx, t, webServer, "/"+testURI+"/demo")
 }
 
 // WebServerImageStreamBasicTest tests the deployment of an Image Stream operator
@@ -590,4 +594,9 @@ func generateLabelsForWebServer(webServer *webserversv1alpha1.WebServer) map[str
 		}
 	}
 	return labels
+}
+
+// Pseudo random string
+func UnixEpoch() string {
+	return strconv.FormatInt(time.Now().UnixNano(), 10)
 }
