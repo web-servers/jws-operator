@@ -58,7 +58,14 @@ var namespace string
 // WebServerApplicationImageBasicTest tests the deployment of an application image operator
 func WebServerApplicationImageBasicTest(clt client.Client, ctx context.Context, t *testing.T, namespace string, name string, image string, testURI string) (err error) {
 
+	if strings.HasPrefix(image, "registry.redhat.io") {
+		// We need a pull secret for the image.
+	}
 	webServer := makeApplicationImageWebServer(namespace, name, image, 1)
+	if strings.HasPrefix(image, "registry.redhat.io") {
+		// We need a pull secret for the image.
+		webServer.Spec.WebImage.ImagePullSecret = "jfc"
+	}
 
 	// cleanup
 	defer func() {

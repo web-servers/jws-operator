@@ -2,6 +2,8 @@ package controllers
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/base64"
 	"fmt"
 	"sort"
 	"time"
@@ -226,7 +228,7 @@ func (r *WebServerReconciler) createConfigMap(webServer *webserversv1alpha1.WebS
 	return reconcile.Result{}, err
 }
 
-func (r *WebServerReconciler) createPod(webServer *webserversv1alpha1.WebServer, resource *corev1.Pod, resourceName string, resourceNamespace string) (ctrl.Result, error) {
+func (r *WebServerReconciler) createBuildPod(webServer *webserversv1alpha1.WebServer, resource *corev1.Pod, resourceName string, resourceNamespace string) (ctrl.Result, error) {
 	err := r.Client.Get(context.TODO(), client.ObjectKey{
 		Namespace: resourceNamespace,
 		Name:      resourceName,
@@ -258,6 +260,7 @@ func (r *WebServerReconciler) createDeployment(webServer *webserversv1alpha1.Web
 	if err != nil && errors.IsNotFound(err) {
 		// Create a new resource
 		log.Info("Creating a new Deployment: " + resourceName + " Namespace: " + resourceNamespace)
+		resource.ObjectMeta.Labels["webserver-hash"] = r.getWebServerHash(webServer)
 		err = r.Client.Create(context.TODO(), resource)
 		if err != nil && !errors.IsAlreadyExists(err) {
 			log.Error(err, "Failed to create a new Deployment: "+resourceName+" Namespace: "+resourceNamespace)
@@ -406,13 +409,14 @@ func (r *WebServerReconciler) generateLabelsForWeb(webServer *webserversv1alpha1
 	labels := map[string]string{
 		"deploymentConfig": webServer.Spec.ApplicationName,
 		"WebServer":        webServer.Name,
+		"application":      webServer.Spec.ApplicationName,
 	}
 	// labels["app.kubernetes.io/name"] = webServer.Name
 	// labels["app.kubernetes.io/managed-by"] = os.Getenv("LABEL_APP_MANAGED_BY")
 	// labels["app.openshift.io/runtime"] = os.Getenv("LABEL_APP_RUNTIME")
 	if webServer.Labels != nil {
 		for labelKey, labelValue := range webServer.Labels {
-			log.Info("labels: ", labelKey, " : ", labelValue)
+			log.Info("labels: " + labelKey + " : " + labelValue)
 			labels[labelKey] = labelValue
 		}
 	}
@@ -468,4 +472,29 @@ func (r *WebServerReconciler) updateWebServerStatus(webServer *webserversv1alpha
 
 	log.Info("The status of WebServer was updated successfully")
 	return nil
+}
+
+// Calculate a hash of the Spec (configuration) to reploy/rebuild if needed.
+func (r *WebServerReconciler) getWebServerHash(webServer *webserversv1alpha1.WebServer) string {
+	h := sha256.New()
+	h.Write([]byte("ApplicationName:" + webServer.Spec.ApplicationName))
+	// No need to recreate h.Write([]byte("Replicas:" + fmt.Sprint(webServer.Spec.Replicas)))
+	h.Write([]byte("UseSessionClustering:" + fmt.Sprint(webServer.Spec.UseSessionClustering)))
+
+	/* add the labels */
+	if webServer.ObjectMeta.Labels != nil {
+		for labelKey, labelValue := range webServer.ObjectMeta.Labels {
+			h.Write([]byte(labelKey + ":" + labelValue))
+		}
+	}
+	if webServer.Spec.WebImage != nil {
+		/* Same for WebImage */
+	}
+	if webServer.Spec.WebImageStream != nil {
+		/* Same for WebImageStream */
+	}
+	/* rules for labels: '(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])?')"} */
+	enc := base64.NewEncoding("qwertyuiopasdfghjklzxcvbnmQWERTYUIOPASDFGHJKLZXCVBNM_.0123456789")
+	enc = enc.WithPadding(base64.NoPadding)
+	return "A" + enc.EncodeToString(h.Sum(nil)) + "A"
 }

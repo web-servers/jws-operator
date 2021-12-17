@@ -24,9 +24,6 @@ func (r *WebServerReconciler) generateObjectMeta(webServer *webserversv1alpha1.W
 	return metav1.ObjectMeta{
 		Name:      name,
 		Namespace: webServer.Namespace,
-		Labels: map[string]string{
-			"application": webServer.Spec.ApplicationName,
-		},
 	}
 }
 
@@ -40,6 +37,8 @@ func (r *WebServerReconciler) generateRoutingService(webServer *webserversv1alph
 				Port:       8080,
 				TargetPort: intstr.FromInt(8080),
 			}},
+			// Don't forget to check generateLabelsForWeb before changing this...
+			// there are more Labels but we only use those for the Route.
 			Selector: map[string]string{
 				"deploymentConfig": webServer.Spec.ApplicationName,
 				"WebServer":        webServer.Name,
@@ -122,7 +121,10 @@ func (r *WebServerReconciler) generateConfigMapForDNS(webServer *webserversv1alp
 func (r *WebServerReconciler) generateBuildPod(webServer *webserversv1alpha1.WebServer) *corev1.Pod {
 	name := webServer.Spec.ApplicationName + "-build"
 	objectMeta := r.generateObjectMeta(webServer, name)
-	objectMeta.Labels["WebServer"] = webServer.Name
+	// Don't use r.generateLabelsForWeb(webServer) here, that is ONLY for applicaion pods.
+	objectMeta.Labels = map[string]string{
+		"webserver-hash": r.getWebServerHash(webServer),
+	}
 	terminationGracePeriodSeconds := int64(60)
 	serviceAccountName := ""
 	var securityContext *corev1.SecurityContext
@@ -206,6 +208,7 @@ func (r *WebServerReconciler) generateDeployment(webServer *webserversv1alpha1.W
 	replicas := int32(webServer.Spec.Replicas)
 	applicationimage := webServer.Spec.WebImage.ApplicationImage
 	objectMeta := r.generateObjectMeta(webServer, webServer.Spec.ApplicationName)
+	objectMeta.Labels = r.generateLabelsForWeb(webServer)
 	objectMeta.Annotations = map[string]string{
 		"ApplicationImage": applicationimage,
 	}
@@ -222,10 +225,7 @@ func (r *WebServerReconciler) generateDeployment(webServer *webserversv1alpha1.W
 			},
 			Replicas: &replicas,
 			Selector: &metav1.LabelSelector{
-				MatchLabels: map[string]string{
-					"deploymentConfig": webServer.Spec.ApplicationName,
-					"WebServer":        webServer.Name,
-				},
+				MatchLabels: r.generateLabelsForWeb(webServer),
 			},
 			Template: podTemplateSpec,
 		},
@@ -402,8 +402,10 @@ func (r *WebServerReconciler) generateDeploymentConfig(webServer *webserversv1al
 
 	replicas := int32(1)
 	podTemplateSpec := r.generatePodTemplate(webServer, webServer.Spec.ApplicationName)
+	objectMeta := r.generateObjectMeta(webServer, webServer.Spec.ApplicationName)
+	objectMeta.Labels = r.generateLabelsForWeb(webServer)
 	deploymentConfig := &appsv1.DeploymentConfig{
-		ObjectMeta: r.generateObjectMeta(webServer, webServer.Spec.ApplicationName),
+		ObjectMeta: objectMeta,
 		Spec: appsv1.DeploymentConfigSpec{
 			Strategy: appsv1.DeploymentStrategy{
 				Type: appsv1.DeploymentStrategyTypeRecreate,
@@ -424,10 +426,8 @@ func (r *WebServerReconciler) generateDeploymentConfig(webServer *webserversv1al
 					Type: appsv1.DeploymentTriggerOnConfigChange,
 				}},
 			Replicas: replicas,
-			Selector: map[string]string{
-				"deploymentConfig": webServer.Spec.ApplicationName,
-				"WebServer":        webServer.Name,
-			},
+			// Why not a metav1.LabelSelector like in Deployment? ask OpenShift!!!
+			Selector: r.generateLabelsForWeb(webServer),
 			Template: &podTemplateSpec,
 		},
 	}
@@ -456,8 +456,7 @@ func (r *WebServerReconciler) generateRoute(webServer *webserversv1alpha1.WebSer
 
 func (r *WebServerReconciler) generatePodTemplate(webServer *webserversv1alpha1.WebServer, image string) corev1.PodTemplateSpec {
 	objectMeta := r.generateObjectMeta(webServer, webServer.Spec.ApplicationName)
-	objectMeta.Labels["deploymentConfig"] = webServer.Spec.ApplicationName
-	objectMeta.Labels["WebServer"] = webServer.Name
+	objectMeta.Labels = r.generateLabelsForWeb(webServer)
 	var health *webserversv1alpha1.WebServerHealthCheckSpec = &webserversv1alpha1.WebServerHealthCheckSpec{}
 	if webServer.Spec.WebImage != nil {
 		health = webServer.Spec.WebImage.WebServerHealthCheck
@@ -633,12 +632,18 @@ func (r *WebServerReconciler) generateCommandForServerXml() map[string]string {
 	cmd := make(map[string]string)
 	if r.useKUBEPing {
 		cmd["test.sh"] = "FILE=`find /opt -name server.xml`\n" +
+			"if [ -z \"${FILE}\" ]; then\n" +
+			"  FILE=`find /deployments -name server.xml`\n" +
+			"fi\n" +
 			"grep -q MembershipProvider ${FILE}\n" +
 			"if [ $? -ne 0 ]; then\n" +
 			"  sed -i '/cluster.html/a        <Cluster className=\"org.apache.catalina.ha.tcp.SimpleTcpCluster\" channelSendOptions=\"6\">\\n <Channel className=\"org.apache.catalina.tribes.group.GroupChannel\">\\n <Membership className=\"org.apache.catalina.tribes.membership.cloud.CloudMembershipService\" membershipProviderClassName=\"org.apache.catalina.tribes.membership.cloud.KubernetesMembershipProvider\"/>\\n </Channel>\\n </Cluster>\\n' ${FILE}\n" +
 			"fi\n"
 	} else {
 		cmd["test.sh"] = "FILE=`find /opt -name server.xml`\n" +
+			"if [ -z \"${FILE}\" ]; then\n" +
+			"  FILE=`find /deployments -name server.xml`\n" +
+			"fi\n" +
 			"grep -q MembershipProvider ${FILE}\n" +
 			"if [ $? -ne 0 ]; then\n" +
 			"  sed -i '/cluster.html/a        <Cluster className=\"org.apache.catalina.ha.tcp.SimpleTcpCluster\" channelSendOptions=\"6\">\\n <Channel className=\"org.apache.catalina.tribes.group.GroupChannel\">\\n <Membership className=\"org.apache.catalina.tribes.membership.cloud.CloudMembershipService\" membershipProviderClassName=\"org.apache.catalina.tribes.membership.cloud.DNSMembershipProvider\"/>\\n </Channel>\\n </Cluster>\\n' ${FILE}\n" +
