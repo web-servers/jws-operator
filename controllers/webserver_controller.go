@@ -381,6 +381,30 @@ func (r *WebServerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 			webServer.Status.Hosts = hosts
 			log.Info("Status.Hosts update scheduled")
 		}
+	} else {
+		// on kuberntes we use a loadbalancer service
+		loadbalancer := r.generateLoadBalancer(webServer)
+		result, err = r.createService(webServer, loadbalancer, loadbalancer.Name, loadbalancer.Namespace)
+		if err != nil || result != (ctrl.Result{}) {
+			return result, err
+		}
+		if len(loadbalancer.Status.LoadBalancer.Ingress) == 0 {
+			return ctrl.Result{Requeue: true}, nil
+		}
+
+		hosts := make([]string, len(loadbalancer.Status.LoadBalancer.Ingress))
+		for i, ingress := range loadbalancer.Status.LoadBalancer.Ingress {
+			hosts[i] = ingress.Hostname
+			log.Info("Status.Hosts have: " + hosts[i])
+		}
+		log.Info("Status.Hosts number of Ingress: " + strconv.Itoa(len(loadbalancer.Status.LoadBalancer.Ingress)))
+
+		sort.Strings(hosts)
+		if !reflect.DeepEqual(hosts, webServer.Status.Hosts) {
+			updateStatus = true
+			webServer.Status.Hosts = hosts
+			log.Info("Status.Hosts update scheduled")
+		}
 	}
 
 	// List of pods which belongs under this webServer instance

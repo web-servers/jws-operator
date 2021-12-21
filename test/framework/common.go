@@ -23,6 +23,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/kubectl/pkg/util/podutils"
 	// podv1 "k8s.io/kubernetes/pkg/api/v1/pod"
+	routev1 "github.com/openshift/api/route/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -429,8 +430,19 @@ func webServerRouteTest(clt client.Client, ctx context.Context, t *testing.T, we
 	client := &http.Client{}
 	res, err := client.Do(req)
 	if err != nil {
+		// Probably the  dns information needs more time.
 		t.Logf("GET: (%s) FAILED\n", URL)
-		return nil, err
+		for i := 1; i < 20; i++ {
+			time.Sleep(60 * time.Second)
+			res, err = client.Do(req)
+			if err == nil {
+				break
+			}
+		}
+		if err != nil {
+			t.Logf("GET: (%s) FAILED 10 times\n", URL)
+			return nil, err
+		}
 	}
 	body, err := ioutil.ReadAll(res.Body)
 	res.Body.Close()
@@ -606,4 +618,17 @@ func generateLabelsForWebServer(webServer *webserversv1alpha1.WebServer) map[str
 // Pseudo random string
 func UnixEpoch() string {
 	return strconv.FormatInt(time.Now().UnixNano(), 10)
+}
+
+// Check for openshift looking for routes
+func WebServerHaveRoutes(clt client.Client, ctx context.Context, t *testing.T) bool {
+	routeList := &routev1.RouteList{}
+	listOpts := []client.ListOption{}
+	err := clt.List(ctx, routeList, listOpts...)
+	if err != nil {
+		t.Logf("webServerHaveRoutes error: %s", err)
+		return false
+	}
+	t.Logf("webServerHaveRoutes found %d routes", int32(len(routeList.Items)))
+	return true
 }

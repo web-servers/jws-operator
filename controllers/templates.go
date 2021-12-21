@@ -454,6 +454,33 @@ func (r *WebServerReconciler) generateRoute(webServer *webserversv1alpha1.WebSer
 	return route
 }
 
+// generate loadbalancer on no openshift clusters
+func (r *WebServerReconciler) generateLoadBalancer(webServer *webserversv1alpha1.WebServer) *corev1.Service {
+	objectMeta := r.generateObjectMeta(webServer, webServer.Spec.ApplicationName+"-lb")
+	objectMeta.Annotations = map[string]string{
+		"description": "LoadBalancer for application's http service.",
+	}
+	service := &corev1.Service{
+		ObjectMeta: objectMeta,
+		Spec: corev1.ServiceSpec{
+			Ports: []corev1.ServicePort{{
+				Port:       80,
+				TargetPort: intstr.FromInt(8080),
+			}},
+			// Don't forget to check generateLabelsForWeb before changing this...
+			// there are more Labels but we only use those for the Route.
+			Selector: map[string]string{
+				"deploymentConfig": webServer.Spec.ApplicationName,
+				"WebServer":        webServer.Name,
+			},
+			Type: "LoadBalancer",
+		},
+	}
+
+	controllerutil.SetControllerReference(webServer, service, r.Scheme)
+	return service
+}
+
 func (r *WebServerReconciler) generatePodTemplate(webServer *webserversv1alpha1.WebServer, image string) corev1.PodTemplateSpec {
 	objectMeta := r.generateObjectMeta(webServer, webServer.Spec.ApplicationName)
 	objectMeta.Labels = r.generateLabelsForWeb(webServer)
