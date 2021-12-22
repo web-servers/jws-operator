@@ -107,6 +107,7 @@ func (r *WebServerReconciler) generateServiceForDNS(webServer *webserversv1alpha
 	return service
 }
 
+// Script for the cluster in server.xml
 func (r *WebServerReconciler) generateConfigMapForDNS(webServer *webserversv1alpha1.WebServer) *corev1.ConfigMap {
 
 	cmap := &corev1.ConfigMap{
@@ -118,7 +119,25 @@ func (r *WebServerReconciler) generateConfigMapForDNS(webServer *webserversv1alp
 	return cmap
 }
 
+// Custom build script for the pod builder
+func (r *WebServerReconciler) generateConfigMapForCustomBuildScript(webServer *webserversv1alpha1.WebServer) *corev1.ConfigMap {
+
+	cmap := &corev1.ConfigMap{
+		ObjectMeta: r.generateObjectMeta(webServer, "webserver-bd-"+webServer.Name),
+		Data:       r.generateCommandForBuider(webServer.Spec.WebImage.WebApp.Builder.ApplicationBuildScript),
+	}
+
+	controllerutil.SetControllerReference(webServer, cmap, r.Scheme)
+	return cmap
+}
+
 func (r *WebServerReconciler) generateBuildPod(webServer *webserversv1alpha1.WebServer) *corev1.Pod {
+	command := []string{}
+	args := []string{}
+	if webServer.Spec.WebImage.WebApp.Builder.ApplicationBuildScript != "" {
+		command = []string{"/bin/sh", "-c"}
+		args = []string{"/test/my-files/build.sh"}
+	}
 	name := webServer.Spec.ApplicationName + "-build"
 	objectMeta := r.generateObjectMeta(webServer, name)
 	// Don't use r.generateLabelsForWeb(webServer) here, that is ONLY for applicaion pods.
@@ -140,29 +159,16 @@ func (r *WebServerReconciler) generateBuildPod(webServer *webserversv1alpha1.Web
 		Spec: corev1.PodSpec{
 			TerminationGracePeriodSeconds: &terminationGracePeriodSeconds,
 			RestartPolicy:                 "OnFailure",
-			Volumes: []corev1.Volume{
-				{
-					Name: "app-volume",
-					VolumeSource: corev1.VolumeSource{
-						Secret: &corev1.SecretVolumeSource{SecretName: webServer.Spec.WebImage.WebApp.WebAppWarImagePushSecret},
-					},
-				},
-			},
-			/* Does not help it seems ServiceAccountName: "builder", */
+			Volumes:                       r.generateVolumePodBuilder(webServer),
+			/* from openshift BuildConfig: Use ServiceAccountName: "builder", */
 			ServiceAccountName: serviceAccountName,
 			Containers: []corev1.Container{
 				{
 					Name:  "war",
 					Image: webServer.Spec.WebImage.WebApp.Builder.Image,
-					/* TODO: For the moment let's use the default build.sh file in image
-					Command: []string{
-						"/bin/sh",
-						"-c",
-					},
-					Args: []string{
-						webServer.Spec.WebImage.WebApp.Builder.ApplicationBuildScript,
-					},
-					*/
+					// Default uses the default build.sh file in image
+					Command: command,
+					Args:    args,
 					// Actually the SA doesn't have that permission :( so that won't work with giving permissions.
 					// Doing the following allows it:
 					// oc adm policy add-scc-to-group privileged system:serviceaccounts:tomcat-in-the-cloud
@@ -187,13 +193,7 @@ func (r *WebServerReconciler) generateBuildPod(webServer *webserversv1alpha1.Web
 					*/
 					SecurityContext: securityContext,
 					Env:             r.generateEnvBuild(webServer),
-					VolumeMounts: []corev1.VolumeMount{
-						{
-							Name:      "app-volume",
-							MountPath: "/auth",
-							ReadOnly:  true,
-						},
-					},
+					VolumeMounts:    r.generateVolumeMountPodBuilder(webServer),
 				},
 			},
 		},
@@ -653,6 +653,45 @@ func (r *WebServerReconciler) generateVolumes(webServer *webserversv1alpha1.WebS
 	return vol
 }
 
+// Create the VolumeMount for the pod builder
+func (r *WebServerReconciler) generateVolumeMountPodBuilder(webServer *webserversv1alpha1.WebServer) []corev1.VolumeMount {
+	volm := []corev1.VolumeMount{{
+		Name:      "app-volume",
+		MountPath: "/auth",
+		ReadOnly:  true,
+	}}
+	if webServer.Spec.UseSessionClustering {
+		volm = append(volm, corev1.VolumeMount{
+			Name:      "webserver-bd" + webServer.Name,
+			MountPath: "/build/my-files",
+		})
+	}
+	return volm
+}
+
+// create volums for secret and custom script builder
+func (r *WebServerReconciler) generateVolumePodBuilder(webServer *webserversv1alpha1.WebServer) []corev1.Volume {
+	vol := []corev1.Volume{{
+		Name: "app-volume",
+		VolumeSource: corev1.VolumeSource{
+			Secret: &corev1.SecretVolumeSource{SecretName: webServer.Spec.WebImage.WebApp.WebAppWarImagePushSecret},
+		},
+	}}
+	if webServer.Spec.WebImage.WebApp.Builder.ApplicationBuildScript != "" {
+		vol = append(vol, corev1.Volume{
+			Name: "webserver-bd" + webServer.Name,
+			VolumeSource: corev1.VolumeSource{
+				ConfigMap: &corev1.ConfigMapVolumeSource{
+					LocalObjectReference: corev1.LocalObjectReference{
+						Name: "webserver-bd" + webServer.Name,
+					},
+				},
+			},
+		})
+	}
+	return vol
+}
+
 // create the shell script to modify server.xml
 //
 func (r *WebServerReconciler) generateCommandForServerXml() map[string]string {
@@ -676,5 +715,13 @@ func (r *WebServerReconciler) generateCommandForServerXml() map[string]string {
 			"  sed -i '/cluster.html/a        <Cluster className=\"org.apache.catalina.ha.tcp.SimpleTcpCluster\" channelSendOptions=\"6\">\\n <Channel className=\"org.apache.catalina.tribes.group.GroupChannel\">\\n <Membership className=\"org.apache.catalina.tribes.membership.cloud.CloudMembershipService\" membershipProviderClassName=\"org.apache.catalina.tribes.membership.cloud.DNSMembershipProvider\"/>\\n </Channel>\\n </Cluster>\\n' ${FILE}\n" +
 			"fi\n"
 	}
+	return cmd
+}
+
+// create the shell script to pod builder
+//
+func (r *WebServerReconciler) generateCommandForBuider(script string) map[string]string {
+	cmd := make(map[string]string)
+	cmd["build.sh"] = script
 	return cmd
 }

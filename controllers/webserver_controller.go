@@ -191,6 +191,15 @@ func (r *WebServerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		// Check if a webapp needs to be built
 		if webServer.Spec.WebImage.WebApp != nil && webServer.Spec.WebImage.WebApp.SourceRepositoryURL != "" && webServer.Spec.WebImage.WebApp.Builder != nil && webServer.Spec.WebImage.WebApp.Builder.Image != "" {
 
+			// Create a ConfigMap for custom build script
+			if webServer.Spec.WebImage.WebApp.Builder.ApplicationBuildScript != "" {
+				configMap := r.generateConfigMapForCustomBuildScript(webServer)
+				result, err = r.createConfigMap(webServer, configMap, configMap.Name, configMap.Namespace)
+				if err != nil || result != (ctrl.Result{}) {
+					return result, err
+				}
+			}
+
 			// Check if a build Pod for the webapp already exists, and if not create a new one
 			buildPod := r.generateBuildPod(webServer)
 			log.Info("WebServe createBuildPod: " + buildPod.Name + " in " + buildPod.Namespace + " using: " + buildPod.Spec.Volumes[0].VolumeSource.Secret.SecretName + " and: " + buildPod.Spec.Containers[0].Image)
