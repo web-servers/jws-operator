@@ -388,30 +388,47 @@ func waitUntilReady(clt client.Client, ctx context.Context, t *testing.T, webSer
 func webServerRouteTest(clt client.Client, ctx context.Context, t *testing.T, webServer *webserversv1alpha1.WebServer, URI string, sticky bool, oldCookie *http.Cookie) (sessionCookie *http.Cookie, err error) {
 
 	curwebServer := &webserversv1alpha1.WebServer{}
-	for i := 1; i < 10; i++ {
-		err = clt.Get(ctx, types.NamespacedName{Name: webServer.ObjectMeta.Name, Namespace: webServer.ObjectMeta.Namespace}, curwebServer)
+	err = clt.Get(ctx, types.NamespacedName{Name: webServer.ObjectMeta.Name, Namespace: webServer.ObjectMeta.Namespace}, curwebServer)
+	if err != nil {
+		return nil, errors.New("Can't read webserver!")
+	}
+	URL := ""
+	if os.Getenv("NODENAME") != "" {
+		// here we need to use nodePort
+		balancer := &corev1.Service{}
+		err = clt.Get(ctx, types.NamespacedName{Name: webServer.Spec.ApplicationName + "-lb", Namespace: webServer.ObjectMeta.Namespace}, balancer)
 		if err != nil {
 			t.Logf("WebServer.Status.Hosts error!!!")
-			time.Sleep(10 * time.Second)
-			continue
+			return nil, errors.New("Can't read balancer!")
 		}
-		if len(curwebServer.Status.Hosts) == 0 {
-			t.Logf("WebServer.Status.Hosts is empty. Attempt %d/10\n", i)
-			time.Sleep(10 * time.Second)
-		} else {
-			break
+		port := balancer.Spec.Ports[0].NodePort
+		URL = "http://" + os.Getenv("NODENAME") + ":" + strconv.Itoa(int(port)) + URI
+	} else {
+		for i := 1; i < 10; i++ {
+			err = clt.Get(ctx, types.NamespacedName{Name: webServer.ObjectMeta.Name, Namespace: webServer.ObjectMeta.Namespace}, curwebServer)
+			if err != nil {
+				t.Logf("WebServer.Status.Hosts error!!!")
+				time.Sleep(10 * time.Second)
+				continue
+			}
+			if len(curwebServer.Status.Hosts) == 0 {
+				t.Logf("WebServer.Status.Hosts is empty. Attempt %d/10\n", i)
+				time.Sleep(10 * time.Second)
+			} else {
+				break
+			}
 		}
-	}
-	if err != nil {
-		return nil, err
-	}
+		if err != nil {
+			return nil, err
+		}
 
-	if len(curwebServer.Status.Hosts) == 0 {
-		t.Logf("WebServer.Status.Hosts is empty\n")
-		return nil, errors.New("Route is empty!")
+		if len(curwebServer.Status.Hosts) == 0 {
+			t.Logf("WebServer.Status.Hosts is empty\n")
+			return nil, errors.New("Route is empty!")
+		}
+		t.Logf("Route:  (%s)\n", curwebServer.Status.Hosts)
+		URL = "http://" + curwebServer.Status.Hosts[0] + URI
 	}
-	t.Logf("Route:  (%s)\n", curwebServer.Status.Hosts)
-	URL := "http://" + curwebServer.Status.Hosts[0] + URI
 
 	// Wait a little to avoid 503 codes.
 	time.Sleep(10 * time.Second)
