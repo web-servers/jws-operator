@@ -660,9 +660,9 @@ func (r *WebServerReconciler) generateVolumeMountPodBuilder(webServer *webserver
 		MountPath: "/auth",
 		ReadOnly:  true,
 	}}
-	if webServer.Spec.UseSessionClustering {
+	if webServer.Spec.WebImage != nil && webServer.Spec.WebImage.WebApp != nil && webServer.Spec.WebImage.WebApp.Builder.ApplicationBuildScript != "" {
 		volm = append(volm, corev1.VolumeMount{
-			Name:      "webserver-bd" + webServer.Name,
+			Name:      "webserver-bd-" + webServer.Name,
 			MountPath: "/build/my-files",
 		})
 	}
@@ -679,11 +679,11 @@ func (r *WebServerReconciler) generateVolumePodBuilder(webServer *webserversv1al
 	}}
 	if webServer.Spec.WebImage.WebApp.Builder.ApplicationBuildScript != "" {
 		vol = append(vol, corev1.Volume{
-			Name: "webserver-bd" + webServer.Name,
+			Name: "webserver-bd-" + webServer.Name,
 			VolumeSource: corev1.VolumeSource{
 				ConfigMap: &corev1.ConfigMapVolumeSource{
 					LocalObjectReference: corev1.LocalObjectReference{
-						Name: "webserver-bd" + webServer.Name,
+						Name: "webserver-bd-" + webServer.Name,
 					},
 				},
 			},
