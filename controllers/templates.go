@@ -209,9 +209,6 @@ func (r *WebServerReconciler) generateDeployment(webServer *webserversv1alpha1.W
 	applicationimage := webServer.Spec.WebImage.ApplicationImage
 	objectMeta := r.generateObjectMeta(webServer, webServer.Spec.ApplicationName)
 	objectMeta.Labels = r.generateLabelsForWeb(webServer)
-	objectMeta.Annotations = map[string]string{
-		"ApplicationImage": applicationimage,
-	}
 	// With a builder we use the WebAppWarImage (webServer.Spec.WebImage.WebApp.WebAppWarImage)
 	if webServer.Spec.WebImage.WebApp != nil {
 		applicationimage = webServer.Spec.WebImage.WebApp.WebAppWarImage
