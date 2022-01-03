@@ -191,10 +191,19 @@ func (r *WebServerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		// Check if a webapp needs to be built
 		if webServer.Spec.WebImage.WebApp != nil && webServer.Spec.WebImage.WebApp.SourceRepositoryURL != "" && webServer.Spec.WebImage.WebApp.Builder != nil && webServer.Spec.WebImage.WebApp.Builder.Image != "" {
 
+			// Create a ConfigMap for custom build script
+			if webServer.Spec.WebImage.WebApp.Builder.ApplicationBuildScript != "" {
+				configMap := r.generateConfigMapForCustomBuildScript(webServer)
+				result, err = r.createConfigMap(webServer, configMap, configMap.Name, configMap.Namespace)
+				if err != nil || result != (ctrl.Result{}) {
+					return result, err
+				}
+			}
+
 			// Check if a build Pod for the webapp already exists, and if not create a new one
 			buildPod := r.generateBuildPod(webServer)
 			log.Info("WebServe createBuildPod: " + buildPod.Name + " in " + buildPod.Namespace + " using: " + buildPod.Spec.Volumes[0].VolumeSource.Secret.SecretName + " and: " + buildPod.Spec.Containers[0].Image)
-			result, err = r.createPod(webServer, buildPod, buildPod.Name, buildPod.Namespace)
+			result, err = r.createBuildPod(webServer, buildPod, buildPod.Name, buildPod.Namespace)
 			if err != nil || result != (ctrl.Result{}) {
 				return result, err
 			}
@@ -202,6 +211,18 @@ func (r *WebServerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 			result, err = r.checkBuildPodPhase(buildPod)
 			if err != nil || result != (ctrl.Result{}) {
 				return result, err
+			}
+
+			// Check if we need to delete it and recreate it.
+			currentHash := r.getWebServerHash(webServer)
+			if buildPod.Labels["webserver-hash"] != currentHash {
+				// Just Delete and requeue
+				err = r.Client.Delete(context.TODO(), buildPod)
+				if err != nil && errors.IsNotFound(err) {
+					return ctrl.Result{}, nil
+				}
+				log.Info("Webserver hash changed: Delete BuildPod and requeue reconciliation")
+				return ctrl.Result{RequeueAfter: (500 * time.Millisecond)}, nil
 			}
 
 		}
@@ -213,6 +234,23 @@ func (r *WebServerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		if err != nil || result != (ctrl.Result{}) {
 			log.Info("WebServer can't create deployment")
 			return result, err
+		}
+
+		// Check if we need to delete it and recreate it.
+		currentHash := r.getWebServerHash(webServer)
+		if deployment.Labels["webserver-hash"] == "" {
+			deployment.Labels["webserver-hash"] = currentHash
+		} else {
+			if deployment.Labels["webserver-hash"] != currentHash {
+				// TODO we probably can update the deployement in some more cases...
+				// Just Delete and requeue
+				err = r.Client.Delete(context.TODO(), deployment)
+				if err != nil && errors.IsNotFound(err) {
+					return ctrl.Result{}, nil
+				}
+				log.Info("Webserver hash changed: Delete Deployment and requeue reconciliation")
+				return ctrl.Result{RequeueAfter: (500 * time.Millisecond)}, nil
+			}
 		}
 
 		foundImage := deployment.Spec.Template.Spec.Containers[0].Image
@@ -324,7 +362,7 @@ func (r *WebServerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		if updateDeployment {
 			err = r.Update(ctx, deploymentConfig)
 			if err != nil {
-				log.Info("Failed to update DeploymentConfig.", "DeploymentConfig.Namespace", deploymentConfig.Namespace, "DeploymentConfig.Name", deploymentConfig.Name)
+				log.Info("Failed to update DeploymentConfig." + "DeploymentConfig.Namespace" + deploymentConfig.Namespace + "DeploymentConfig.Name" + deploymentConfig.Name)
 				return ctrl.Result{}, err
 			}
 			// Spec updated - return and requeue
@@ -345,6 +383,30 @@ func (r *WebServerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		for i, ingress := range route.Status.Ingress {
 			hosts[i] = ingress.Host
 		}
+
+		sort.Strings(hosts)
+		if !reflect.DeepEqual(hosts, webServer.Status.Hosts) {
+			updateStatus = true
+			webServer.Status.Hosts = hosts
+			log.Info("Status.Hosts update scheduled")
+		}
+	} else {
+		// on kuberntes we use a loadbalancer service
+		loadbalancer := r.generateLoadBalancer(webServer)
+		result, err = r.createService(webServer, loadbalancer, loadbalancer.Name, loadbalancer.Namespace)
+		if err != nil || result != (ctrl.Result{}) {
+			return result, err
+		}
+		if len(loadbalancer.Status.LoadBalancer.Ingress) == 0 {
+			return ctrl.Result{Requeue: true}, nil
+		}
+
+		hosts := make([]string, len(loadbalancer.Status.LoadBalancer.Ingress))
+		for i, ingress := range loadbalancer.Status.LoadBalancer.Ingress {
+			hosts[i] = ingress.Hostname
+			log.Info("Status.Hosts have: " + hosts[i])
+		}
+		log.Info("Status.Hosts number of Ingress: " + strconv.Itoa(len(loadbalancer.Status.LoadBalancer.Ingress)))
 
 		sort.Strings(hosts)
 		if !reflect.DeepEqual(hosts, webServer.Status.Hosts) {

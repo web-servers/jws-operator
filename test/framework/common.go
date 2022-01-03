@@ -23,6 +23,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/kubectl/pkg/util/podutils"
 	// podv1 "k8s.io/kubernetes/pkg/api/v1/pod"
+	routev1 "github.com/openshift/api/route/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -58,7 +59,14 @@ var namespace string
 // WebServerApplicationImageBasicTest tests the deployment of an application image operator
 func WebServerApplicationImageBasicTest(clt client.Client, ctx context.Context, t *testing.T, namespace string, name string, image string, testURI string) (err error) {
 
+	if strings.HasPrefix(image, "registry.redhat.io") {
+		// We need a pull secret for the image.
+	}
 	webServer := makeApplicationImageWebServer(namespace, name, image, 1)
+	if strings.HasPrefix(image, "registry.redhat.io") {
+		// We need a pull secret for the image.
+		webServer.Spec.WebImage.ImagePullSecret = "jfc"
+	}
 
 	// cleanup
 	defer func() {
@@ -380,30 +388,47 @@ func waitUntilReady(clt client.Client, ctx context.Context, t *testing.T, webSer
 func webServerRouteTest(clt client.Client, ctx context.Context, t *testing.T, webServer *webserversv1alpha1.WebServer, URI string, sticky bool, oldCookie *http.Cookie) (sessionCookie *http.Cookie, err error) {
 
 	curwebServer := &webserversv1alpha1.WebServer{}
-	for i := 1; i < 10; i++ {
-		err = clt.Get(ctx, types.NamespacedName{Name: webServer.ObjectMeta.Name, Namespace: webServer.ObjectMeta.Namespace}, curwebServer)
+	err = clt.Get(ctx, types.NamespacedName{Name: webServer.ObjectMeta.Name, Namespace: webServer.ObjectMeta.Namespace}, curwebServer)
+	if err != nil {
+		return nil, errors.New("Can't read webserver!")
+	}
+	URL := ""
+	if os.Getenv("NODENAME") != "" {
+		// here we need to use nodePort
+		balancer := &corev1.Service{}
+		err = clt.Get(ctx, types.NamespacedName{Name: webServer.Spec.ApplicationName + "-lb", Namespace: webServer.ObjectMeta.Namespace}, balancer)
 		if err != nil {
 			t.Logf("WebServer.Status.Hosts error!!!")
-			time.Sleep(10 * time.Second)
-			continue
+			return nil, errors.New("Can't read balancer!")
 		}
-		if len(curwebServer.Status.Hosts) == 0 {
-			t.Logf("WebServer.Status.Hosts is empty. Attempt %d/10\n", i)
-			time.Sleep(10 * time.Second)
-		} else {
-			break
+		port := balancer.Spec.Ports[0].NodePort
+		URL = "http://" + os.Getenv("NODENAME") + ":" + strconv.Itoa(int(port)) + URI
+	} else {
+		for i := 1; i < 10; i++ {
+			err = clt.Get(ctx, types.NamespacedName{Name: webServer.ObjectMeta.Name, Namespace: webServer.ObjectMeta.Namespace}, curwebServer)
+			if err != nil {
+				t.Logf("WebServer.Status.Hosts error!!!")
+				time.Sleep(10 * time.Second)
+				continue
+			}
+			if len(curwebServer.Status.Hosts) == 0 {
+				t.Logf("WebServer.Status.Hosts is empty. Attempt %d/10\n", i)
+				time.Sleep(10 * time.Second)
+			} else {
+				break
+			}
 		}
-	}
-	if err != nil {
-		return nil, err
-	}
+		if err != nil {
+			return nil, err
+		}
 
-	if len(curwebServer.Status.Hosts) == 0 {
-		t.Logf("WebServer.Status.Hosts is empty\n")
-		return nil, errors.New("Route is empty!")
+		if len(curwebServer.Status.Hosts) == 0 {
+			t.Logf("WebServer.Status.Hosts is empty\n")
+			return nil, errors.New("Route is empty!")
+		}
+		t.Logf("Route:  (%s)\n", curwebServer.Status.Hosts)
+		URL = "http://" + curwebServer.Status.Hosts[0] + URI
 	}
-	t.Logf("Route:  (%s)\n", curwebServer.Status.Hosts)
-	URL := "http://" + curwebServer.Status.Hosts[0] + URI
 
 	// Wait a little to avoid 503 codes.
 	time.Sleep(10 * time.Second)
@@ -422,8 +447,19 @@ func webServerRouteTest(clt client.Client, ctx context.Context, t *testing.T, we
 	client := &http.Client{}
 	res, err := client.Do(req)
 	if err != nil {
+		// Probably the  dns information needs more time.
 		t.Logf("GET: (%s) FAILED\n", URL)
-		return nil, err
+		for i := 1; i < 20; i++ {
+			time.Sleep(60 * time.Second)
+			res, err = client.Do(req)
+			if err == nil {
+				break
+			}
+		}
+		if err != nil {
+			t.Logf("GET: (%s) FAILED 10 times\n", URL)
+			return nil, err
+		}
 	}
 	body, err := ioutil.ReadAll(res.Body)
 	res.Body.Close()
@@ -599,4 +635,17 @@ func generateLabelsForWebServer(webServer *webserversv1alpha1.WebServer) map[str
 // Pseudo random string
 func UnixEpoch() string {
 	return strconv.FormatInt(time.Now().UnixNano(), 10)
+}
+
+// Check for openshift looking for routes
+func WebServerHaveRoutes(clt client.Client, ctx context.Context, t *testing.T) bool {
+	routeList := &routev1.RouteList{}
+	listOpts := []client.ListOption{}
+	err := clt.List(ctx, routeList, listOpts...)
+	if err != nil {
+		t.Logf("webServerHaveRoutes error: %s", err)
+		return false
+	}
+	t.Logf("webServerHaveRoutes found %d routes", int32(len(routeList.Items)))
+	return true
 }

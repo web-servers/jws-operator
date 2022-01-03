@@ -50,6 +50,7 @@ var ctx context.Context
 var cancel context.CancelFunc
 var thetest *testing.T
 var noskip bool
+var nodename string
 
 var (
 	retryInterval = time.Second * 5
@@ -71,7 +72,10 @@ var _ = BeforeSuite(func() {
 	// Expect(os.Setenv("TEST_ASSET_KUBECTL", "/home/jfclere/go/bin/kubectl")).To(Succeed())
 	if os.Getenv("REALCLUSTER") != "" {
 		noskip = true
-		timeout = time.Minute * 20
+		if os.Getenv("NODENAME") != "" {
+			// on very basic kubernetes NODENAME tells the tests to use nodename:nodePort to test
+			nodename = os.Getenv("NODENAME")
+		}
 	} else {
 		noskip = false // Skip test that needs a real cluster
 	}
