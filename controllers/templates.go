@@ -135,8 +135,8 @@ func (r *WebServerReconciler) generateBuildPod(webServer *webserversv1alpha1.Web
 	command := []string{}
 	args := []string{}
 	if webServer.Spec.WebImage.WebApp.Builder.ApplicationBuildScript != "" {
-		command = []string{"/bin/sh", "-c"}
-		args = []string{"/test/my-files/build.sh"}
+		command = []string{"/bin/sh"}
+		args = []string{"/build/my-files/build.sh"}
 	}
 	name := webServer.Spec.ApplicationName + "-build"
 	objectMeta := r.generateObjectMeta(webServer, name)
