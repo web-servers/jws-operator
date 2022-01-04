@@ -614,7 +614,7 @@ func (r *WebServerReconciler) generateEnvVars(webServer *webserversv1alpha1.WebS
 		// Add parameter USE_SESSION_CLUSTERING
 		env = append(env, corev1.EnvVar{
 			Name:  "ENV_FILES",
-			Value: "/test/my-files/test.sh",
+			Value: "/env/my-files/test.sh",
 		})
 	}
 	return env
@@ -626,7 +626,7 @@ func (r *WebServerReconciler) generateVolumeMounts(webServer *webserversv1alpha1
 	if webServer.Spec.UseSessionClustering {
 		volm = append(volm, corev1.VolumeMount{
 			Name:      "webserver-" + webServer.Name,
-			MountPath: "/test/my-files",
+			MountPath: "/env/my-files",
 		})
 	}
 	return volm
