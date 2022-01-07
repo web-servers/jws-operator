@@ -6,6 +6,7 @@ import (
 	"encoding/base64"
 	"fmt"
 	"sort"
+	"strings"
 	"time"
 
 	webserversv1alpha1 "github.com/web-servers/jws-operator/api/v1alpha1"
@@ -181,7 +182,7 @@ func (r *WebServerReconciler) createService(webServer *webserversv1alpha1.WebSer
 
 // Test for the "view" RoleBinding and if not existing try to create it, if that fails we can't use useKUBEPing
 
-func (r *WebServerReconciler) createRoleBinding(webServer *webserversv1alpha1.WebServer, resource *rbac.RoleBinding, resourceName string, resourceNamespace string) (ctrl.Result, error) {
+func (r *WebServerReconciler) createRoleBinding(webServer *webserversv1alpha1.WebServer, resource *rbac.RoleBinding, resourceName string, resourceNamespace string) (bool, ctrl.Result, error) {
 	err := r.Client.Get(context.TODO(), client.ObjectKey{
 		Namespace: resourceNamespace,
 		Name:      resourceName,
@@ -192,17 +193,16 @@ func (r *WebServerReconciler) createRoleBinding(webServer *webserversv1alpha1.We
 		err = r.Client.Create(context.TODO(), resource)
 		if err != nil && !errors.IsAlreadyExists(err) {
 			log.Error(err, "Failed to create a new RoleBinding: "+resourceName+" Namespace: "+resourceNamespace)
-			r.useKUBEPing = false
-			return reconcile.Result{}, err
+			return false, reconcile.Result{}, err
 		}
 		// Resource created successfully - return and requeue
 		// return ctrl.Result{Requeue: true}, err
-		return ctrl.Result{Requeue: true}, nil
+		return true, ctrl.Result{Requeue: true}, nil
 	} else if err != nil {
 		log.Error(err, "Failed to get RoleBinding "+resourceName)
-		return reconcile.Result{}, err
+		return false, reconcile.Result{}, err
 	}
-	return reconcile.Result{}, err
+	return true, reconcile.Result{}, err
 }
 
 func (r *WebServerReconciler) createConfigMap(webServer *webserversv1alpha1.WebServer, resource *corev1.ConfigMap, resourceName string, resourceNamespace string) (ctrl.Result, error) {
@@ -554,4 +554,41 @@ func (r *WebServerReconciler) getWebServerHash(webServer *webserversv1alpha1.Web
 	enc := base64.NewEncoding("qwertyuiopasdfghjklzxcvbnmQWERTYUIOPASDFGHJKLZXCVBNM_.0123456789")
 	enc = enc.WithPadding(base64.NoPadding)
 	return "A" + enc.EncodeToString(h.Sum(nil)) + "A"
+}
+
+// Add an annotation to the webServer for the KUBEPing
+func (r *WebServerReconciler) setUseKUBEPing(webServer *webserversv1alpha1.WebServer, kubeping bool) (bool, error) {
+	skubeping := "false"
+	if kubeping {
+		skubeping = "true"
+	}
+	needUpdate := false
+	annotations := webServer.Annotations
+	if annotations == nil {
+		annotations = make(map[string]string)
+		needUpdate = true
+		annotations["UseKUBEPing"] = skubeping
+	} else {
+		if strings.Compare(skubeping, annotations["UseKUBEPing"]) != 0 {
+			annotations["UseKUBEPing"] = skubeping
+			needUpdate = true
+		}
+	}
+	if needUpdate {
+		err := r.Client.Update(context.TODO(), webServer)
+		return true, err
+	}
+	return false, nil
+}
+func (r *WebServerReconciler) getUseKUBEPing(webServer *webserversv1alpha1.WebServer) bool {
+	annotations := webServer.Annotations
+	if annotations != nil {
+		skubeping := annotations["UseKUBEPing"]
+		if skubeping != "" {
+			if strings.Compare(skubeping, "false") == 0 {
+				return false
+			}
+		}
+	}
+	return true
 }

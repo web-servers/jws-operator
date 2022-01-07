@@ -112,7 +112,7 @@ func (r *WebServerReconciler) generateConfigMapForDNS(webServer *webserversv1alp
 
 	cmap := &corev1.ConfigMap{
 		ObjectMeta: r.generateObjectMeta(webServer, "webserver-"+webServer.Name),
-		Data:       r.generateCommandForServerXml(),
+		Data:       r.generateCommandForServerXml(webServer),
 	}
 
 	controllerutil.SetControllerReference(webServer, cmap, r.Scheme)
@@ -601,7 +601,7 @@ func (r *WebServerReconciler) generateCustomProbe(webServer *webserversv1alpha1.
 // Create the env for the pods we are starting.
 func (r *WebServerReconciler) generateEnvVars(webServer *webserversv1alpha1.WebServer) []corev1.EnvVar {
 	value := "webserver-" + webServer.Name
-	if r.useKUBEPing && webServer.Spec.UseSessionClustering {
+	if r.getUseKUBEPing(webServer) && webServer.Spec.UseSessionClustering {
 		value = webServer.Namespace
 	}
 	env := []corev1.EnvVar{
@@ -691,9 +691,9 @@ func (r *WebServerReconciler) generateVolumePodBuilder(webServer *webserversv1al
 
 // create the shell script to modify server.xml
 //
-func (r *WebServerReconciler) generateCommandForServerXml() map[string]string {
+func (r *WebServerReconciler) generateCommandForServerXml(webServer *webserversv1alpha1.WebServer) map[string]string {
 	cmd := make(map[string]string)
-	if r.useKUBEPing {
+	if r.getUseKUBEPing(webServer) {
 		cmd["test.sh"] = "FILE=`find /opt -name server.xml`\n" +
 			"if [ -z \"${FILE}\" ]; then\n" +
 			"  FILE=`find /deployments -name server.xml`\n" +
