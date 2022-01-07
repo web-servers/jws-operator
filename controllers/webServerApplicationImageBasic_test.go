@@ -18,6 +18,7 @@ var _ = Describe("WebServer controller", func() {
 			randemo := "demo" + webserverstests.UnixEpoch()
 
 			if noskip {
+				Expect(webserverstests.WebServerApplicationImageSourcesScriptBasicTest(k8sClient, ctx, thetest, "default", "sourcesscriptbasictest", "quay.io/jfclere/tomcat10:latest", "https://github.com/jfclere/demo-webapp", "jakartaEE", "quay.io/jfclere/test", "jfc", "quay.io/jfclere/tomcat10-buildah", randemo)).Should(Succeed())
 				Expect(webserverstests.WebServerApplicationImageBasicTest(k8sClient, ctx, thetest, "default", "rhregistrybasictest", "registry.redhat.io/jboss-webserver-5/webserver54-openjdk8-tomcat9-openshift-rhel8", "/health")).Should(Succeed())
 				Expect(webserverstests.WebServerApplicationImageBasicTest(k8sClient, ctx, thetest, "default", "basictest", "quay.io/jfclere/tomcat10:latest", "/health")).Should(Succeed())
 				Expect(webserverstests.WebServerApplicationImageScaleTest(k8sClient, ctx, thetest, "default", "scaletest", "quay.io/jfclere/tomcat10:latest", "/health")).Should(Succeed())

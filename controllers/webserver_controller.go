@@ -198,6 +198,16 @@ func (r *WebServerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 				if err != nil || result != (ctrl.Result{}) {
 					return result, err
 				}
+				// Check the script has changed, if yes delete it and requeue
+				if configMap.Data["build.sh"] != webServer.Spec.WebImage.WebApp.Builder.ApplicationBuildScript {
+					// Just Delete and requeue
+					err = r.Client.Delete(context.TODO(), configMap)
+					if err != nil && errors.IsNotFound(err) {
+						return ctrl.Result{}, nil
+					}
+					log.Info("Webserver hash changed: Delete Builder ConfigMap and requeue reconciliation")
+					return ctrl.Result{RequeueAfter: (500 * time.Millisecond)}, nil
+				}
 			}
 
 			// Check if a build Pod for the webapp already exists, and if not create a new one
@@ -260,12 +270,6 @@ func (r *WebServerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 				log.Info("WebServer application image change detected. Deployment update scheduled")
 				deployment.Spec.Template.Spec.Containers[0].Image = webServer.Spec.WebImage.ApplicationImage
 				updateDeployment = true
-			} else {
-				// Here we need to check the annotation we have set after building.
-				annotations := deployment.Annotations
-				if annotations != nil {
-					log.Info("JFC: " + annotations["ApplicationImage"] + " was stored")
-				}
 			}
 		}
 

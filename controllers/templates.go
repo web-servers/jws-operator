@@ -135,8 +135,8 @@ func (r *WebServerReconciler) generateBuildPod(webServer *webserversv1alpha1.Web
 	command := []string{}
 	args := []string{}
 	if webServer.Spec.WebImage.WebApp.Builder.ApplicationBuildScript != "" {
-		command = []string{"/bin/sh", "-c"}
-		args = []string{"/test/my-files/build.sh"}
+		command = []string{"/bin/sh"}
+		args = []string{"/build/my-files/build.sh"}
 	}
 	name := webServer.Spec.ApplicationName + "-build"
 	objectMeta := r.generateObjectMeta(webServer, name)
@@ -209,9 +209,6 @@ func (r *WebServerReconciler) generateDeployment(webServer *webserversv1alpha1.W
 	applicationimage := webServer.Spec.WebImage.ApplicationImage
 	objectMeta := r.generateObjectMeta(webServer, webServer.Spec.ApplicationName)
 	objectMeta.Labels = r.generateLabelsForWeb(webServer)
-	objectMeta.Annotations = map[string]string{
-		"ApplicationImage": applicationimage,
-	}
 	// With a builder we use the WebAppWarImage (webServer.Spec.WebImage.WebApp.WebAppWarImage)
 	if webServer.Spec.WebImage.WebApp != nil {
 		applicationimage = webServer.Spec.WebImage.WebApp.WebAppWarImage
@@ -617,7 +614,7 @@ func (r *WebServerReconciler) generateEnvVars(webServer *webserversv1alpha1.WebS
 		// Add parameter USE_SESSION_CLUSTERING
 		env = append(env, corev1.EnvVar{
 			Name:  "ENV_FILES",
-			Value: "/test/my-files/test.sh",
+			Value: "/env/my-files/test.sh",
 		})
 	}
 	return env
@@ -629,7 +626,7 @@ func (r *WebServerReconciler) generateVolumeMounts(webServer *webserversv1alpha1
 	if webServer.Spec.UseSessionClustering {
 		volm = append(volm, corev1.VolumeMount{
 			Name:      "webserver-" + webServer.Name,
-			MountPath: "/test/my-files",
+			MountPath: "/env/my-files",
 		})
 	}
 	return volm

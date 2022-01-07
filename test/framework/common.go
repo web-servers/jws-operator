@@ -122,6 +122,91 @@ func WebServerApplicationImageSourcesBasicTest(clt client.Client, ctx context.Co
 	return webServerBasicTest(clt, ctx, t, webServer, "/"+testURI+"/demo")
 }
 
+// WebServerApplicationImageSourcesScriptBasicTest tests the deployment of an application image with sources
+// we use testURI.war instead of ROOT.war and the servlet is /demo there
+func WebServerApplicationImageSourcesScriptBasicTest(clt client.Client, ctx context.Context, t *testing.T, namespace string, name string, image string, sourceRepositoryURL string, sourceRepositoryRef string, pushedimage string, pushsecret string, imagebuilder string, testURI string) (err error) {
+
+	warname := testURI + ".war"
+	webServer := makeApplicationImageSourcesWebServer(namespace, name, image, sourceRepositoryURL, sourceRepositoryRef, pushedimage, pushsecret, warname, imagebuilder, 1)
+	// Add the custom script
+	webServer.Spec.WebImage.WebApp.Builder.ApplicationBuildScript = `#!/bin/sh
+cd tmp
+echo "my html is ugly" > index.html
+mkdir WEB-INF
+echo "<web-app>" > WEB-INF/web.xml
+echo "   <servlet>" >> WEB-INF/web.xml
+echo "        <servlet-name>default</servlet-name>" >> WEB-INF/web.xml
+echo "        <servlet-class>org.apache.catalina.servlets.DefaultServlet</servlet-class>" >> WEB-INF/web.xml
+echo "    </servlet>" >> WEB-INF/web.xml
+echo "   <servlet-mapping>" >> WEB-INF/web.xml
+echo "        <servlet-name>default</servlet-name>" >> WEB-INF/web.xml
+echo "        <url-pattern>/</url-pattern>" >> WEB-INF/web.xml
+echo "    </servlet-mapping>" >> WEB-INF/web.xml
+echo "</web-app>" >> WEB-INF/web.xml
+jar cvf ROOT.war index.html WEB-INF/web.xml
+mkdir /tmp/deployments
+cp ROOT.war /tmp/deployments/${webAppWarFileName}
+HOME=/tmp
+STORAGE_DRIVER=vfs buildah bud -f /Dockerfile.JWS -t ${webAppWarImage} --authfile /auth/.dockerconfigjson --build-arg webAppSourceImage=${webAppSourceImage}
+STORAGE_DRIVER=vfs buildah push --authfile /auth/.dockerconfigjson ${webAppWarImage}
+`
+
+	// cleanup
+	defer func() {
+		clt.Delete(context.Background(), webServer)
+		time.Sleep(time.Second * 5)
+	}()
+
+	err = webServerBasicTest(clt, ctx, t, webServer, "/"+testURI+"/index.html")
+	if err != nil {
+		return err
+	}
+	err = webServerTestFor(clt, ctx, t, webServer, "/"+testURI+"/index.html", "my html is ugly")
+	if err != nil {
+		t.Logf("WebServerApplicationImageSourcesScriptBasicTest application %s webServerTestFor FAILED\n", name)
+		return err
+	}
+
+	// Get the current webserver
+	err = clt.Get(ctx, types.NamespacedName{Name: webServer.ObjectMeta.Name, Namespace: webServer.ObjectMeta.Namespace}, webServer)
+	if err != nil {
+		t.Logf("WebServerApplicationImageSourcesScriptBasicTest application %s get failed: %s\n", name, err)
+		return err
+	}
+
+	// Change the custom script
+	webServer.Spec.WebImage.WebApp.Builder.ApplicationBuildScript = `#!/bin/sh
+cd tmp
+echo "my html is _VERY_ ugly" > index.html
+mkdir WEB-INF
+echo "<web-app>" > WEB-INF/web.xml
+echo "   <servlet>" >> WEB-INF/web.xml
+echo "        <servlet-name>default</servlet-name>" >> WEB-INF/web.xml
+echo "        <servlet-class>org.apache.catalina.servlets.DefaultServlet</servlet-class>" >> WEB-INF/web.xml
+echo "    </servlet>" >> WEB-INF/web.xml
+echo "   <servlet-mapping>" >> WEB-INF/web.xml
+echo "        <servlet-name>default</servlet-name>" >> WEB-INF/web.xml
+echo "        <url-pattern>/</url-pattern>" >> WEB-INF/web.xml
+echo "    </servlet-mapping>" >> WEB-INF/web.xml
+echo "</web-app>" >> WEB-INF/web.xml
+jar cvf ROOT.war index.html WEB-INF/web.xml
+mkdir /tmp/deployments
+cp ROOT.war /tmp/deployments/${webAppWarFileName}
+HOME=/tmp
+STORAGE_DRIVER=vfs buildah bud -f /Dockerfile.JWS -t ${webAppWarImage} --authfile /auth/.dockerconfigjson --build-arg webAppSourceImage=${webAppSourceImage}
+STORAGE_DRIVER=vfs buildah push --authfile /auth/.dockerconfigjson ${webAppWarImage}
+`
+	err = clt.Update(context.Background(), webServer)
+	if err != nil {
+		t.Logf("WebServerApplicationImageSourcesScriptBasicTest application %s update failed: %s\n", name, err)
+		return err
+	}
+	t.Logf("WebServerApplicationImageSourcesScriptBasicTest application %s updated\n", name)
+
+	return webServerTestFor(clt, ctx, t, webServer, "/"+testURI+"/index.html", "my html is _VERY_ ugly")
+
+}
+
 // WebServerApplicationImageSourcesBasicTest tests the scaling of an application image with sources
 // we use testURI.war instead of ROOT.war and the servlet is /demo there
 func WebServerApplicationImageSourcesScaleTest(clt client.Client, ctx context.Context, t *testing.T, namespace string, name string, image string, sourceRepositoryURL string, sourceRepositoryRef string, pushedimage string, pushsecret string, imagebuilder string, testURI string) (err error) {
@@ -404,7 +489,7 @@ func webServerRouteTest(clt client.Client, ctx context.Context, t *testing.T, we
 		port := balancer.Spec.Ports[0].NodePort
 		URL = "http://" + os.Getenv("NODENAME") + ":" + strconv.Itoa(int(port)) + URI
 	} else {
-		for i := 1; i < 10; i++ {
+		for i := 1; i < 20; i++ {
 			err = clt.Get(ctx, types.NamespacedName{Name: webServer.ObjectMeta.Name, Namespace: webServer.ObjectMeta.Namespace}, curwebServer)
 			if err != nil {
 				t.Logf("WebServer.Status.Hosts error!!!")
@@ -412,8 +497,8 @@ func webServerRouteTest(clt client.Client, ctx context.Context, t *testing.T, we
 				continue
 			}
 			if len(curwebServer.Status.Hosts) == 0 {
-				t.Logf("WebServer.Status.Hosts is empty. Attempt %d/10\n", i)
-				time.Sleep(10 * time.Second)
+				t.Logf("WebServer.Status.Hosts is empty. Attempt %d/20\n", i)
+				time.Sleep(20 * time.Second)
 			} else {
 				break
 			}
@@ -449,15 +534,15 @@ func webServerRouteTest(clt client.Client, ctx context.Context, t *testing.T, we
 	if err != nil {
 		// Probably the  dns information needs more time.
 		t.Logf("GET: (%s) FAILED\n", URL)
-		for i := 1; i < 20; i++ {
-			time.Sleep(60 * time.Second)
+		for i := 1; i < 60; i++ {
+			time.Sleep(10 * time.Second)
 			res, err = client.Do(req)
 			if err == nil {
 				break
 			}
 		}
 		if err != nil {
-			t.Logf("GET: (%s) FAILED 10 times\n", URL)
+			t.Logf("GET: (%s) FAILED 60 times\n", URL)
 			return nil, err
 		}
 	}
@@ -648,4 +733,122 @@ func WebServerHaveRoutes(clt client.Client, ctx context.Context, t *testing.T) b
 	}
 	t.Logf("webServerHaveRoutes found %d routes", int32(len(routeList.Items)))
 	return true
+}
+
+// webServerTestFor tests the pod for a content in the URI
+func webServerTestFor(clt client.Client, ctx context.Context, t *testing.T, webServer *webserversv1alpha1.WebServer, URI string, content string) (err error) {
+
+	curwebServer := &webserversv1alpha1.WebServer{}
+	err = clt.Get(ctx, types.NamespacedName{Name: webServer.ObjectMeta.Name, Namespace: webServer.ObjectMeta.Namespace}, curwebServer)
+	if err != nil {
+		return errors.New("Can't read webserver!")
+	}
+	URL := ""
+	if os.Getenv("NODENAME") != "" {
+		// here we need to use nodePort
+		balancer := &corev1.Service{}
+		err = clt.Get(ctx, types.NamespacedName{Name: webServer.Spec.ApplicationName + "-lb", Namespace: webServer.ObjectMeta.Namespace}, balancer)
+		if err != nil {
+			t.Logf("WebServer.Status.Hosts error!!!")
+			return errors.New("Can't read balancer!")
+		}
+		port := balancer.Spec.Ports[0].NodePort
+		URL = "http://" + os.Getenv("NODENAME") + ":" + strconv.Itoa(int(port)) + URI
+	} else {
+		for i := 1; i < 10; i++ {
+			err = clt.Get(ctx, types.NamespacedName{Name: webServer.ObjectMeta.Name, Namespace: webServer.ObjectMeta.Namespace}, curwebServer)
+			if err != nil {
+				t.Logf("WebServer.Status.Hosts error!!!")
+				time.Sleep(10 * time.Second)
+				continue
+			}
+			if len(curwebServer.Status.Hosts) == 0 {
+				t.Logf("WebServer.Status.Hosts is empty. Attempt %d/10\n", i)
+				time.Sleep(10 * time.Second)
+			} else {
+				break
+			}
+		}
+		if err != nil {
+			return err
+		}
+
+		if len(curwebServer.Status.Hosts) == 0 {
+			t.Logf("WebServer.Status.Hosts is empty\n")
+			return errors.New("Route is empty!")
+		}
+		t.Logf("Route:  (%s)\n", curwebServer.Status.Hosts)
+		URL = "http://" + curwebServer.Status.Hosts[0] + URI
+	}
+
+	// Wait a little to avoid 503 codes.
+	time.Sleep(10 * time.Second)
+
+	req, err := http.NewRequest("GET", URL, nil)
+	if err != nil {
+		t.Logf("GET: (%s) FAILED\n", URL)
+		return err
+	}
+	client := &http.Client{}
+	res, err := client.Do(req)
+	if err != nil {
+		// Probably the  dns information needs more time.
+		t.Logf("GET: (%s) FAILED\n", URL)
+		for i := 1; i < 20; i++ {
+			time.Sleep(60 * time.Second)
+			res, err = client.Do(req)
+			if err == nil {
+				break
+			}
+		}
+		if err != nil {
+			t.Logf("GET: (%s) FAILED 10 times\n", URL)
+			return err
+		}
+	}
+	body, err := ioutil.ReadAll(res.Body)
+	res.Body.Close()
+	if err != nil {
+		t.Logf("GET: (%s) FAILED no Body\n", URL)
+		return err
+	}
+	if res.StatusCode != 200 {
+		t.Logf("FAIL status: %d body: %s\n", res.StatusCode, body)
+		return errors.New(URL + " returns: " + strconv.Itoa(res.StatusCode))
+	}
+	t.Logf("GET: (%s) Done\n", URL)
+	t.Logf("GET: body (%s) Done\n", body)
+	if strings.Contains(string(body), content) {
+		t.Logf("GET: body (%s) Done\n", strconv.FormatBool(strings.Contains(string(body), content)))
+		return nil
+	} else {
+		t.Logf("GET: body (%s) wrong content\n", strconv.FormatBool(strings.Contains(string(body), content)))
+		// we retry until the webserver gets updated
+		for i := 1; i < 20; i++ {
+			time.Sleep(60 * time.Second)
+			res, err = client.Do(req)
+			if err != nil {
+				t.Logf("GET: (%s) FAILED: %s try: %d\n", URL, err, i)
+				continue
+				// return errors.New(URL + " does not contain" + content)
+			}
+			body, err := ioutil.ReadAll(res.Body)
+			res.Body.Close()
+			if err != nil {
+				t.Logf("GET: (%s) FAILED no Body\n", URL)
+				return errors.New(URL + " does not contain" + content)
+			}
+			if res.StatusCode != 200 {
+				t.Logf("FAIL status: %d body: %s\n", res.StatusCode, body)
+				return errors.New(URL + " does not contain" + content)
+			}
+			if strings.Contains(string(body), content) {
+				t.Logf("GET: body (%s) Done\n", strconv.FormatBool(strings.Contains(string(body), content)))
+				return nil
+			}
+			t.Logf("GET: body (%s:%s) wrong content try: %d\n", strconv.FormatBool(strings.Contains(string(body), content)), body, i)
+		}
+		t.Logf("GET: (%s) FAILED 10 times\n", URL)
+		return errors.New(URL + " does not contain" + content)
+	}
 }
