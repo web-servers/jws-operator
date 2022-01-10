@@ -46,7 +46,6 @@ var (
 //		Owns(&kbappsv1.Deployment{}). (NOT OK???)
 func (r *WebServerReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	r.isOpenShift = isOpenShift(mgr.GetConfig())
-	r.useKUBEPing = true
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&webserversv1alpha1.WebServer{}).
 		Complete(r)
@@ -64,7 +63,6 @@ type WebServerReconciler struct {
 	client.Client
 	*runtime.Scheme
 	isOpenShift bool
-	useKUBEPing bool
 }
 
 // It seems we shouldn't mess up directly in role.yaml...
@@ -152,7 +150,7 @@ func (r *WebServerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 
 	if webServer.Spec.UseSessionClustering {
 
-		if r.useKUBEPing {
+		if r.getUseKUBEPing(webServer) {
 
 			// Check if a RoleBinding for the KUBEPing exists, and if not create one.
 			rolebinding := r.generateRoleBinding(webServer, "view")
@@ -160,11 +158,21 @@ func (r *WebServerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 			// The example in docs seems to use view (name: view and roleRef ClusterRole/view for our ServiceAccount)
 			// like:
 			// oc policy add-role-to-user view system:serviceaccount:tomcat-in-the-cloud:default -n tomcat-in-the-cloud
-			result, err = r.createRoleBinding(webServer, rolebinding, "view", rolebinding.Namespace)
+			useKUBEPing, result, err := r.createRoleBinding(webServer, rolebinding, "view", rolebinding.Namespace)
+			if !useKUBEPing {
+				// Update the webServer annotation to prevent retrying
+				log.Info("Won't use KUBEPing missing view permissions")
+				update, err := r.setUseKUBEPing(webServer, useKUBEPing)
+				if err != nil {
+					log.Error(err, "Failed to add a new Annotations")
+					return reconcile.Result{}, err
+				} else {
+					return ctrl.Result{Requeue: update}, nil
+				}
+			}
 			if err != nil || result != (ctrl.Result{}) {
 				return result, err
 			}
-
 		} else {
 
 			// Check if a Service for DNSPing already exists, and if not create a new one
