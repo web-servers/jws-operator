@@ -214,7 +214,7 @@ That is the URL of images where the operator will push what he builds.
 
 ### webAppWarImagePushSecret (webapp)
 The secret to use to push images to the repository, the secret must contain the key .dockerconfigjson and will be mounted by
-the operator to be used like --authfile /mount_point/.dockerconfigjson to push the image to repository. 
+the operator to be used like --authfile /mount_point/.dockerconfigjson to push the image to repository. Note that if you need a pull secret for the FROM image the webAppImagePushSecret must contain it too.
 
 ### builder (webapp)
 It describes how the webapp is build and the docker image is made and push to a docker repository.
