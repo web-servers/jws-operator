@@ -225,7 +225,7 @@ That is the image to use to build
 builder: quay.io/jfclere/tomcat10-buildah
 ```
 #### imagePullSecret (webapp.builder)
-That is the secret use to pull the image for the image builder.
+If there is an imagePullSecret, that it should also contain the secret to pull the image of the image builder if needed.
 
 #### applicationBuildScript (webapp.builder)
 That is the script to use to build and push the image, if empty a default script using maven and buildah is used.
