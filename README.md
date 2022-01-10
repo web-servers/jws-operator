@@ -8,7 +8,7 @@ This prototype mimics the features provided by the [JWS Tomcat8 Basic Template](
 
 ## Development Workflow
 
-The prototype has been written in Golang. It uses the [operator-sdk](https://github.com/operator-framework/operator-sdk) as development Framework and project manager. This SDK allows the generation of source code to increase productivity. It is solely used to conveniently write and build an Openshift or Kubernetes operator (the end-user does not need the operator-sdk to deploy a pre-build version of the operator)·
+The operator has been written in Golang. It uses the [operator-sdk](https://github.com/operator-framework/operator-sdk) as development Framework and project manager. This SDK allows the generation of source code to increase productivity. It is solely used to conveniently write and build an Openshift or Kubernetes operator (the end-user does not need the operator-sdk to deploy a pre-build version of the operator)·
 
 The development workflow used in this prototype is standard to all Operator development, check the operator SDK doc for that.
 
