@@ -8,7 +8,7 @@ This prototype mimics the features provided by the [JWS Tomcat8 Basic Template](
 
 ## Development Workflow
 
-The prototype has been written in Golang. It uses the [operator-sdk](https://github.com/operator-framework/operator-sdk) as development Framework and project manager. This SDK allows the generation of source code to increase productivity. It is solely used to conveniently write and build an Openshift or Kubernetes operator (the end-user does not need the operator-sdk to deploy a pre-build version of the operator)·
+The operator has been written in Golang. It uses the [operator-sdk](https://github.com/operator-framework/operator-sdk) as development Framework and project manager. This SDK allows the generation of source code to increase productivity. It is solely used to conveniently write and build an Openshift or Kubernetes operator (the end-user does not need the operator-sdk to deploy a pre-build version of the operator)·
 
 The development workflow used in this prototype is standard to all Operator development, check the operator SDK doc for that.
 
@@ -42,6 +42,10 @@ $ make manifests docker-build docker-push
 ```
 
 Note the Makefile uses _go mod tidy_, _go mod vendor_ then _go build_ to build the executable and podman to build and push the image.
+
+## Deploy from source to a kubernetes Cluster
+
+See https://github.com/web-servers/jws-operator/blob/main/kubernetes.md
 
 ## Deploy from sources to an Openshift Cluster
 
@@ -227,18 +231,14 @@ Note that HealthCheckValve requires tomcat 9.0.38+ or 10.0.0-M8 to work as expec
 
 Below are some features that may be relevant to add in the near future.
 
-**Handling Configuration Changes**
-
-The current Reconciliation loop (Controller logic) is very simple. It creates the necessary resources if they don't exist. Handling configuration changes of our Custom Resource and its Pods must be done to achieve stability.
-
 **Adding Support for Custom Configurations**
 
 The JWS Image Templates provide custom configurations using databases such as MySQL, PostgreSQL, and MongoDB. We could add support for these configurations defining a custom resource for each of these platforms and managing them in the Reconciliation loop.
 
 **Handling Image Updates**
 
-This may be tricky depending on how we decide to handle Tomcat updates. We may need to implement data migration along with backups to ensure the reliability of the process.
+This may be tricky depending on how we decide to handle Tomcat updates. We may need to implement data migration along with backups to ensure the reliability of the process. The operator can support updates in 2 ways: Pushing a new image in the ImageStream (OpenShift only) or updating the CR yaml file
 
 **Adding Full Support for Kubernetes Clusters**
 
-This Operator prototype is currently using some Openshift specific resources such as DeploymentConfigs, Routes, and ImageStreams. In order to build from sources on Kubernetes Clusters, equivalent resources available on Kubernetes have to be implemented.
+The Operator supports some Openshift specific resources such as DeploymentConfigs, Routes, and ImageStreams. Those are not available on Kubernetes cluster. Building from source in Kubernetes requires an additional image builder image, like the BuildConfig the builder needs to use a Docker repository to push what it is building. See https://github.com/web-servers/image-builder-jws for the builder.

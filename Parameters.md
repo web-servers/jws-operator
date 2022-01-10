@@ -34,7 +34,8 @@ applicationImage: docker.io/jfclere/tomcat-demo
 ```
 ### imagePullSecret
 The secret to use to pull images for the repository, the secret must contain the key .dockerconfigjson and will be mounted by
-the operator to be used like --authfile /mount_point/.dockerconfigjson to pull the image to deploy the pods. 
+the operator to be used like --authfile /mount_point/.dockerconfigjson to pull the image to deploy the pods.
+Note that the file might contain several user/password or token to access to the images in the ImageStream, the image builder and the images built by the operator.
 
 ### webApp
 Describes how the operator will build the webapp to add to application image, if not present the application is just deployed.
@@ -214,7 +215,7 @@ That is the URL of images where the operator will push what he builds.
 
 ### webAppWarImagePushSecret (webapp)
 The secret to use to push images to the repository, the secret must contain the key .dockerconfigjson and will be mounted by
-the operator to be used like --authfile /mount_point/.dockerconfigjson to push the image to repository. 
+the operator to be used like --authfile /mount_point/.dockerconfigjson to push the image to repository. Note that if you need a pull secret for the FROM image the webAppImagePushSecret must contain it too.
 
 ### builder (webapp)
 It describes how the webapp is build and the docker image is made and push to a docker repository.
@@ -225,7 +226,7 @@ That is the image to use to build
 builder: quay.io/jfclere/tomcat10-buildah
 ```
 #### imagePullSecret (webapp.builder)
-That is the secret use to pull the image for the image builder.
+If there is an imagePullSecret, that it should also contain the secret to pull the image of the image builder if needed.
 
 #### applicationBuildScript (webapp.builder)
 That is the script to use to build and push the image, if empty a default script using maven and buildah is used.
