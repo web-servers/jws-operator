@@ -34,7 +34,8 @@ applicationImage: docker.io/jfclere/tomcat-demo
 ```
 ### imagePullSecret
 The secret to use to pull images for the repository, the secret must contain the key .dockerconfigjson and will be mounted by
-the operator to be used like --authfile /mount_point/.dockerconfigjson to pull the image to deploy the pods. 
+the operator to be used like --authfile /mount_point/.dockerconfigjson to pull the image to deploy the pods.
+Note that the file might contain several user/password or token to access to the images in the ImageStream, the image builder and the images built by the operator.
 
 ### webApp
 Describes how the operator will build the webapp to add to application image, if not present the application is just deployed.
