@@ -49,7 +49,7 @@ var _ = Describe("WebServer controller", func() {
 					WebImage: &webserversv1alpha1.WebImageSpec{
 						// ApplicationImage: "quay.io/jfclere/tomcat-demo",
 						ApplicationImage: "registry.redhat.io/jboss-webserver-5/webserver54-openjdk8-tomcat9-openshift-rhel8",
-						ImagePullSecret:  "jfc",
+						ImagePullSecret:  "secretfortests",
 					},
 				},
 			}
