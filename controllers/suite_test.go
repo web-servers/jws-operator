@@ -51,6 +51,7 @@ var cancel context.CancelFunc
 var thetest *testing.T
 var noskip bool
 var nodename string
+var username string
 
 var (
 	retryInterval = time.Second * 5
@@ -75,6 +76,12 @@ var _ = BeforeSuite(func() {
 		if os.Getenv("NODENAME") != "" {
 			// on very basic kubernetes NODENAME tells the tests to use nodename:nodePort to test
 			nodename = os.Getenv("NODENAME")
+		}
+		if os.Getenv("USER") != "" {
+			// on very basic kubernetes NODENAME tells the tests to use nodename:nodePort to test
+			username = os.Getenv("USER")
+		} else {
+			username = "nobody"
 		}
 	} else {
 		noskip = false // Skip test that needs a real cluster
