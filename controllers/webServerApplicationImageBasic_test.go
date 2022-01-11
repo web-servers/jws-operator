@@ -18,13 +18,13 @@ var _ = Describe("WebServer controller", func() {
 			randemo := "demo" + webserverstests.UnixEpoch()
 
 			if noskip {
-				Expect(webserverstests.WebServerApplicationImageSourcesScriptBasicTest(k8sClient, ctx, thetest, "default", "sourcesscriptbasictest", "quay.io/jfclere/tomcat10:latest", "https://github.com/jfclere/demo-webapp", "jakartaEE", "quay.io/jfclere/test", "secretfortests", "quay.io/jfclere/tomcat10-buildah", randemo)).Should(Succeed())
+				Expect(webserverstests.WebServerApplicationImageSourcesScriptBasicTest(k8sClient, ctx, thetest, "default", "sourcesscriptbasictest", "quay.io/jfclere/tomcat10:latest", "https://github.com/jfclere/demo-webapp", "jakartaEE", "quay.io/"+username+"/test", "secretfortests", "quay.io/jfclere/tomcat10-buildah", randemo)).Should(Succeed())
 				Expect(webserverstests.WebServerApplicationImageBasicTest(k8sClient, ctx, thetest, "default", "rhregistrybasictest", "registry.redhat.io/jboss-webserver-5/webserver54-openjdk8-tomcat9-openshift-rhel8", "/health")).Should(Succeed())
 				Expect(webserverstests.WebServerApplicationImageBasicTest(k8sClient, ctx, thetest, "default", "basictest", "quay.io/jfclere/tomcat10:latest", "/health")).Should(Succeed())
 				Expect(webserverstests.WebServerApplicationImageScaleTest(k8sClient, ctx, thetest, "default", "scaletest", "quay.io/jfclere/tomcat10:latest", "/health")).Should(Succeed())
 				Expect(webserverstests.WebServerApplicationImageUpdateTest(k8sClient, ctx, thetest, "default", "updatetest", "quay.io/jfclere/tomcat10:latest", "quay.io/pitprok/tomcat10:latest", "/health")).Should(Succeed())
 				Expect(webserverstests.WebServerApplicationImageSourcesBasicTest(k8sClient, ctx, thetest, "default", "sourcesbasictest", "quay.io/jfclere/tomcat10:latest", "https://github.com/jfclere/demo-webapp", "jakartaEE", "quay.io/"+username+"/test", "secretfortests", "quay.io/jfclere/tomcat10-buildah", randemo)).Should(Succeed())
-				Expect(webserverstests.WebServerApplicationImageSourcesScaleTest(k8sClient, ctx, thetest, "default", "sourcesscaletest", "quay.io/jfclere/tomcat10:latest", "https://github.com/jfclere/demo-webapp", "jakartaEE", "quay.io/"+username+"test", "secretfortests", "quay.io/jfclere/tomcat10-buildah", randemo)).Should(Succeed())
+				Expect(webserverstests.WebServerApplicationImageSourcesScaleTest(k8sClient, ctx, thetest, "default", "sourcesscaletest", "quay.io/jfclere/tomcat10:latest", "https://github.com/jfclere/demo-webapp", "jakartaEE", "quay.io/"+username+"/test", "secretfortests", "quay.io/jfclere/tomcat10-buildah", randemo)).Should(Succeed())
 				isopenshift := webserverstests.WebServerHaveRoutes(k8sClient, ctx, thetest)
 				if isopenshift {
 					Expect(webserverstests.WebServerImageStreamBasicTest(k8sClient, ctx, thetest, "default", "imagestreambasictest", "jboss-webserver54-openjdk8-tomcat9-ubi8-openshift", "/health")).Should(Succeed())
