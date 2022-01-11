@@ -162,6 +162,8 @@ func (r *WebServerReconciler) generateBuildPod(webServer *webserversv1alpha1.Web
 			Volumes:                       r.generateVolumePodBuilder(webServer),
 			/* from openshift BuildConfig: Use ServiceAccountName: "builder", */
 			ServiceAccountName: serviceAccountName,
+			/* secret to pull the image */
+			ImagePullSecrets: r.generateimagePullSecrets(webServer),
 			Containers: []corev1.Container{
 				{
 					Name:  "war",
@@ -479,7 +481,7 @@ func (r *WebServerReconciler) generateLoadBalancer(webServer *webserversv1alpha1
 }
 
 // Note that the pod template are common to Deployment (kubernetes) and DeploymentConfig (openshift)
-// be careful: the imagePullSecret uses ImagePullSecret not webAppWarImagePushSecret 
+// be careful: the imagePullSecret uses ImagePullSecret not webAppWarImagePushSecret
 func (r *WebServerReconciler) generatePodTemplate(webServer *webserversv1alpha1.WebServer, image string) corev1.PodTemplateSpec {
 	objectMeta := r.generateObjectMeta(webServer, webServer.Spec.ApplicationName)
 	objectMeta.Labels = r.generateLabelsForWeb(webServer)
