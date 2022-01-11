@@ -227,6 +227,32 @@ If you are using a openjdk:8-jre-alpine based image and /test is your health URL
 
 Note that HealthCheckValve requires tomcat 9.0.38+ or 10.0.0-M8 to work as expected and it was introducted in 9.0.15.
 
+## Testing
+To run a test with a real cluster you need a real cluster (kubernetes or openshift). A secret is needed to run a bunch of tests.
+You can create the secret using something like:
+```
+kubectl create secret generic secretfortests --from-file=.dockerconfigjson=$HOME/.docker/config.json --type=kubernetes.io/dockerconfigjson
+```
+Some tests are pulling from the redhat portal make sure you have access to it (otherwise some tests will fail), some tests need to push to quay.io make sure you have access there.
+The repositories you have to be able to pull from for the tests are:
+```
+registry.redhat.io/jboss-webserver-5/webserver54-openjdk8-tomcat9-openshift-rhel8
+quay.io/jfclere/tomcat10-buildah
+quay.io/jfclere/tomcat10
+```
+The quay.io ones are public
+
+You also need to be able to push to:
+```
+quay.io/${USER}/test
+```
+
+To run the test to:
+```
+make realtest
+```
+The whole testsuite takes about 40 minutes...
+
 ## What to do next?
 
 Below are some features that may be relevant to add in the near future.
