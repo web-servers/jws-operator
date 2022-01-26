@@ -42,6 +42,7 @@ $ make manifests docker-build docker-push
 ```
 
 Note the Makefile uses _go mod tidy_, _go mod vendor_ then _go build_ to build the executable and podman to build and push the image.
+Note the buid is done using a docker image: Check the Dockerfile, note the FROM golang:1.17 as builder so don't forget to adjust it with changing the go version in go.mod. 
 
 ## Deploy from source to a kubernetes Cluster
 
