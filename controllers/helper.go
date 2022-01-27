@@ -20,6 +20,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	rbac "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/rest"
@@ -404,14 +405,17 @@ func (r *WebServerReconciler) getPodList(webServer *webserversv1alpha1.WebServer
 }
 
 // generateLabelsForWeb return a map of labels that are used for identification
-//  of objects belonging to the particular WebServer instance
+// of objects belonging to the particular WebServer instance
+// NOTE: that is ONLY for application pods! (not for the builder or any helpers
 func (r *WebServerReconciler) generateLabelsForWeb(webServer *webserversv1alpha1.WebServer) map[string]string {
 	labels := map[string]string{
 		"deploymentConfig": webServer.Spec.ApplicationName,
 		"WebServer":        webServer.Name,
 		"application":      webServer.Spec.ApplicationName,
+		// app.kubernetes.io/name is used for HPA selector like in wildfly
+		"app.kubernetes.io/name": webServer.Name,
 	}
-	// labels["app.kubernetes.io/name"] = webServer.Name
+	// Those are from the wildfly operator (in their Dockerfile)
 	// labels["app.kubernetes.io/managed-by"] = os.Getenv("LABEL_APP_MANAGED_BY")
 	// labels["app.openshift.io/runtime"] = os.Getenv("LABEL_APP_RUNTIME")
 	if webServer.Labels != nil {
@@ -575,7 +579,11 @@ func (r *WebServerReconciler) setUseKUBEPing(webServer *webserversv1alpha1.WebSe
 		}
 	}
 	if needUpdate {
+		log.Info("The UseKUBEPing of WebServer is being updated")
 		err := r.Client.Update(context.TODO(), webServer)
+		if err != nil {
+			log.Error(err, "Failed to update WebServer UseKUBEPing")
+		}
 		return true, err
 	}
 	return false, nil
@@ -591,4 +599,29 @@ func (r *WebServerReconciler) getUseKUBEPing(webServer *webserversv1alpha1.WebSe
 		}
 	}
 	return true
+}
+
+// CustomResourceDefinitionExists returns true if the CRD exists in the cluster
+func CustomResourceDefinitionExists(gvk schema.GroupVersionKind, c *rest.Config) bool {
+	/*
+		cfg, err := config.GetConfig()
+		if err != nil {
+			return false
+		}
+		client, err := discovery.NewDiscoveryClientForConfig(cfg)
+	*/
+	client, err := discovery.NewDiscoveryClientForConfig(c)
+	if err != nil {
+		return false
+	}
+	api, err := client.ServerResourcesForGroupVersion(gvk.GroupVersion().String())
+	if err != nil {
+		return false
+	}
+	for _, a := range api.APIResources {
+		if a.Kind == gvk.Kind {
+			return true
+		}
+	}
+	return false
 }

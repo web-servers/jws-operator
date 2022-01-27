@@ -397,6 +397,7 @@ func (r *WebServerReconciler) generateBuildTriggerPolicy(webServer *webserversv1
 	return buildTriggerPolicies
 }
 
+// DeploymentConfig is the OpenShift "extension" of Deployment
 func (r *WebServerReconciler) generateDeploymentConfig(webServer *webserversv1alpha1.WebServer, imageStreamName string, imageStreamNamespace string) *appsv1.DeploymentConfig {
 
 	replicas := int32(1)
@@ -492,7 +493,7 @@ func (r *WebServerReconciler) generatePodTemplate(webServer *webserversv1alpha1.
 		health = webServer.Spec.WebImageStream.WebServerHealthCheck
 	}
 	terminationGracePeriodSeconds := int64(60)
-	return corev1.PodTemplateSpec{
+	template := corev1.PodTemplateSpec{
 		ObjectMeta: objectMeta,
 		Spec: corev1.PodSpec{
 			TerminationGracePeriodSeconds: &terminationGracePeriodSeconds,
@@ -519,6 +520,11 @@ func (r *WebServerReconciler) generatePodTemplate(webServer *webserversv1alpha1.
 			ImagePullSecrets: r.generateimagePullSecrets(webServer),
 		},
 	}
+	// if the user specified the resources directive propagate it to the container (required for HPA).
+	if webServer.Spec.Resources != nil {
+		template.Spec.Containers[0].Resources = *webServer.Spec.Resources
+	}
+	return template
 }
 
 // generateimagePullSecrets
@@ -547,7 +553,7 @@ func (r *WebServerReconciler) generateLivenessProbe(webServer *webserversv1alpha
 	} else {
 		/* Use the default one */
 		return &corev1.Probe{
-			Handler: corev1.Handler{
+			ProbeHandler: corev1.ProbeHandler{
 				HTTPGet: &corev1.HTTPGetAction{
 					Path: "/health",
 					Port: intstr.FromInt(8080),
@@ -573,7 +579,7 @@ func (r *WebServerReconciler) generateReadinessProbe(webServer *webserversv1alph
 	} else {
 		/* Use the default one */
 		return &corev1.Probe{
-			Handler: corev1.Handler{
+			ProbeHandler: corev1.ProbeHandler{
 				HTTPGet: &corev1.HTTPGetAction{
 					Path: "/health",
 					Port: intstr.FromInt(8080),
@@ -594,7 +600,7 @@ func (r *WebServerReconciler) generateCustomProbe(webServer *webserversv1alpha1.
 		probeScriptSlice = strings.Split(probeScript, " ")
 	}
 	return &corev1.Probe{
-		Handler: corev1.Handler{
+		ProbeHandler: corev1.ProbeHandler{
 			Exec: &corev1.ExecAction{
 				Command: probeScriptSlice,
 			},
