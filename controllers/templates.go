@@ -503,6 +503,7 @@ func (r *WebServerReconciler) generatePodTemplate(webServer *webserversv1alpha1.
 				ImagePullPolicy: "Always",
 				ReadinessProbe:  r.generateReadinessProbe(webServer, health),
 				LivenessProbe:   r.generateLivenessProbe(webServer, health),
+				Resources:       generateResources(webServer.Spec.Resources),
 				Ports: []corev1.ContainerPort{{
 					Name:          "jolokia",
 					ContainerPort: 8778,
@@ -731,4 +732,24 @@ func (r *WebServerReconciler) generateCommandForBuider(script string) map[string
 	cmd := make(map[string]string)
 	cmd["build.sh"] = script
 	return cmd
+}
+
+// generateResources supplements a default ResourceRequirements and returns it.
+func generateResources(r *corev1.ResourceRequirements) corev1.ResourceRequirements {
+	rTemplate := corev1.ResourceRequirements{
+		Limits:   nil,
+		Requests: nil,
+	}
+
+	if r != nil {
+		if r.Limits != nil && len(r.Limits) > 0 {
+			rTemplate.Limits = r.Limits
+		}
+
+		if r.Requests != nil && len(r.Requests) > 0 {
+			rTemplate.Requests = r.Requests
+		}
+	}
+
+	return rTemplate
 }
