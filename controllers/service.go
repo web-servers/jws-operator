@@ -7,6 +7,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
 // GetOrCreateNewPrometheusService either returns the headless service or create
@@ -17,7 +18,7 @@ func (r *WebServerReconciler) GetOrCreateNewPrometheusService(w *webserversv1alp
 		Name:      PrometeusServiceName(w),
 	}, service); err != nil {
 		if errors.IsNotFound(err) {
-			if err := r.Client.Create(ctx, generatePrometeusService(w, labels)); err != nil {
+			if err := r.Client.Create(ctx, r.generatePrometeusService(w, labels)); err != nil {
 				if errors.IsAlreadyExists(err) {
 					return nil, nil
 				}
@@ -31,7 +32,7 @@ func (r *WebServerReconciler) GetOrCreateNewPrometheusService(w *webserversv1alp
 
 // generatePrometeusService returns a service exposing the prometheus port of WebServer
 // Like the newAdminService of wildfly operator
-func generatePrometeusService(w *webserversv1alpha1.WebServer, labels map[string]string) *corev1.Service {
+func (r *WebServerReconciler) generatePrometeusService(w *webserversv1alpha1.WebServer, labels map[string]string) *corev1.Service {
 	headlessService := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      PrometeusServiceName(w),
@@ -50,6 +51,7 @@ func generatePrometeusService(w *webserversv1alpha1.WebServer, labels map[string
 			},
 		},
 	}
+	controllerutil.SetControllerReference(w, headlessService, r.Scheme)
 	return headlessService
 }
 

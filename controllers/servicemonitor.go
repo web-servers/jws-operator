@@ -9,6 +9,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
 // GetOrCreateNewServiceMonitor either returns the headless service or create it
@@ -19,7 +20,7 @@ func (r *WebServerReconciler) GetOrCreateNewServiceMonitor(w *webserversv1alpha1
 		Name:      w.Name,
 	}, serviceMonitor); err != nil {
 		if errors.IsNotFound(err) {
-			if err := r.Client.Create(ctx, newServiceMonitor(w, labels)); err != nil {
+			if err := r.Client.Create(ctx, r.generateServiceMonitor(w, labels)); err != nil {
 				if errors.IsAlreadyExists(err) {
 					return nil, nil
 				}
@@ -31,8 +32,8 @@ func (r *WebServerReconciler) GetOrCreateNewServiceMonitor(w *webserversv1alpha1
 	return serviceMonitor, nil
 }
 
-func newServiceMonitor(w *webserversv1alpha1.WebServer, labels map[string]string) *monitoringv1.ServiceMonitor {
-	return &monitoringv1.ServiceMonitor{
+func (r *WebServerReconciler) generateServiceMonitor(w *webserversv1alpha1.WebServer, labels map[string]string) *monitoringv1.ServiceMonitor {
+	service := &monitoringv1.ServiceMonitor{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      w.Name,
 			Namespace: w.Namespace,
@@ -47,6 +48,8 @@ func newServiceMonitor(w *webserversv1alpha1.WebServer, labels map[string]string
 			},
 		},
 	}
+	controllerutil.SetControllerReference(w, service, r.Scheme)
+	return service
 }
 
 // hasServiceMonitor checks if ServiceMonitor kind is registered in the cluster.
