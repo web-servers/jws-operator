@@ -512,6 +512,10 @@ func (r *WebServerReconciler) generatePodTemplate(webServer *webserversv1alpha1.
 					Name:          "http",
 					ContainerPort: 8080,
 					Protocol:      corev1.ProtocolTCP,
+				}, {
+					Name:          "admin",
+					ContainerPort: 9404,
+					Protocol:      corev1.ProtocolTCP,
 				}},
 				Env:          r.generateEnvVars(webServer),
 				VolumeMounts: r.generateVolumeMounts(webServer),

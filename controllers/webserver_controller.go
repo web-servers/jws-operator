@@ -146,6 +146,12 @@ func (r *WebServerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 			log.Info("Webserver: Create Prometheus ServiceMonitor and requeue reconciliation")
 			return reconcile.Result{Requeue: true}, nil
 		}
+		if servicePrometeus, err := r.GetOrCreateNewPrometheusService(webServer, ctx, r.generateLabelsForWeb(webServer)); err != nil {
+			return reconcile.Result{}, err
+		} else if servicePrometeus == nil {
+			log.Info("Webserver: Create Prometheus Service and requeue reconciliation")
+			return reconcile.Result{Requeue: true}, nil
+		}
 	}
 
 	if webServer.Spec.WebImageStream != nil && webServer.Spec.WebImage != nil {
