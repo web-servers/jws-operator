@@ -41,8 +41,9 @@ $ podman login docker.io
 $ make manifests docker-build docker-push
 ```
 
-Note the Makefile uses _go mod tidy_, _go mod vendor_ then _go build_ to build the executable and podman to build and push the image.
-Note the buid is done using a docker image: Check the Dockerfile, note the FROM golang:1.17 as builder so don't forget to adjust it with changing the go version in go.mod. 
+**Note** the Makefile uses _go mod tidy_, _go mod vendor_ then _go build_ to build the executable and podman to build and push the image.  
+**Note** the build is done using a docker image: Check the Dockerfile, note the FROM golang:1.17 as builder so don't forget to adjust it with changing the go version in go.mod.  
+**Note** To generate the `vendor` directory which is needed to build the operator internally in RH build system, check out the repository and run `go mod vendor` (add -v for verbose output) and wait for the directory to get updated.
 
 ## Deploy from source to a kubernetes Cluster
 
