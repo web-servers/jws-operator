@@ -35,9 +35,9 @@ You will need to push it to a Docker Registry accessible by your Openshift Serve
 $ mkdir -p $GOPATH/src/github.com/web-servers
 $ cd $GOPATH/src/github.com/web-servers
 $ git clone https://github.com/web-servers/jws-operator.git
-$ export IMG=docker.io/${USER}/jws-operator
+$ export IMG=quay.io/${USER}/jws-operator
 $ cd jws-operator
-$ podman login docker.io
+$ podman login quay.io
 $ make manifests docker-build docker-push
 ```
 
