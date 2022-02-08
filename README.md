@@ -49,6 +49,21 @@ $ make manifests docker-build docker-push
 
 See https://github.com/web-servers/jws-operator/blob/main/kubernetes.md
 
+## Deploy using OLM
+
+Make sure you have OLM installed, otherwise install it.
+To build the bundle and deploy the operator do something like the following:
+```bash
+make bundle
+podman login quay.io
+make bundle-build bundle-push BUNDLE_IMG=quay.io/${USER}/jws-operator-bundle:0.0.0
+operator-sdk run bundle quay.io/${USER}/jws-operator-bundle:0.0.0
+```
+To remove
+```bash
+operator-sdk cleanup jws-operator
+```
+
 ## Deploy from sources to an Openshift Cluster
 
 The operator is pre-built and containerized in a docker image. By default, the deployment has been configured to utilize that image. Therefore, deploying the operator can be done by following these simple steps:
