@@ -51,7 +51,7 @@ See https://github.com/web-servers/jws-operator/blob/main/kubernetes.md
 
 ## Deploy using OLM
 
-Make sure you have OLM installed, otherwise install it.
+Make sure you have OLM installed, otherwise install it. See https://olm.operatorframework.io/docs/getting-started/
 To build the bundle and deploy the operator do something like the following:
 ```bash
 make bundle
