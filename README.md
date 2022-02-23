@@ -63,6 +63,7 @@ To remove
 ```bash
 operator-sdk cleanup jws-operator
 ```
+**Note** Check the installModes: in bundle/manifests/jws-operator.clusterserviceversion.yaml (all AllNamespaces is openshift-operators)
 
 ## Deploy from sources to an Openshift Cluster
 
