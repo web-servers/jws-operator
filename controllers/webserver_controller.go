@@ -2,6 +2,7 @@ package controllers
 
 import (
 	"context"
+	"fmt"
 	"reflect"
 	"sort"
 	"strconv"
@@ -46,6 +47,7 @@ var (
 //		Owns(&kbappsv1.Deployment{}). (NOT OK???)
 func (r *WebServerReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	r.isOpenShift = isOpenShift(mgr.GetConfig())
+	r.hasServiceMonitor = hasServiceMonitor(mgr.GetConfig())
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&webserversv1alpha1.WebServer{}).
 		Complete(r)
@@ -62,7 +64,8 @@ type WebServerReconciler struct {
 	// scheme      *runtime.Scheme
 	client.Client
 	*runtime.Scheme
-	isOpenShift bool
+	isOpenShift       bool
+	hasServiceMonitor bool
 }
 
 // It seems we shouldn't mess up directly in role.yaml...
@@ -97,6 +100,8 @@ type WebServerReconciler struct {
 
 // +kubebuilder:rbac:groups="rbac.authorization.k8s.io",resources=rolebindings,verbs=create;grant;get;list;watch
 
+// +kubebuilder:rbac:groups=monitoring.coreos.com,resources=servicemonitors,verbs=create;delete;get;list;watch
+
 // Reconcile reads that state of the cluster for a WebServer object and makes changes based on the state read
 // and what is in the WebServer.Spec
 // TODO(user): Modify this Reconcile function to implement your Controller logic.  This example creates
@@ -129,6 +134,25 @@ func (r *WebServerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 	}
 
 	webServer = r.setDefaultValues(webServer)
+
+	// Set the selector label, this should be done for the pods as well to allow targeting the CR with HPA
+	webServer.Status.Selector = fmt.Sprintf("app.kubernetes.io/name=%s", webServer.Name)
+
+	// create a Prometheus ServiceMonitor (if the resource exists on the cluster)
+	if r.hasServiceMonitor {
+		if serviceMonitor, err := r.GetOrCreateNewServiceMonitor(webServer, ctx, r.generateLabelsForWeb(webServer)); err != nil {
+			return reconcile.Result{}, err
+		} else if serviceMonitor == nil {
+			log.Info("Webserver: Create Prometheus ServiceMonitor and requeue reconciliation")
+			return reconcile.Result{Requeue: true}, nil
+		}
+		if servicePrometeus, err := r.GetOrCreateNewPrometheusService(webServer, ctx, r.generateLabelsForWeb(webServer)); err != nil {
+			return reconcile.Result{}, err
+		} else if servicePrometeus == nil {
+			log.Info("Webserver: Create Prometheus Service and requeue reconciliation")
+			return reconcile.Result{Requeue: true}, nil
+		}
+	}
 
 	if webServer.Spec.WebImageStream != nil && webServer.Spec.WebImage != nil {
 		log.Error(err, "Both the WebImageStream and WebImage fields are being used. Only one can be used.")

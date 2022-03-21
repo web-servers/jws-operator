@@ -2,59 +2,51 @@ package controllers
 
 import (
 	"context"
+	// "errors"
 	"fmt"
+	// "testing"
 	"time"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
+	// corev1 "k8s.io/api/core/v1"
+	// appsv1 "github.com/openshift/api/apps/v1"
+	kbappsv1 "k8s.io/api/apps/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	// "k8s.io/kubectl/pkg/util/podutils"
+	// podv1 "k8s.io/kubernetes/pkg/api/v1/pod"
+	// apierrors "k8s.io/apimachinery/pkg/api/errors"
+	// "sigs.k8s.io/controller-runtime/pkg/client"
 
 	webserversv1alpha1 "github.com/web-servers/jws-operator/api/v1alpha1"
-	webserverstests "github.com/web-servers/jws-operator/test/framework"
+	// webserverstests "github.com/web-servers/jws-operator/test/framework"
 )
 
 var _ = Describe("WebServer controller", func() {
-	/* AfterEach(func() {
-		ctx := context.Background()
-		webserver := &webserversv1alpha1.WebServer{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "test-webserver",
-				Namespace: "default",
-			},
-		}
-		Expect(k8sClient.Delete(ctx, webserver)).Should(Succeed())
-
-	}) */
 	Context("First Test", func() {
-		It("Other Basic test", func() {
+		It("Label test", func() {
 			By("By creating a new WebServer")
 			fmt.Printf("By creating a new WebServer\n")
-			if !noskip {
-				fmt.Printf("other_basic_test skipped\n")
-				return
-			}
-			ctx := context.Background()
-			name := "other-basic-test"
+			name := "label-test"
 			namespace := "default"
+			ctx := context.Background()
 			webserver := &webserversv1alpha1.WebServer{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      name,
 					Namespace: namespace,
 				},
 				Spec: webserversv1alpha1.WebServerSpec{
-					ApplicationName: "test-tomcat-demo",
+					ApplicationName: name,
 					Replicas:        int32(2),
 					WebImage: &webserversv1alpha1.WebImageSpec{
-						// ApplicationImage: "quay.io/jfclere/tomcat-demo",
-						ApplicationImage: "registry.redhat.io/jboss-webserver-5/webserver54-openjdk8-tomcat9-openshift-rhel8",
-						ImagePullSecret:  "secretfortests",
+						ApplicationImage: "quay.io/jfclere/tomcat-demo",
 					},
 				},
 			}
 
-			// make sure we cleanup
+			// make sure we cleanup at the end of this test.
 			defer func() {
 				k8sClient.Delete(context.Background(), webserver)
 				time.Sleep(time.Second * 5)
@@ -72,17 +64,28 @@ var _ = Describe("WebServer controller", func() {
 					return false
 				}
 				return true
-			}, time.Second*20, time.Millisecond*250).Should(BeTrue())
+			}, time.Second*10, time.Millisecond*250).Should(BeTrue())
 			fmt.Printf("new WebServer Name: %s Namespace: %s\n", createdWebserver.ObjectMeta.Name, createdWebserver.ObjectMeta.Namespace)
 
-			// are the corresponding pods ready?
+			// Verify deployment template selector label.
+			deployment := &kbappsv1.Deployment{}
+			// deployment := &appsv1.DeploymentConfig{}
+			deploymentookupKey := types.NamespacedName{Name: name, Namespace: namespace}
 			Eventually(func() bool {
-				err := webserverstests.WaitUntilReady(k8sClient, ctx, thetest, createdWebserver)
+				err := k8sClient.Get(ctx, deploymentookupKey, deployment)
 				if err != nil {
 					return false
 				}
 				return true
-			}, timeout, retryInterval).Should(BeTrue())
+			}, time.Second*10, time.Millisecond*250).Should(BeTrue())
+
+			// check the labels
+			stringmap := deployment.Spec.Template.GetLabels()
+			fmt.Println(stringmap)
+			Expect(deployment.Spec.Template.GetLabels()["app.kubernetes.io/name"]).Should(Equal(name))
+
+			// remove the created webserver
+			Expect(k8sClient.Delete(ctx, webserver)).Should(Succeed())
 
 		})
 	})

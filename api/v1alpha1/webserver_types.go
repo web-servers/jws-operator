@@ -1,6 +1,7 @@
 package v1alpha1
 
 import (
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -25,6 +26,8 @@ type WebServerSpec struct {
 	WebImage *WebImageSpec `json:"webImage,omitempty"`
 	// (Deployment method 2) Imagestream
 	WebImageStream *WebImageStreamSpec `json:"webImageStream,omitempty"`
+	// Configuration of the resources used by the WebServer, ie CPU and memory, use limits and requests
+	Resources *corev1.ResourceRequirements `json:"resources,omitempty"`
 }
 
 // (Deployment method 1) Application image
@@ -122,6 +125,8 @@ type WebServerStatus struct {
 	//
 	// Read-only.
 	ScalingdownPods int32 `json:"scalingdownPods"`
+	// selector for pods, used by HorizontalPodAutoscaler
+	Selector string `json:"selector"`
 }
 
 const (
@@ -147,6 +152,7 @@ type PodStatus struct {
 // Web Server is the schema for the webservers API
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
+// +kubebuilder:subresource:scale:specpath=.spec.replicas,statuspath=.status.replicas,selectorpath=.status.selector
 // +kubebuilder:resource:path=webservers,scope=Namespaced
 type WebServer struct {
 	metav1.TypeMeta   `json:",inline"`

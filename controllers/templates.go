@@ -397,6 +397,7 @@ func (r *WebServerReconciler) generateBuildTriggerPolicy(webServer *webserversv1
 	return buildTriggerPolicies
 }
 
+// DeploymentConfig is the OpenShift "extension" of Deployment
 func (r *WebServerReconciler) generateDeploymentConfig(webServer *webserversv1alpha1.WebServer, imageStreamName string, imageStreamNamespace string) *appsv1.DeploymentConfig {
 
 	replicas := int32(1)
@@ -492,7 +493,7 @@ func (r *WebServerReconciler) generatePodTemplate(webServer *webserversv1alpha1.
 		health = webServer.Spec.WebImageStream.WebServerHealthCheck
 	}
 	terminationGracePeriodSeconds := int64(60)
-	return corev1.PodTemplateSpec{
+	template := corev1.PodTemplateSpec{
 		ObjectMeta: objectMeta,
 		Spec: corev1.PodSpec{
 			TerminationGracePeriodSeconds: &terminationGracePeriodSeconds,
@@ -502,6 +503,7 @@ func (r *WebServerReconciler) generatePodTemplate(webServer *webserversv1alpha1.
 				ImagePullPolicy: "Always",
 				ReadinessProbe:  r.generateReadinessProbe(webServer, health),
 				LivenessProbe:   r.generateLivenessProbe(webServer, health),
+				Resources:       generateResources(webServer.Spec.Resources),
 				Ports: []corev1.ContainerPort{{
 					Name:          "jolokia",
 					ContainerPort: 8778,
@@ -509,6 +511,10 @@ func (r *WebServerReconciler) generatePodTemplate(webServer *webserversv1alpha1.
 				}, {
 					Name:          "http",
 					ContainerPort: 8080,
+					Protocol:      corev1.ProtocolTCP,
+				}, {
+					Name:          "admin",
+					ContainerPort: 9404,
 					Protocol:      corev1.ProtocolTCP,
 				}},
 				Env:          r.generateEnvVars(webServer),
@@ -519,6 +525,11 @@ func (r *WebServerReconciler) generatePodTemplate(webServer *webserversv1alpha1.
 			ImagePullSecrets: r.generateimagePullSecrets(webServer),
 		},
 	}
+	// if the user specified the resources directive propagate it to the container (required for HPA).
+	if webServer.Spec.Resources != nil {
+		template.Spec.Containers[0].Resources = *webServer.Spec.Resources
+	}
+	return template
 }
 
 // generateimagePullSecrets
@@ -547,7 +558,7 @@ func (r *WebServerReconciler) generateLivenessProbe(webServer *webserversv1alpha
 	} else {
 		/* Use the default one */
 		return &corev1.Probe{
-			Handler: corev1.Handler{
+			ProbeHandler: corev1.ProbeHandler{
 				HTTPGet: &corev1.HTTPGetAction{
 					Path: "/health",
 					Port: intstr.FromInt(8080),
@@ -573,7 +584,7 @@ func (r *WebServerReconciler) generateReadinessProbe(webServer *webserversv1alph
 	} else {
 		/* Use the default one */
 		return &corev1.Probe{
-			Handler: corev1.Handler{
+			ProbeHandler: corev1.ProbeHandler{
 				HTTPGet: &corev1.HTTPGetAction{
 					Path: "/health",
 					Port: intstr.FromInt(8080),
@@ -594,7 +605,7 @@ func (r *WebServerReconciler) generateCustomProbe(webServer *webserversv1alpha1.
 		probeScriptSlice = strings.Split(probeScript, " ")
 	}
 	return &corev1.Probe{
-		Handler: corev1.Handler{
+		ProbeHandler: corev1.ProbeHandler{
 			Exec: &corev1.ExecAction{
 				Command: probeScriptSlice,
 			},
@@ -725,4 +736,24 @@ func (r *WebServerReconciler) generateCommandForBuider(script string) map[string
 	cmd := make(map[string]string)
 	cmd["build.sh"] = script
 	return cmd
+}
+
+// generateResources supplements a default ResourceRequirements and returns it.
+func generateResources(r *corev1.ResourceRequirements) corev1.ResourceRequirements {
+	rTemplate := corev1.ResourceRequirements{
+		Limits:   nil,
+		Requests: nil,
+	}
+
+	if r != nil {
+		if r.Limits != nil && len(r.Limits) > 0 {
+			rTemplate.Limits = r.Limits
+		}
+
+		if r.Requests != nil && len(r.Requests) > 0 {
+			rTemplate.Requests = r.Requests
+		}
+	}
+
+	return rTemplate
 }
