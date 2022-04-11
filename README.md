@@ -69,6 +69,17 @@ The operator is pre-built and containerized in a docker image. By default, the d
 make deploy IMG=quay.io/${USER}/jws-operator
 ```
 
+To check for the operator installation you can check the operator pods
+```bash
+kubectl get pods -n jws-operator-system
+```
+You should get something like:
+```
+NAME                                               READY   STATUS    RESTARTS   AGE
+jws-operator-controller-manager-789dcf556f-2cl2q   2/2     Running   0          2m13s
+```
+
+
 ## Deploy a WebServer
 
 1. Define a namespace
