@@ -165,15 +165,7 @@ $ oc new-project $NAMESPACE
 3. Prepare your image and push it somewhere
    See https://github.com/jfclere/tomcat-openshift or https://github.com/apache/tomcat/tree/master/modules/stuffed to build the images.
 
-4. Create the necessary resources
-
-
-```bash
-make generate-operator.yaml
-make run-openshift
-```
-
-5. Create a Tomcat instance (Custom Resource). An example has been provided in _config/samples/web.servers.org_webservers_cr.yaml_
+4. Create a Tomcat instance (Custom Resource). An example has been provided in _config/samples/web.servers.org_webservers_cr.yaml_
 
 ```
 apiVersion: web.servers.org/v1alpha1
@@ -187,7 +179,7 @@ spec:
     applicationImage: quay.io/jfclere/tomcat10:latest
 ```
 
-6. Then deploy your webapp.
+5. Then deploy your webapp.
 
 ```bash
 $ oc apply -f config/samples/web.servers.org_webservers_cr.yaml
