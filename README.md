@@ -45,11 +45,7 @@ $ make manifests docker-build docker-push
 **Note** the build is done using a docker image: Check the Dockerfile, note the FROM golang:1.17 as builder so don't forget to adjust it with changing the go version in go.mod.  
 **Note** To generate the `vendor` directory which is needed to build the operator internally in RH build system, check out the repository and run `go mod vendor` (add -v for verbose output) and wait for the directory to get updated.
 
-## Deploy from source to a kubernetes Cluster
-
-See https://github.com/web-servers/jws-operator/blob/main/kubernetes.md
-
-## Deploy using OLM
+## Install the operator using OLM
 
 Make sure you have OLM installed, otherwise install it. See https://olm.operatorframework.io/docs/getting-started/
 To build the bundle and deploy the operator do something like the following:
@@ -65,9 +61,15 @@ operator-sdk cleanup jws-operator
 ```
 **Note** Check the installModes: in bundle/manifests/jws-operator.clusterserviceversion.yaml (all AllNamespaces is openshift-operators)
 
-## Deploy from sources to an Openshift Cluster
+## Install the operator from sources.
 
 The operator is pre-built and containerized in a docker image. By default, the deployment has been configured to utilize that image. Therefore, deploying the operator can be done by following these simple steps:
+
+```bash
+make deploy IMG=quay.io/${USER}/jws-operator
+```
+
+## Deploy a WebServer
 
 1. Define a namespace
 
@@ -90,14 +92,7 @@ $ oc create -f xpaas-streams/jws54-tomcat9-image-stream.json -n openshift
 As the image stream isn't namespace-specific, creating this resource in the _openshift_ project makes it convenient to reuse it across multiple namespaces. The following resources, which are more specific, will need to be created for every namespace.
 If you don't use the **-n openshift** or use another ImageStream name you will have to adjust the imageStreamNamespace: to \$NAMESPACE and imageStreamName: to the correct value in the Custom Resource file _config/samples/jws_v1alpha1_tomcat_cr.yaml_.
 
-4. Create the necessary resources
-
-
-```bash
-make deploy
-```
-
-5. Create a Tomcat instance (Custom Resource). An example has been provided in _config/samples/web.servers.org_webservers_imagestream_cr.yaml_ .
+4. Create a Tomcat instance (Custom Resource). An example has been provided in _config/samples/web.servers.org_webservers_imagestream_cr.yaml_ .
    Make sure to adjust sourceRepositoryUrl, sourceRepositoryRef (branch) and contextDir (subdirectory) to you webapp sources, branch and context.
    like:
 
@@ -113,15 +108,15 @@ make deploy
       contextDir: tomcat-websocket-chat
 ```
 
-6. Then deploy your webapp.
+5. Then deploy your webapp.
 
 ```bash
 $ oc apply -f config/samples/web.servers.org_webservers_imagestream_cr.yaml
 ```
 
-7. If the DNS is not setup in your Openshift installation, you will need to add the resulting route to your local `/etc/hosts` file in order to resolve the URL. It has point to the IP address of the node running the router. You can determine this address by running `oc get endpoints` with a cluster-admin user.
+6. If the DNS is not setup in your Openshift installation, you will need to add the resulting route to your local `/etc/hosts` file in order to resolve the URL. It has point to the IP address of the node running the router. You can determine this address by running `oc get endpoints` with a cluster-admin user.
 
-8. Finally, to access the newly deployed application, simply use the created route with _/demo-1.0/demo_
+7. Finally, to access the newly deployed application, simply use the created route with _/demo-1.0/demo_
 
 ```bash
 oc get routes
@@ -131,7 +126,7 @@ jws-app   jws-app-jws-operator.apps.jclere.rhmw-runtimes.net             jws-app
 
 Then go to http://jws-app-jws-operator.apps.jclere.rhmw-runtimes.net/demo-1.0/demo using a browser.
 
-9. To remove everything
+8. To remove everything
 
 ```bash
 oc delete webserver.web.servers.org/example-webserver
@@ -139,10 +134,6 @@ oc delete deployment.apps/jws-operator
 ```
 
 Note that the first _oc delete_ deletes what the operator creates for the example-webserver application, these second _oc delete_ deletes the operator and all resource it needs to run. The ImageStream can be deleted manually if needed.
-
-10. What is supported?
-
-10.1 changing the number of running replicas for the application: in your Custom Resource change _replicas: 2_ to the value you want.
 
 ## Deploy for an existing JWS or Tomcat image
 
