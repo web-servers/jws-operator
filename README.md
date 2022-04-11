@@ -80,7 +80,7 @@ jws-operator-controller-manager-789dcf556f-2cl2q   2/2     Running   0          
 ```
 
 
-## Deploy a WebServer
+## Deploy a WebServer with a webapp built from the sources
 
 1. Define a namespace
 
