@@ -32,7 +32,7 @@ Now that the required tools are installed, follow these few steps to build it:
 $ make controller-gen
 ```
 4. Sync the vendor directory
-```
+```bash
 $ go mod vendor
 ```
 5. Then, simply run `make push` to build the operator and push it to your image registry.
