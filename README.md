@@ -27,7 +27,12 @@ Now that the required tools are installed, follow these few steps to build it:
 
 1. Clone the repo in $GOPATH/src/github.com/web-servers
 2. Set a name for your image. Default value is docker.io/${USER}/jws-operator:latest
-3. Then, simply run `make push` to build the operator and push it to your image registry.
+3. The first time you build you have to download controller-gen in bin
+```bash
+$ make controller-gen
+```
+4. Then, simply run `make push` to build the operator and push it to your image registry.
+
 
 You will need to push it to a Docker Registry accessible by your Openshift Server in order to deploy it. For example:
 
