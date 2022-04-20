@@ -39,7 +39,7 @@ Note that the file might contain several user/password or token to access to the
 
 ### webApp
 Describes how the operator will build the webapp to add to application image, if not present the application is just deployed.
-It has the sourceRepositoryUrl (Mandatory), sourceRepositoryRef, contextDir, webAppWarImage, webAppWarImagePushSecret,Name and builder. 
+It has the sourceRepositoryUrl (Mandatory), sourceRepositoryRef, contextDir, webAppWarImage, webAppWarImagePushSecret,Name and builder.
 
 ### webServerHealthCheck
 Describes how the operator will create the health check for the created pods.
@@ -53,18 +53,18 @@ It has the imageStreamName (Mandatory), imageStreamNamespace, webSources (might 
 The name of the image stream you created to allow the operator to find the base images.
 
 ```bash
-oc create -f xpaas-streams/jws54-tomcat9-image-stream.json
-imagestream.image.openshift.io/jboss-webserver54-tomcat9-openshift created
+oc create -f xpaas-streams/jws56-tomcat9-image-stream.json
+imagestream.image.openshift.io/jboss-webserver56-tomcat9-openshift created
 ```
 
-Here: imageStream: `jboss-webserver54-tomcat9-openshift:latest`
+Here: imageStream: `jboss-webserver56-tomcat9-openshift:latest`
 
 ### imageStreamNamespace
 The namespace/project in which you created the image stream
 
 ```bash
-oc create -f xpaas-streams/jws54-tomcat9-image-stream.json -n jfc
-imagestream.image.openshift.io/jboss-webserver54-tomcat9-openshift created
+oc create -f xpaas-streams/jws56-tomcat9-image-stream.json -n jfc
+imagestream.image.openshift.io/jboss-webserver56-tomcat9-openshift created
 ```
 
 Here: imageStreamNamespace: jfc
