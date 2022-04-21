@@ -25,6 +25,7 @@ To build the operator, you will first need to install the following:
 
 Now that the required tools are installed, follow these few steps to build it:
 
+0. make sure you have kube-apiserver, etcd and kubectl installed, they are needed for docker-build to make local tests.
 1. Clone the repo in $GOPATH/src/github.com/web-servers
 2. Set a name for your image. Default value is docker.io/${USER}/jws-operator:latest
 3. The first time you build you have to download controller-gen in bin
@@ -35,7 +36,7 @@ $ make controller-gen
 ```bash
 $ go mod vendor
 ```
-5. Then, simply run `make push` to build the operator and push it to your image registry.
+5. Then, simply run `make manifests docker-build docker-push` to build the operator and push it to your image registry.
 
 
 You will need to push it to a Docker Registry accessible by your Openshift Server in order to deploy it. For example:
@@ -53,6 +54,7 @@ $ make manifests docker-build docker-push
 **Note** the Makefile uses _go mod tidy_, _go mod vendor_ then _go build_ to build the executable and podman to build and push the image.  
 **Note** the build is done using a docker image: Check the Dockerfile, note the FROM golang:1.17 as builder so don't forget to adjust it with changing the go version in go.mod.  
 **Note** To generate the `vendor` directory which is needed to build the operator internally in RH build system, check out the repository and run `go mod vendor` (add -v for verbose output) and wait for the directory to get updated.
+**Note** The TEST_ASSET_KUBE_APISERVER, TEST_ASSET_ETCD and TEST_ASSET_KUBECTL can be used to define kube-apiserver, etcd and kubectl if they are not in $PATH (see https://book.kubebuilder.io/reference/envtest.html for more).
 
 ## Install the operator using OLM
 
