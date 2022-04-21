@@ -149,6 +149,9 @@ func (r *WebServerReconciler) generateBuildPod(webServer *webserversv1alpha1.Web
 	var securityContext *corev1.SecurityContext
 	if r.isOpenShift {
 		serviceAccountName = "builder"
+		securityContext = &corev1.SecurityContext{
+			RunAsUser: &[]int64{1000}[0],
+		}
 	} else {
 		securityContext = &corev1.SecurityContext{
 			Privileged: &[]bool{true}[0],
