@@ -1,0 +1,21 @@
+apiVersion: web.servers.org/v1alpha1
+kind: WebServer
+metadata:
+  name: example-image-webapp-sources-webserver
+spec:
+  applicationName: jws-app
+  replicas: 2
+  webImage:
+    # The image we are going to modify to add the webapp.
+    applicationImage: quay.io/jfclere/tomcat10:latest
+    webApp:
+      sourceRepositoryURL: https://github.com/jfclere/demo-webapp.git
+      sourceRepositoryRef: jakartaEE
+      # The image the builder pod is going to push
+      # The operator needs to be able to pull it too
+      webAppWarImage: quay.io/jfclere/test
+      # create the secret with something like:
+      # kubectl create secret generic secretfortests --from-file=.dockerconfigjson=$HOME/.docker/config.json --type=kubernetes.io/dockerconfigjson
+      webAppWarImagePushSecret: secretfortests
+      builder:
+        image: quay.io/jfclere/tomcat10-buildah
