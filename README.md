@@ -108,7 +108,7 @@ $ oc new-project $NAMESPACE
 3. Install the JWS Tomcat Basic Image Stream in the _openshift_ project namespace. For testing purposes, this repository provides a version of the corresponding script (_xpaas-streams/jws54-tomcat9-image-stream.json_) using the **unsecured Red Hat Registy** (registry.access.redhat.com). Please make sure to use the [latest version](https://github.com/openshift/openshift-ansible) with a secured registry for production use.
 
 ```bash
-$ oc create -f xpaas-streams/jws54-tomcat9-image-stream.json -n openshift
+$ oc create -f xpaas-streams/jws56-tomcat9-image-stream.json -n openshift
 ```
 
 As the image stream isn't namespace-specific, creating this resource in the _openshift_ project makes it convenient to reuse it across multiple namespaces. The following resources, which are more specific, will need to be created for every namespace.
@@ -123,7 +123,7 @@ If you don't use the **-n openshift** or use another ImageStream name you will h
   replicas: 2
   webImageStream:
     imageStreamNamespace: openshift
-    imageStreamName: jboss-webserver54-openjdk8-tomcat9-ubi8-openshift
+    imageStreamName: webserver56-openjdk8-tomcat9-ubi8-image-stream
     webSources:
       sourceRepositoryUrl: https://github.com/jboss-openshift/openshift-quickstarts.git
       sourceRepositoryRef: "1.2"
