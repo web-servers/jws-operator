@@ -281,6 +281,11 @@ make realtest
 ```
 The whole testsuite takes about 40 minutes...
 
+**Note** When running the tests on OpenShift make sure to test in your own namespace and DON'T use default. Also make sure you have added "anyuid" to the ServiceAccount builder:
+```bash
+oc adm policy add-scc-to-user anyuid -z builder
+```
+
 ## What to do next?
 
 Below are some features that may be relevant to add in the near future.
