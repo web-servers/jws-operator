@@ -259,7 +259,7 @@ kubectl create secret generic secretfortests --from-file=.dockerconfigjson=$HOME
 Some tests are pulling from the redhat portal make sure you have access to it (otherwise some tests will fail), some tests need to push to quay.io make sure you have access there.
 The repositories you have to be able to pull from for the tests are:
 ```
-registry.redhat.io/jboss-webserver-5/webserver54-openjdk8-tomcat9-openshift-rhel8
+registry.redhat.io/jboss-webserver-5/webserver56-openjdk8-tomcat9-openshift-rhel8
 quay.io/jfclere/tomcat10-buildah
 quay.io/jfclere/tomcat10
 ```
@@ -269,9 +269,9 @@ You also need to be able to push to:
 ```
 quay.io/${USER}/test
 ```
-When on openshift the jboss-webserver54-openjdk8-tomcat9-ubi8-openshift ImageStream is used by the tests, to create it
+When on openshift the jboss-webserver56-openjdk8-tomcat9-ubi8-image-stream ImageStream is used by the tests, to create it
 ```
-oc create -f xpaas-streams/jws54-tomcat9-image-stream.json
+oc create -f xpaas-streams/jws56-tomcat9-image-stream.json
 oc secrets link default secretfortests --for=pull
 ```
 
