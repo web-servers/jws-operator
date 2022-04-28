@@ -22,6 +22,8 @@ type WebServerSpec struct {
 	Replicas int32 `json:"replicas"`
 	// Use Session Clustering
 	UseSessionClustering bool `json:"useSessionClustering,omitempty"`
+	// Route behaviour:[TLS/tls]hostname/NONE or empty.
+	RouteHostname string `json:"routeHostname,omitempty"`
 	// (Deployment method 1) Application image
 	WebImage *WebImageSpec `json:"webImage,omitempty"`
 	// (Deployment method 2) Imagestream
