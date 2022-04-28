@@ -408,23 +408,26 @@ func (r *WebServerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 
 	if r.isOpenShift {
 
-		// Check if a Route already exists, and if not create a new one
-		route := r.generateRoute(webServer)
-		result, err = r.createRoute(webServer, route, route.Name, route.Namespace)
-		if err != nil || result != (ctrl.Result{}) {
-			return result, err
-		}
+		if webServer.Spec.RouteHostname == "" || (webServer.Spec.RouteHostname != "" && webServer.Spec.RouteHostname != "NONE") {
 
-		hosts := make([]string, len(route.Status.Ingress))
-		for i, ingress := range route.Status.Ingress {
-			hosts[i] = ingress.Host
-		}
+			// Check if a Route already exists, and if not create a new one
+			route := r.generateRoute(webServer)
+			result, err = r.createRoute(webServer, route, route.Name, route.Namespace)
+			if err != nil || result != (ctrl.Result{}) {
+				return result, err
+			}
 
-		sort.Strings(hosts)
-		if !reflect.DeepEqual(hosts, webServer.Status.Hosts) {
-			updateStatus = true
-			webServer.Status.Hosts = hosts
-			log.Info("Status.Hosts update scheduled")
+			hosts := make([]string, len(route.Status.Ingress))
+			for i, ingress := range route.Status.Ingress {
+				hosts[i] = ingress.Host
+			}
+
+			sort.Strings(hosts)
+			if !reflect.DeepEqual(hosts, webServer.Status.Hosts) {
+				updateStatus = true
+				webServer.Status.Hosts = hosts
+				log.Info("Status.Hosts update scheduled")
+			}
 		}
 	} else {
 		// on kuberntes we use a loadbalancer service
