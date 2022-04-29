@@ -32,7 +32,7 @@ var _ = Describe("WebServer controller", func() {
 			clientCfg, _ := clientcmd.NewDefaultClientConfigLoadingRules().Load()
 			namespace := clientCfg.Contexts[clientCfg.CurrentContext].Namespace
 
-			fmt.Printf("namespace:  " + namespace)
+			fmt.Printf("namespace:  " + namespace) //This code works fine on user side, it it is run outside the cluster. https://stackoverflow.com/a/65661997
 			ctx := context.Background()
 			webserver := &webserversv1alpha1.WebServer{
 				ObjectMeta: metav1.ObjectMeta{
