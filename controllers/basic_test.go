@@ -29,11 +29,16 @@ var _ = Describe("WebServer controller", func() {
 			By("By creating a new WebServer")
 			fmt.Printf("By creating a new WebServer\n")
 			name := "basic-test"
-			clientCfg, _ := clientcmd.NewDefaultClientConfigLoadingRules().Load()
-			namespace := clientCfg.Contexts[clientCfg.CurrentContext].Namespace
-
-			fmt.Printf("namespace:  " + namespace) //This code works fine on user side, it it is run outside the cluster. https://stackoverflow.com/a/65661997
 			ctx := context.Background()
+			var namespace string
+			if noskip {
+				clientCfg, _ := clientcmd.NewDefaultClientConfigLoadingRules().Load()
+				namespace = clientCfg.Contexts[clientCfg.CurrentContext].Namespace
+
+				fmt.Printf("namespace ON REAL SERVER--------------:  " + namespace) //This code works fine on user side, it it is run outside the cluster. https://stackoverflow.com/a/65661997
+			} else {
+				namespace = SetupTest(ctx).Name
+			}
 			webserver := &webserversv1alpha1.WebServer{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      name,

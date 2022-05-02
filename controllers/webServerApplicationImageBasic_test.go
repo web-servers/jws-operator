@@ -17,10 +17,15 @@ var _ = Describe("WebServer controller", func() {
 			fmt.Printf("By creating a new WebServer\n")
 			ctx := context.Background()
 			randemo := "demo" + webserverstests.UnixEpoch()
-			clientCfg, _ := clientcmd.NewDefaultClientConfigLoadingRules().Load()
-			namespace := clientCfg.Contexts[clientCfg.CurrentContext].Namespace
+			var namespace string
+			if noskip {
+				clientCfg, _ := clientcmd.NewDefaultClientConfigLoadingRules().Load()
+				namespace = clientCfg.Contexts[clientCfg.CurrentContext].Namespace
 
-			fmt.Printf("namespace:  " + namespace)
+				fmt.Printf("namespace ON REAL SERVER--------------:  " + namespace) //This code works fine on user side, it it is run outside the cluster. https://stackoverflow.com/a/65661997
+			} else {
+				namespace = SetupTest(ctx).Name
+			}
 
 			if noskip {
 				Expect(webserverstests.WebServerApplicationImageSourcesScriptBasicTest(k8sClient, ctx, thetest, namespace, "sourcesscriptbasictest", "quay.io/jfclere/tomcat10:latest", "https://github.com/jfclere/demo-webapp", "jakartaEE", "quay.io/"+username+"/test", "secretfortests", "quay.io/jfclere/tomcat10-buildah", randemo)).Should(Succeed())
