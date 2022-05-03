@@ -21,8 +21,7 @@ var _ = Describe("WebServer controller", func() {
 			if noskip {
 				clientCfg, _ := clientcmd.NewDefaultClientConfigLoadingRules().Load()
 				namespace = clientCfg.Contexts[clientCfg.CurrentContext].Namespace
-
-				fmt.Printf("namespace ON REAL SERVER--------------:  " + namespace) //This code works fine on user side, it it is run outside the cluster. https://stackoverflow.com/a/65661997
+				//This code works fine on user side, it it is run outside the cluster. https://stackoverflow.com/a/65661997
 			} else {
 				namespace = SetupTest(ctx).Name
 			}
