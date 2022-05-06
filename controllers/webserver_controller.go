@@ -408,7 +408,7 @@ func (r *WebServerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 
 	if r.isOpenShift {
 
-		if webServer.Spec.RouteHostname == "" || (webServer.Spec.RouteHostname != "" && webServer.Spec.RouteHostname != "NONE") {
+		if webServer.Spec.RouteHostname != "NONE" {
 
 			// Check if a Route already exists, and if not create a new one
 			route := r.generateRoute(webServer)
