@@ -15,10 +15,12 @@ import (
 	kbappsv1 "k8s.io/api/apps/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+
 	// "k8s.io/kubectl/pkg/util/podutils"
 	// podv1 "k8s.io/kubernetes/pkg/api/v1/pod"
 	// apierrors "k8s.io/apimachinery/pkg/api/errors"
 	// "sigs.k8s.io/controller-runtime/pkg/client"
+	"k8s.io/client-go/tools/clientcmd"
 
 	webserversv1alpha1 "github.com/web-servers/jws-operator/api/v1alpha1"
 	// webserverstests "github.com/web-servers/jws-operator/test/framework"
@@ -30,8 +32,16 @@ var _ = Describe("WebServer controller", func() {
 			By("By creating a new WebServer")
 			fmt.Printf("By creating a new WebServer\n")
 			name := "label-test"
-			namespace := "default"
+
 			ctx := context.Background()
+			var namespace string
+			if noskip {
+				clientCfg, _ := clientcmd.NewDefaultClientConfigLoadingRules().Load()
+				namespace = clientCfg.Contexts[clientCfg.CurrentContext].Namespace
+				//This code works fine on user side, it it is run outside the cluster. https://stackoverflow.com/a/65661997
+			} else {
+				namespace = SetupTest(ctx).Name
+			}
 			webserver := &webserversv1alpha1.WebServer{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      name,
