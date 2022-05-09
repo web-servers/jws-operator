@@ -72,6 +72,9 @@ spec:
                       to an implementation-defined value. More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/'
                     type: object
                 type: object
+              routeHostname:
+                description: Route behaviour:[TLS/tls]hostname/NONE or empty.
+                type: string
               useSessionClustering:
                 description: Use Session Clustering
                 type: boolean
