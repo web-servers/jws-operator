@@ -2,13 +2,24 @@ package controllers
 
 import (
 	"context"
+	// "errors"
 	"fmt"
+	// "testing"
+	"time"
+
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	webserversv1alpha1 "github.com/web-servers/jws-operator/api/v1alpha1"
+
+	// corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"time"
+	// "k8s.io/kubectl/pkg/util/podutils"
+	// podv1 "k8s.io/kubernetes/pkg/api/v1/pod"
+	// apierrors "k8s.io/apimachinery/pkg/api/errors"
+	// "sigs.k8s.io/controller-runtime/pkg/client"
+
+	webserversv1alpha1 "github.com/web-servers/jws-operator/api/v1alpha1"
+	// webserverstests "github.com/web-servers/jws-operator/test/framework"
 )
 
 var _ = Describe("WebServer controller", func() {
@@ -53,6 +64,17 @@ var _ = Describe("WebServer controller", func() {
 				return true
 			}, time.Second*10, time.Millisecond*250).Should(BeTrue())
 			fmt.Printf("new WebServer Name: %s Namespace: %s\n", createdWebserver.ObjectMeta.Name, createdWebserver.ObjectMeta.Namespace)
+
+			// are the corresponding pods ready?
+			/*
+				Eventually(func() bool {
+					err := webserverstests.WaitUntilReady(k8sClient, ctx, thetest, createdWebserver)
+					if err != nil {
+						return false
+					}
+					return true
+				}, timeout, retryInterval).Should(BeTrue())
+			*/
 
 			// remove the created webserver
 			Expect(k8sClient.Delete(ctx, webserver)).Should(Succeed())

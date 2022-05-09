@@ -38,6 +38,7 @@ import (
 	appsv1 "github.com/openshift/api/apps/v1"
 	routev1 "github.com/openshift/api/route/v1"
 	webserversv1alpha1 "github.com/web-servers/jws-operator/api/v1alpha1"
+	//+kubebuilder:scaffold:imports
 )
 
 // These tests use Ginkgo (BDD-style Go testing framework). Refer to
@@ -68,7 +69,9 @@ func TestAPIs(t *testing.T) {
 }
 
 var _ = BeforeSuite(func() {
-
+	// Expect(os.Setenv("TEST_ASSET_KUBE_APISERVER", "/home/jfclere/go/bin/kube-apiserver")).To(Succeed())
+	// Expect(os.Setenv("TEST_ASSET_ETCD", "/home/jfclere/go/bin/etcd")).To(Succeed())
+	// Expect(os.Setenv("TEST_ASSET_KUBECTL", "/home/jfclere/go/bin/kubectl")).To(Succeed())
 	var useExistingCluster = false
 	if os.Getenv("REALCLUSTER") != "" {
 		useExistingCluster = true
