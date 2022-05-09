@@ -16,17 +16,7 @@ import (
 )
 
 var _ = Describe("WebServer controller", func() {
-	/* AfterEach(func() {
-		ctx := context.Background()
-		webserver := &webserversv1alpha1.WebServer{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "test-webserver",
-				Namespace: "default",
-			},
-		}
-		Expect(k8sClient.Delete(ctx, webserver)).Should(Succeed())
 
-	}) */
 	Context("First Test", func() {
 		It("Other Basic test", func() {
 			By("By creating a new WebServer")

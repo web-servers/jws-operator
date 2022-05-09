@@ -15,15 +15,12 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 
-	// "github.com/operator-framework/operator-sdk/pkg/test"
+	routev1 "github.com/openshift/api/route/v1"
 	webserversv1alpha1 "github.com/web-servers/jws-operator/api/v1alpha1"
 	kbappsv1 "k8s.io/api/apps/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	// metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/kubectl/pkg/util/podutils"
-	// podv1 "k8s.io/kubernetes/pkg/api/v1/pod"
-	routev1 "github.com/openshift/api/route/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 

@@ -254,10 +254,7 @@ func (r *WebServerReconciler) createBuildPod(webServer *webserversv1alpha1.WebSe
 
 func (r *WebServerReconciler) createDeployment(webServer *webserversv1alpha1.WebServer, resource *kbappsv1.Deployment, resourceName string, resourceNamespace string) (ctrl.Result, error) {
 	err := r.Client.Get(context.TODO(), types.NamespacedName{Name: resourceName, Namespace: resourceNamespace}, resource)
-	// err := r.Client.Get(context.TODO(), client.ObjectKey{
-	// 	Namespace: resourceNamespace,
-	// 	Name:      resourceName,
-	// }, resource)
+
 	if err != nil && errors.IsNotFound(err) {
 		// Create a new resource
 		log.Info("Creating a new Deployment: " + resourceName + " Namespace: " + resourceNamespace)
