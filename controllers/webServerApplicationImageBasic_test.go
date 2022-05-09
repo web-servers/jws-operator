@@ -3,7 +3,6 @@ package controllers
 import (
 	"context"
 	"fmt"
-
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	webserverstests "github.com/web-servers/jws-operator/test/framework"
