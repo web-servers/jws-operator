@@ -74,17 +74,6 @@ var _ = Describe("WebServer controller", func() {
 			}, time.Second*10, time.Millisecond*250).Should(BeTrue())
 			fmt.Printf("new WebServer Name: %s Namespace: %s\n", createdWebserver.ObjectMeta.Name, createdWebserver.ObjectMeta.Namespace)
 
-			// are the corresponding pods ready?
-			/*
-				Eventually(func() bool {
-					err := webserverstests.WaitUntilReady(k8sClient, ctx, thetest, createdWebserver)
-					if err != nil {
-						return false
-					}
-					return true
-				}, timeout, retryInterval).Should(BeTrue())
-			*/
-
 			// remove the created webserver
 			Expect(k8sClient.Delete(ctx, webserver)).Should(Succeed())
 
