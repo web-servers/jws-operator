@@ -19,9 +19,11 @@ import (
 	webserversv1alpha1 "github.com/web-servers/jws-operator/api/v1alpha1"
 	kbappsv1 "k8s.io/api/apps/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+
 	// metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/kubectl/pkg/util/podutils"
+
 	// podv1 "k8s.io/kubernetes/pkg/api/v1/pod"
 	routev1 "github.com/openshift/api/route/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -286,11 +288,15 @@ func webServerBasicTest(clt client.Client, ctx context.Context, t *testing.T, we
 		return err
 	}
 
-	cookie, err := webServerRouteTest(clt, ctx, t, webServer, testURI, false, nil)
+	if webServer.Spec.RouteHostname != "NONE" { //in case the route is not created, test must not get executed
+		cookie, err := webServerRouteTest(clt, ctx, t, webServer, testURI, false, nil)
 
-	if cookie == nil {
-		// return errors.New("The cookie was nil!")
+		if cookie == nil {
+			// return errors.New("The cookie was nil!")
+		}
+		return err
 	}
+
 	return err
 
 }
@@ -306,21 +312,25 @@ func webServerScaleTest(clt client.Client, ctx context.Context, t *testing.T, we
 	// scale up test.
 	webServerScale(clt, ctx, t, webServer, testURI, 4)
 
-	cookie, err := webServerRouteTest(clt, ctx, t, webServer, testURI, false, nil)
-	if err != nil {
-		return err
-	}
-	if cookie == nil {
+	if webServer.Spec.RouteHostname != "NONE" { //in case the route is not created, test must not get executed
+		cookie, err := webServerRouteTest(clt, ctx, t, webServer, testURI, false, nil)
+		if err != nil {
+			return err
+		}
+		if cookie == nil {
+		}
 	}
 
 	// scale down test.
 	webServerScale(clt, ctx, t, webServer, testURI, 1)
 
-	cookie, err = webServerRouteTest(clt, ctx, t, webServer, testURI, false, nil)
-	if err != nil {
-		return err
-	}
-	if cookie == nil {
+	if webServer.Spec.RouteHostname != "NONE" { //in case the route is not created, test must not get executed
+		cookie, err := webServerRouteTest(clt, ctx, t, webServer, testURI, false, nil)
+		if err != nil {
+			return err
+		}
+		if cookie == nil {
+		}
 	}
 	return nil
 }
