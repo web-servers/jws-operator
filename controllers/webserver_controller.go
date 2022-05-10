@@ -6,6 +6,7 @@ import (
 	"reflect"
 	"sort"
 	"strconv"
+	"strings"
 	"time"
 
 	webserversv1alpha1 "github.com/web-servers/jws-operator/api/v1alpha1"
@@ -408,10 +409,29 @@ func (r *WebServerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 
 	if r.isOpenShift {
 
-		if webServer.Spec.RouteHostname != "NONE" {
+		if webServer.Spec.RouteHostname != "NONE" && (!strings.HasPrefix(webServer.Spec.RouteHostname, "TLS") && !strings.HasPrefix(webServer.Spec.RouteHostname, "tls")) {
 
 			// Check if a Route already exists, and if not create a new one
 			route := r.generateRoute(webServer)
+			result, err = r.createRoute(webServer, route, route.Name, route.Namespace)
+			if err != nil || result != (ctrl.Result{}) {
+				return result, err
+			}
+
+			hosts := make([]string, len(route.Status.Ingress))
+			for i, ingress := range route.Status.Ingress {
+				hosts[i] = ingress.Host
+			}
+
+			sort.Strings(hosts)
+			if !reflect.DeepEqual(hosts, webServer.Status.Hosts) {
+				updateStatus = true
+				webServer.Status.Hosts = hosts
+				log.Info("Status.Hosts update scheduled")
+			}
+		} else if strings.HasPrefix(webServer.Spec.RouteHostname, "TLS") || strings.HasPrefix(webServer.Spec.RouteHostname, "tls") {
+			// Check if a Route already exists, and if not create a new one
+			route := r.generateSecureRoute(webServer)
 			result, err = r.createRoute(webServer, route, route.Name, route.Namespace)
 			if err != nil || result != (ctrl.Result{}) {
 				return result, err
