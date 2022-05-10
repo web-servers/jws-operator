@@ -295,6 +295,10 @@ func webServerBasicTest(clt client.Client, ctx context.Context, t *testing.T, we
 			// return errors.New("The cookie was nil!")
 		}
 		return err
+	} else {
+		if len(webServer.Status.Hosts) != 0 {
+			err = errors.New("Route created.")
+		}
 	}
 
 	return err
@@ -319,6 +323,10 @@ func webServerScaleTest(clt client.Client, ctx context.Context, t *testing.T, we
 		}
 		if cookie == nil {
 		}
+	} else {
+		if len(webServer.Status.Hosts) != 0 {
+			err = errors.New("Route created.")
+		}
 	}
 
 	// scale down test.
@@ -331,7 +339,12 @@ func webServerScaleTest(clt client.Client, ctx context.Context, t *testing.T, we
 		}
 		if cookie == nil {
 		}
+	} else {
+		if len(webServer.Status.Hosts) != 0 {
+			err = errors.New("Route created.")
+		}
 	}
+
 	return nil
 }
 
