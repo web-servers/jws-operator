@@ -19,7 +19,7 @@ The development workflow used in this prototype is standard to all Operator deve
 To build the operator, you will first need to install the following:
 
 - [Golang] (https://golang.org/doc/install)
-- [Docker] (https://docs.docker.com/engine/install/)
+- [podman and podman-docker] (most of the linux distributions have it).
 
 ### Procedure
 
