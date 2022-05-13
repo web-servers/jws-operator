@@ -457,6 +457,30 @@ func (r *WebServerReconciler) generateRoute(webServer *webserversv1alpha1.WebSer
 	return route
 }
 
+func (r *WebServerReconciler) generateSecureRoute(webServer *webserversv1alpha1.WebServer) *routev1.Route {
+	objectMeta := r.generateObjectMeta(webServer, webServer.Spec.ApplicationName)
+	objectMeta.Annotations = map[string]string{
+		"description": "Route for application's https service.",
+	}
+	route := &routev1.Route{
+		ObjectMeta: objectMeta,
+		Spec: routev1.RouteSpec{
+			To: routev1.RouteTargetReference{
+				Name: webServer.Spec.ApplicationName,
+			},
+			Port: &routev1.RoutePort{
+				TargetPort: intstr.FromString("8443"),
+			},
+			TLS: &routev1.TLSConfig{
+				Termination: routev1.TLSTerminationPassthrough,
+			},
+		},
+	}
+
+	controllerutil.SetControllerReference(webServer, route, r.Scheme)
+	return route
+}
+
 // generate loadbalancer on no openshift clusters
 func (r *WebServerReconciler) generateLoadBalancer(webServer *webserversv1alpha1.WebServer) *corev1.Service {
 	objectMeta := r.generateObjectMeta(webServer, webServer.Spec.ApplicationName+"-lb")
