@@ -36,3 +36,5 @@ make manifests
 ```
 That creates the CRD, CRs etc... check they makes sense (compare with the old ones for example, read migration docs).
 Copy back the go sources and any of the old file you need, then go to the main README.md and build the updated operator.
+
+Once you are happy with the tests, adjust locations in the old jws-operator and copy the new and modified files and commit and do a PR.
