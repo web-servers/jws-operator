@@ -732,11 +732,54 @@ func (r *WebServerReconciler) generateVolumePodBuilder(webServer *webserversv1al
 }
 
 // create the shell script to modify server.xml
-//
+
 func (r *WebServerReconciler) generateCommandForServerXml(webServer *webserversv1alpha1.WebServer) map[string]string {
 	cmd := make(map[string]string)
+	connector := ""
+	if strings.HasPrefix(webServer.Spec.RouteHostname, "TLS") || strings.HasPrefix(webServer.Spec.RouteHostname, "tls") {
+		connector =
+			"https=\"<!-- No HTTPS configuration discovered -->\"\n" +
+				"if [ -n \"${JWS_HTTPS_CERTIFICATE_DIR}\" -a -n \"${JWS_HTTPS_CERTIFICATE}\" -a -n \"${JWS_HTTPS_CERTIFICATE_KEY}\" -a -n \"${JWS_HTTPS_CACERTIFICATE}\"] ; then\n" +
+				"password=\"\"\n" +
+				"if [ -n \"${JWS_HTTPS_CERTIFICATE_PASSWORD}\" ] ; then\n" +
+				"password=\" SSLPassword=\"${JWS_HTTPS_CERTIFICATE_PASSWORD}\" \"\n" +
+				"fi\n" +
+				"https=\"" +
+				"<Connector port=\"8443\" protocol=\"HTTP/1.1\" \\n" +
+				"maxThreads=\"150\" SSLEnabled=\"true\"> \\n" +
+				"<SSLHostConfig caCertificateFile=\"${JWS_HTTPS_CERTIFICATE_DIR}/${JWS_HTTPS_CACERTIFICATE}\" certificateVerification=\"optional\"> \\n" +
+				"<Certificate certificateFile=\"${JWS_HTTPS_CERTIFICATE_DIR}/${JWS_HTTPS_CERTIFICATE}\" \\n" +
+				"${password} \\n" +
+				"certificateKeyFile=\"${JWS_HTTPS_CERTIFICATE_DIR}/${JWS_HTTPS_CERTIFICATE_KEY}\"/> \\n" +
+				"</SSLHostConfig> \\n" +
+				"</Connector>\" \n" +
+				"elif [ -n \"${JWS_HTTPS_CERTIFICATE_DIR}\" -a -n \"${JWS_HTTPS_CERTIFICATE}\" -a -n \"${JWS_HTTPS_CERTIFICATE_KEY}\" ] ; then\n" +
+				"password=\"\"\n" +
+				"if [ -n \"${JWS_HTTPS_CERTIFICATE_PASSWORD}\" ] ; then\n" +
+				"password=\" SSLPassword=\"${JWS_HTTPS_CERTIFICATE_PASSWORD}\" \"\n" +
+				"fi\n" +
+				"https=\"<Connector \\ \n" +
+				"protocol=\"org.apache.coyote.http11.Http11AprProtocol\" \\ \n" +
+				"port=\"8443\" maxThreads=\"200\" \\ \n" +
+				"scheme=\"https\" secure=\"true\" SSLEnabled=\"true\" \\ \n" +
+				"SSLCertificateFile=\"${JWS_HTTPS_CERTIFICATE_DIR}/${JWS_HTTPS_CERTIFICATE}\" \\ \n" +
+				"SSLCertificateKeyFile=\"${JWS_HTTPS_CERTIFICATE_DIR}/${JWS_HTTPS_CERTIFICATE_KEY}\" \\ \n" +
+				"${password}  \\ \n" +
+				"SSLVerifyClient=\"optional_no_ca\" SSLProtocol=\"TLSv1.3+TLSv1.2\"\" \n" +
+
+				"if [ -n \"$JWS_SERVER_NAME\" ]; then \n" +
+				"https=\"$https server=\"${JWS_SERVER_NAME}\"\" \n" +
+				"fi \n" +
+
+				"https=\"$https />\" \n" +
+
+				"elif [ -n \"${JWS_HTTPS_CERTIFICATE_DIR}\" -o -n \"${JWS_HTTPS_CERTIFICATE}\" -o -n \"${JWS_HTTPS_CERTIFICATE_KEY}\" ] ; then \n" +
+				"log_warning \"Partial HTTPS configuration, the https connector WILL NOT be configured.\" \n" +
+				"fi \n" +
+				"sed -i \"s|### HTTPS_CONNECTOR ###|${https}|\" $JWS_HOME/conf/server.xml\" "
+	}
 	if r.getUseKUBEPing(webServer) {
-		cmd["test.sh"] = "FILE=`find /opt -name server.xml`\n" +
+		cmd["test.sh"] = connector + "\n" + "FILE=`find /opt -name server.xml`\n" +
 			"if [ -z \"${FILE}\" ]; then\n" +
 			"  FILE=`find /deployments -name server.xml`\n" +
 			"fi\n" +
@@ -745,7 +788,7 @@ func (r *WebServerReconciler) generateCommandForServerXml(webServer *webserversv
 			"  sed -i '/cluster.html/a        <Cluster className=\"org.apache.catalina.ha.tcp.SimpleTcpCluster\" channelSendOptions=\"6\">\\n <Channel className=\"org.apache.catalina.tribes.group.GroupChannel\">\\n <Membership className=\"org.apache.catalina.tribes.membership.cloud.CloudMembershipService\" membershipProviderClassName=\"org.apache.catalina.tribes.membership.cloud.KubernetesMembershipProvider\"/>\\n </Channel>\\n </Cluster>\\n' ${FILE}\n" +
 			"fi\n"
 	} else {
-		cmd["test.sh"] = "FILE=`find /opt -name server.xml`\n" +
+		cmd["test.sh"] = connector + "\n" + "FILE=`find /opt -name server.xml`\n" +
 			"if [ -z \"${FILE}\" ]; then\n" +
 			"  FILE=`find /deployments -name server.xml`\n" +
 			"fi\n" +
