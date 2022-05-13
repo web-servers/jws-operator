@@ -75,6 +75,14 @@ spec:
               routeHostname:
                 description: Route behaviour:[TLS/tls]hostname/NONE or empty.
                 type: string
+              tlsPassword:
+                description: TLSPassword passphrase for the key in the client.key
+                type: string
+              tlsSecret:
+                description: TLSSecret secret containing server.cert the server certificate,
+                  server.key the server key and optional ca.cert the CA cert of the
+                  client certificates
+                type: string
               useSessionClustering:
                 description: Use Session Clustering
                 type: boolean
