@@ -172,7 +172,6 @@ func (r *WebServerReconciler) createService(webServer *webserversv1alpha1.WebSer
 			return reconcile.Result{}, err
 		}
 		// Resource created successfully - return and requeue
-		// return ctrl.Result{Requeue: true}, err
 		return ctrl.Result{Requeue: true}, nil
 	} else if err != nil {
 		log.Error(err, "Failed to get Service: "+resourceName)
@@ -197,7 +196,6 @@ func (r *WebServerReconciler) createRoleBinding(webServer *webserversv1alpha1.We
 			return false, reconcile.Result{}, err
 		}
 		// Resource created successfully - return and requeue
-		// return ctrl.Result{Requeue: true}, err
 		return true, ctrl.Result{Requeue: true}, nil
 	} else if err != nil {
 		log.Error(err, "Failed to get RoleBinding "+resourceName)
@@ -220,7 +218,6 @@ func (r *WebServerReconciler) createConfigMap(webServer *webserversv1alpha1.WebS
 			return reconcile.Result{}, err
 		}
 		// Resource created successfully - return and requeue
-		// return ctrl.Result{Requeue: true}, err
 		return ctrl.Result{Requeue: true}, nil
 	} else if err != nil {
 		log.Error(err, "Failed to get ConfigMap "+resourceName)
@@ -243,7 +240,6 @@ func (r *WebServerReconciler) createBuildPod(webServer *webserversv1alpha1.WebSe
 			return reconcile.Result{}, err
 		}
 		// Resource created successfully - return and requeue
-		// return ctrl.Result{Requeue: true}, err
 		return ctrl.Result{Requeue: true}, nil
 	} else if err != nil {
 		log.Error(err, "Failed to get Pod: "+resourceName)
@@ -254,10 +250,7 @@ func (r *WebServerReconciler) createBuildPod(webServer *webserversv1alpha1.WebSe
 
 func (r *WebServerReconciler) createDeployment(webServer *webserversv1alpha1.WebServer, resource *kbappsv1.Deployment, resourceName string, resourceNamespace string) (ctrl.Result, error) {
 	err := r.Client.Get(context.TODO(), types.NamespacedName{Name: resourceName, Namespace: resourceNamespace}, resource)
-	// err := r.Client.Get(context.TODO(), client.ObjectKey{
-	// 	Namespace: resourceNamespace,
-	// 	Name:      resourceName,
-	// }, resource)
+
 	if err != nil && errors.IsNotFound(err) {
 		// Create a new resource
 		log.Info("Creating a new Deployment: " + resourceName + " Namespace: " + resourceNamespace)
@@ -268,7 +261,6 @@ func (r *WebServerReconciler) createDeployment(webServer *webserversv1alpha1.Web
 			return reconcile.Result{}, err
 		}
 		// Resource created successfully - return and requeue
-		// return ctrl.Result{Requeue: true}, err
 		return ctrl.Result{Requeue: true}, nil
 	} else if err != nil {
 		log.Error(err, "Failed to get Deployment: "+resourceName)
@@ -291,7 +283,6 @@ func (r *WebServerReconciler) createImageStream(webServer *webserversv1alpha1.We
 			return reconcile.Result{}, err
 		}
 		// Resource created successfully - return and requeue
-		// return ctrl.Result{Requeue: true}, err
 		return ctrl.Result{Requeue: true}, nil
 	} else if err != nil {
 		log.Error(err, "Failed to get ImageStream: "+resourceName)
@@ -314,7 +305,6 @@ func (r *WebServerReconciler) createBuildConfig(webServer *webserversv1alpha1.We
 			return reconcile.Result{}, err
 		}
 		// Resource created successfully - return and requeue
-		// return ctrl.Result{Requeue: true}, err
 		return ctrl.Result{Requeue: true}, nil
 	} else if err != nil {
 		log.Error(err, "Failed to get BuildConfig: "+resourceName)
@@ -337,7 +327,6 @@ func (r *WebServerReconciler) createDeploymentConfig(webServer *webserversv1alph
 			return reconcile.Result{}, err
 		}
 		// Resource created successfully - return and requeue
-		// return ctrl.Result{Requeue: true}, err
 		return ctrl.Result{Requeue: true}, nil
 	} else if err != nil {
 		log.Error(err, "Failed to get DeploymentConfig: "+resourceName)
@@ -360,7 +349,6 @@ func (r *WebServerReconciler) createRoute(webServer *webserversv1alpha1.WebServe
 			return reconcile.Result{}, err
 		}
 		// Resource created successfully - return and requeue
-		// return ctrl.Result{Requeue: true}, err
 		return ctrl.Result{Requeue: true}, nil
 	} else if err != nil {
 		log.Error(err, "Failed to get Route: "+resourceName)
@@ -603,13 +591,7 @@ func (r *WebServerReconciler) getUseKUBEPing(webServer *webserversv1alpha1.WebSe
 
 // CustomResourceDefinitionExists returns true if the CRD exists in the cluster
 func CustomResourceDefinitionExists(gvk schema.GroupVersionKind, c *rest.Config) bool {
-	/*
-		cfg, err := config.GetConfig()
-		if err != nil {
-			return false
-		}
-		client, err := discovery.NewDiscoveryClientForConfig(cfg)
-	*/
+
 	client, err := discovery.NewDiscoveryClientForConfig(c)
 	if err != nil {
 		return false
