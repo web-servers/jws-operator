@@ -16,7 +16,7 @@ to that application.
 ```
 
 ## useSessionClustering (off if not filled)
-Use the DNSping session clustering if filled, default don't use session clustering (Note that image needs to be based on JWS images as the feature use ENV_FILES environment variable and a shell script to add the clustering in server.xml)
+Use the DNSping or KUBEping session clustering if filled, default don't use session clustering (Note that image needs to be based on JWS images as the feature use ENV_FILES environment variable and a shell script to add the clustering in server.xml)
 
 ```
   useSessionClustering: true
