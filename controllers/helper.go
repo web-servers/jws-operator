@@ -564,7 +564,7 @@ func (r *WebServerReconciler) setUseKUBEPing(webServer *webserversv1alpha1.WebSe
 	} else {
 		log.Info("The UseKUBEPing of WebServer is being updated: annotations != nil")
 		if strings.Compare(skubeping, annotations["UseKUBEPing"]) != 0 {
-		        log.Info("The UseKUBEPing of WebServer is being updated: annotations != nil and changing!!!")
+			log.Info("The UseKUBEPing of WebServer is being updated: annotations != nil and changing!!!")
 			annotations["UseKUBEPing"] = skubeping
 			needUpdate = true
 		}
@@ -594,7 +594,10 @@ func (r *WebServerReconciler) getUseKUBEPing(webServer *webserversv1alpha1.WebSe
 func (r *WebServerReconciler) needgetUseKUBEPing(webServer *webserversv1alpha1.WebServer) bool {
 	annotations := webServer.Annotations
 	if annotations != nil {
-		return false
+		skubeping := annotations["UseKUBEPing"]
+		if skubeping != "" {
+			return false
+		}
 	}
 	return true
 }

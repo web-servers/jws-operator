@@ -208,9 +208,9 @@ func (r *WebServerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 			}
 		}
 		if r.getUseKUBEPing(webServer) {
-			log.Info("Will use KUBEPing");
+			log.Info("Will use KUBEPing")
 		} else {
-			log.Info("Won't use KUBEPing");
+			log.Info("Won't use KUBEPing")
 
 			// Check if a Service for DNSPing already exists, and if not create a new one
 			dnsService := r.generateServiceForDNS(webServer)
