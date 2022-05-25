@@ -27,15 +27,15 @@ func (r *WebServerReconciler) generateObjectMeta(webServer *webserversv1alpha1.W
 	}
 }
 
-func (r *WebServerReconciler) generateRoutingService(webServer *webserversv1alpha1.WebServer) *corev1.Service {
+func (r *WebServerReconciler) generateRoutingService(webServer *webserversv1alpha1.WebServer, port int) *corev1.Service {
 
 	service := &corev1.Service{
 		ObjectMeta: r.generateObjectMeta(webServer, webServer.Spec.ApplicationName),
 		Spec: corev1.ServiceSpec{
 			Ports: []corev1.ServicePort{{
 				Name:       "ui",
-				Port:       8080,
-				TargetPort: intstr.FromInt(8080),
+				Port:       int32(port),
+				TargetPort: intstr.FromInt(port),
 			}},
 			// Don't forget to check generateLabelsForWeb before changing this...
 			// there are more Labels but we only use those for the Route.
@@ -45,9 +45,9 @@ func (r *WebServerReconciler) generateRoutingService(webServer *webserversv1alph
 			},
 		},
 	}
-
 	controllerutil.SetControllerReference(webServer, service, r.Scheme)
 	return service
+
 }
 
 // Create something like:
@@ -457,6 +457,27 @@ func (r *WebServerReconciler) generateRoute(webServer *webserversv1alpha1.WebSer
 	return route
 }
 
+func (r *WebServerReconciler) generateSecureRoute(webServer *webserversv1alpha1.WebServer) *routev1.Route {
+	objectMeta := r.generateObjectMeta(webServer, webServer.Spec.ApplicationName)
+	objectMeta.Annotations = map[string]string{
+		"description": "Route for application's https service.",
+	}
+	route := &routev1.Route{
+		ObjectMeta: objectMeta,
+		Spec: routev1.RouteSpec{
+			To: routev1.RouteTargetReference{
+				Name: webServer.Spec.ApplicationName,
+			},
+			TLS: &routev1.TLSConfig{
+				Termination: routev1.TLSTerminationPassthrough,
+			},
+		},
+	}
+
+	controllerutil.SetControllerReference(webServer, route, r.Scheme)
+	return route
+}
+
 // generate loadbalancer on no openshift clusters
 func (r *WebServerReconciler) generateLoadBalancer(webServer *webserversv1alpha1.WebServer) *corev1.Service {
 	objectMeta := r.generateObjectMeta(webServer, webServer.Spec.ApplicationName+"-lb")
@@ -647,6 +668,14 @@ func (r *WebServerReconciler) generateVolumeMounts(webServer *webserversv1alpha1
 			MountPath: "/env/my-files",
 		})
 	}
+	if webServer.Spec.TLSSecret != "" {
+		volm = append(volm, corev1.VolumeMount{
+			Name:      "webserver-tls" + webServer.Name,
+			MountPath: "/tls",
+			ReadOnly:  true,
+		})
+	}
+
 	return volm
 }
 
@@ -661,6 +690,17 @@ func (r *WebServerReconciler) generateVolumes(webServer *webserversv1alpha1.WebS
 					LocalObjectReference: corev1.LocalObjectReference{
 						Name: "webserver-" + webServer.Name,
 					},
+				},
+			},
+		})
+
+	}
+	if webServer.Spec.TLSSecret != "" {
+		vol = append(vol, corev1.Volume{
+			Name: "webserver-tls" + webServer.Name,
+			VolumeSource: corev1.VolumeSource{
+				Secret: &corev1.SecretVolumeSource{
+					SecretName: webServer.Spec.TLSSecret,
 				},
 			},
 		})
@@ -681,6 +721,7 @@ func (r *WebServerReconciler) generateVolumeMountPodBuilder(webServer *webserver
 			MountPath: "/build/my-files",
 		})
 	}
+
 	return volm
 }
 
@@ -704,6 +745,7 @@ func (r *WebServerReconciler) generateVolumePodBuilder(webServer *webserversv1al
 			},
 		})
 	}
+
 	return vol
 }
 
@@ -711,6 +753,35 @@ func (r *WebServerReconciler) generateVolumePodBuilder(webServer *webserversv1al
 //
 func (r *WebServerReconciler) generateCommandForServerXml(webServer *webserversv1alpha1.WebServer) map[string]string {
 	cmd := make(map[string]string)
+	connector := ""
+	if strings.HasPrefix(webServer.Spec.RouteHostname, "TLS") || strings.HasPrefix(webServer.Spec.RouteHostname, "tls") {
+		// "/tls" is the dir in which the secret's contents are mounted to the pod
+		connector =
+			"https=\"<!-- No HTTPS configuration discovered -->\"\n" +
+				"if [ -f \"/tls/server.crt\" -a -f \"/tls/server.key\" -a -f \"/tls/ca.crt\" ] ; then\n" +
+
+				"https=\"" +
+				"<Connector port=\\\"8443\\\" protocol=\\\"HTTP/1.1\\\" " +
+				"maxThreads=\\\"200\\\" SSLEnabled=\\\"true\\\"> " +
+				"<SSLHostConfig caCertificateFile=\\\"/tls/ca.crt\\\" certificateVerification=\\\"optional\\\"> " +
+				"<Certificate certificateFile=\\\"/tls/server.crt\\\" " +
+				"certificateKeyFile=\\\"/tls/server.key\\\"/> " +
+				"</SSLHostConfig> " +
+				"</Connector>\"\n" +
+				"elif [ -d \"/tls\" -a -f \"/tls/server.crt\" -a -f \"/tls/server.key\" ] ; then\n" +
+				"https=\"" +
+				"<Connector port=\\\"8443\\\" protocol=\\\"HTTP/1.1\\\" " +
+				"maxThreads=\\\"200\\\" SSLEnabled=\\\"true\\\"> " +
+				"<SSLHostConfig> " +
+				"<Certificate certificateFile=\\\"/tls/server.crt\\\" " +
+				"certificateKeyFile=\\\"/tls/server.key\\\"/> " +
+				"</SSLHostConfig> " +
+				"</Connector>\"\n" +
+				"elif [ ! -f \"/tls/server.crt\" -o ! -f \"/tls/server.key\" ] ; then \n" +
+				"log_warning \"Partial HTTPS configuration, the https connector WILL NOT be configured.\" \n" +
+				"fi \n" +
+				"sed -i \"/<Service name=/a ${https}\" ${FILE}\n"
+	}
 	if r.getUseKUBEPing(webServer) {
 		cmd["test.sh"] = "FILE=`find /opt -name server.xml`\n" +
 			"if [ -z \"${FILE}\" ]; then\n" +
@@ -719,7 +790,7 @@ func (r *WebServerReconciler) generateCommandForServerXml(webServer *webserversv
 			"grep -q MembershipProvider ${FILE}\n" +
 			"if [ $? -ne 0 ]; then\n" +
 			"  sed -i '/cluster.html/a        <Cluster className=\"org.apache.catalina.ha.tcp.SimpleTcpCluster\" channelSendOptions=\"6\">\\n <Channel className=\"org.apache.catalina.tribes.group.GroupChannel\">\\n <Membership className=\"org.apache.catalina.tribes.membership.cloud.CloudMembershipService\" membershipProviderClassName=\"org.apache.catalina.tribes.membership.cloud.KubernetesMembershipProvider\"/>\\n </Channel>\\n </Cluster>\\n' ${FILE}\n" +
-			"fi\n"
+			"fi\n" + connector
 	} else {
 		cmd["test.sh"] = "FILE=`find /opt -name server.xml`\n" +
 			"if [ -z \"${FILE}\" ]; then\n" +
@@ -728,7 +799,7 @@ func (r *WebServerReconciler) generateCommandForServerXml(webServer *webserversv
 			"grep -q MembershipProvider ${FILE}\n" +
 			"if [ $? -ne 0 ]; then\n" +
 			"  sed -i '/cluster.html/a        <Cluster className=\"org.apache.catalina.ha.tcp.SimpleTcpCluster\" channelSendOptions=\"6\">\\n <Channel className=\"org.apache.catalina.tribes.group.GroupChannel\">\\n <Membership className=\"org.apache.catalina.tribes.membership.cloud.CloudMembershipService\" membershipProviderClassName=\"org.apache.catalina.tribes.membership.cloud.DNSMembershipProvider\"/>\\n </Channel>\\n </Cluster>\\n' ${FILE}\n" +
-			"fi\n"
+			"fi\n" + connector
 	}
 	return cmd
 }

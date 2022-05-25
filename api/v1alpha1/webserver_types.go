@@ -24,6 +24,10 @@ type WebServerSpec struct {
 	UseSessionClustering bool `json:"useSessionClustering,omitempty"`
 	// Route behaviour:[TLS/tls]hostname/NONE or empty.
 	RouteHostname string `json:"routeHostname,omitempty"`
+	// TLSSecret secret containing server.cert the server certificate, server.key the server key and optional ca.cert the CA cert of the client certificates
+	TLSSecret string `json:"tlsSecret,omitempty"`
+	// TLSPassword passphrase for the key in the client.key
+	TLSPassword string `json:"tlsPassword,omitempty"`
 	// (Deployment method 1) Application image
 	WebImage *WebImageSpec `json:"webImage,omitempty"`
 	// (Deployment method 2) Imagestream
