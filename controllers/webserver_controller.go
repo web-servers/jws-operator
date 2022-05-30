@@ -183,7 +183,7 @@ func (r *WebServerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 
 	if webServer.Spec.UseSessionClustering {
 
-		if r.getUseKUBEPing(webServer) {
+		if r.needgetUseKUBEPing(webServer) {
 
 			// Check if a RoleBinding for the KUBEPing exists, and if not create one.
 			rolebinding := r.generateRoleBinding(webServer, "view")
@@ -206,7 +206,11 @@ func (r *WebServerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 			if err != nil || result != (ctrl.Result{}) {
 				return result, err
 			}
+		}
+		if r.getUseKUBEPing(webServer) {
+			log.Info("Will use KUBEPing")
 		} else {
+			log.Info("Won't use KUBEPing")
 
 			// Check if a Service for DNSPing already exists, and if not create a new one
 			dnsService := r.generateServiceForDNS(webServer)
