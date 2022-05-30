@@ -181,8 +181,10 @@ func (r *WebServerReconciler) createService(webServer *webserversv1alpha1.WebSer
 }
 
 // Test for the "view" RoleBinding and if not existing try to create it, if that fails we can't use useKUBEPing
+// first bool = Role Binding exist
+// second bool = We need to requeue or not...
 
-func (r *WebServerReconciler) createRoleBinding(webServer *webserversv1alpha1.WebServer, resource *rbac.RoleBinding, resourceName string, resourceNamespace string) (bool, ctrl.Result, error) {
+func (r *WebServerReconciler) createRoleBinding(webServer *webserversv1alpha1.WebServer, resource *rbac.RoleBinding, resourceName string, resourceNamespace string) (bool, bool, error) {
 	err := r.Client.Get(context.TODO(), client.ObjectKey{
 		Namespace: resourceNamespace,
 		Name:      resourceName,
@@ -193,15 +195,16 @@ func (r *WebServerReconciler) createRoleBinding(webServer *webserversv1alpha1.We
 		err = r.Client.Create(context.TODO(), resource)
 		if err != nil && !errors.IsAlreadyExists(err) {
 			log.Error(err, "Failed to create a new RoleBinding: "+resourceName+" Namespace: "+resourceNamespace)
-			return false, reconcile.Result{}, err
+			return false, false, err
 		}
 		// Resource created successfully - return and requeue
-		return true, ctrl.Result{Requeue: true}, nil
+		// return true, true, nil
+		return true, false, nil
 	} else if err != nil {
 		log.Error(err, "Failed to get RoleBinding "+resourceName)
-		return false, reconcile.Result{}, err
+		return false, false, err
 	}
-	return true, reconcile.Result{}, err
+	return true, false, nil
 }
 
 func (r *WebServerReconciler) createConfigMap(webServer *webserversv1alpha1.WebServer, resource *corev1.ConfigMap, resourceName string, resourceNamespace string) (ctrl.Result, error) {
@@ -549,7 +552,8 @@ func (r *WebServerReconciler) getWebServerHash(webServer *webserversv1alpha1.Web
 }
 
 // Add an annotation to the webServer for the KUBEPing
-func (r *WebServerReconciler) setUseKUBEPing(webServer *webserversv1alpha1.WebServer, kubeping bool) (bool, error) {
+
+func (r *WebServerReconciler) setUseKUBEPing(webServer *webserversv1alpha1.WebServer, kubeping bool, client client.Client, ctx context.Context) (bool, error) {
 	skubeping := "false"
 	if kubeping {
 		skubeping = "true"
@@ -557,23 +561,20 @@ func (r *WebServerReconciler) setUseKUBEPing(webServer *webserversv1alpha1.WebSe
 	needUpdate := false
 	annotations := webServer.Annotations
 	if annotations == nil {
-		log.Info("The UseKUBEPing of WebServer is being updated: annotations == nil")
 		annotations = make(map[string]string)
 		needUpdate = true
 		annotations["UseKUBEPing"] = skubeping
 	} else {
-		log.Info("The UseKUBEPing of WebServer is being updated: annotations != nil")
 		if strings.Compare(skubeping, annotations["UseKUBEPing"]) != 0 {
-			log.Info("The UseKUBEPing of WebServer is being updated: annotations != nil and changing!!!")
 			annotations["UseKUBEPing"] = skubeping
 			needUpdate = true
 		}
 	}
 	if needUpdate {
-		log.Info("The UseKUBEPing of WebServer is being updated")
-		err := r.Client.Update(context.TODO(), webServer)
+		log.Info("The UseKUBEPing annotation is being updated")
+		err := client.Update(ctx, webServer)
 		if err != nil {
-			log.Error(err, "Failed to update WebServer UseKUBEPing")
+			log.Error(err, "Failed to update WebServer UseKUBEPing annotation")
 		}
 		return true, err
 	}
