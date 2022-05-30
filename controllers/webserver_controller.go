@@ -191,26 +191,28 @@ func (r *WebServerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 			// The example in docs seems to use view (name: view and roleRef ClusterRole/view for our ServiceAccount)
 			// like:
 			// oc policy add-role-to-user view system:serviceaccount:tomcat-in-the-cloud:default -n tomcat-in-the-cloud
-			useKUBEPing, result, err := r.createRoleBinding(webServer, rolebinding, "view", rolebinding.Namespace)
+			useKUBEPing, update, err := r.createRoleBinding(webServer, rolebinding, "view", rolebinding.Namespace)
 			if !useKUBEPing {
 				// Update the webServer annotation to prevent retrying
 				log.Info("Won't use KUBEPing missing view permissions")
-				update, err := r.setUseKUBEPing(webServer, useKUBEPing)
-				if err != nil {
-					log.Error(err, "Failed to add a new Annotations")
-					return reconcile.Result{}, err
-				} else {
+			} else {
+				log.Info("Will use KUBEPing")
+				if update {
+					// We have created the Role Binding
+					log.Info("We have created the Role Binding")
 					return ctrl.Result{Requeue: update}, nil
 				}
 			}
-			if err != nil || result != (ctrl.Result{}) {
-				return result, err
+			update, err = r.setUseKUBEPing(webServer, useKUBEPing, r.Client, ctx)
+			if err != nil {
+				log.Error(err, "Failed to add a new Annotations")
+				return reconcile.Result{}, err
+			} else {
+				log.Info("Add a new Annotations")
+				return ctrl.Result{Requeue: update}, nil
 			}
 		}
-		if r.getUseKUBEPing(webServer) {
-			log.Info("Will use KUBEPing")
-		} else {
-			log.Info("Won't use KUBEPing")
+		if !r.getUseKUBEPing(webServer) {
 
 			// Check if a Service for DNSPing already exists, and if not create a new one
 			dnsService := r.generateServiceForDNS(webServer)
