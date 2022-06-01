@@ -73,7 +73,7 @@ func (r *WebServerReconciler) generateRoleBinding(webServer *webserversv1alpha1.
 		RoleRef: rbac.RoleRef{
 			APIGroup: "rbac.authorization.k8s.io",
 			Kind:     "ClusterRole",
-			Name:     "view-kubeping-" + webServer.Name,
+			Name:     "view",
 		},
 		Subjects: []rbac.Subject{{
 			Kind:      "ServiceAccount",
