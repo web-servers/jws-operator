@@ -754,7 +754,7 @@ func (r *WebServerReconciler) generateVolumePodBuilder(webServer *webserversv1al
 func (r *WebServerReconciler) generateCommandForServerXml(webServer *webserversv1alpha1.WebServer) map[string]string {
 	cmd := make(map[string]string)
 	connector := ""
-	if strings.HasPrefix(webServer.Spec.RouteHostname, "TLS") || strings.HasPrefix(webServer.Spec.RouteHostname, "tls") {
+	if webServer.Spec.IsNotJWS && (strings.HasPrefix(webServer.Spec.RouteHostname, "TLS") || strings.HasPrefix(webServer.Spec.RouteHostname, "tls")) {
 		// "/tls" is the dir in which the secret's contents are mounted to the pod
 		connector =
 			"https=\"<!-- No HTTPS configuration discovered -->\"\n" +
