@@ -186,12 +186,13 @@ func (r *WebServerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		if r.needgetUseKUBEPing(webServer) {
 
 			// Check if a RoleBinding for the KUBEPing exists, and if not create one.
-			rolebinding := r.generateRoleBinding(webServer, "view")
+			rolename := "view-kubeping-" + webServer.Name
+			rolebinding := r.generateRoleBinding(webServer, rolename)
 			//
 			// The example in docs seems to use view (name: view and roleRef ClusterRole/view for our ServiceAccount)
 			// like:
 			// oc policy add-role-to-user view system:serviceaccount:tomcat-in-the-cloud:default -n tomcat-in-the-cloud
-			useKUBEPing, update, err := r.createRoleBinding(ctx, webServer, rolebinding, "view", rolebinding.Namespace)
+			useKUBEPing, update, err := r.createRoleBinding(ctx, webServer, rolebinding, rolename, rolebinding.Namespace)
 			if !useKUBEPing {
 				// Update the webServer annotation to prevent retrying
 				log.Info("Won't use KUBEPing missing view permissions")

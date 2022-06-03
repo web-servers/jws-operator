@@ -180,11 +180,56 @@ func (r *WebServerReconciler) createService(ctx context.Context, webServer *webs
 	return reconcile.Result{}, err
 }
 
+// Look for a rolebinding that allows KUBEPing
+
+func (r *WebServerReconciler) checkRoleBinding(ctx context.Context, webServer *webserversv1alpha1.WebServer) bool {
+	roleBindingList := &rbac.RoleBindingList{}
+	listOpts := []client.ListOption{
+		client.InNamespace(webServer.Namespace),
+	}
+	err := r.Client.List(ctx, roleBindingList, listOpts...)
+	if err != nil {
+		log.Error(err, "checkRoleBinding")
+		return false
+	}
+	var roleBindings []rbac.RoleBinding = roleBindingList.Items
+	for _, rolebinding := range roleBindings {
+		// Look for ServiceAccount / default in subjects:
+		for _, subject := range rolebinding.Subjects {
+			if subject.Kind == "ServiceAccount" && subject.Name == "default" && subject.Namespace == webServer.Namespace {
+				// now check the roleRef for ClusterRole/view
+				if rolebinding.RoleRef.Kind == "ClusterRole" && rolebinding.RoleRef.Name == "view" {
+					log.Info("checkRoleBinding bingo: " + rolebinding.Name + " should allow KUBEPing")
+					if rolebinding.Name == "view-kubeping-"+webServer.Name {
+						// We already created it for this webserver
+						return true
+					}
+					if !strings.HasPrefix(rolebinding.Name, "view-kubeping-") {
+						// it was create by the admin via oc command something like view-nn or by hands.
+						return true
+					}
+					// Here was created for another webserver, the operator will create one for this webserver
+					// remember the RoleBinding is removed if the webserver is deleted.
+					// Note that removing it when the cluster is using KUBEPing will cause 403 in the tomcat pods.
+				}
+			}
+		}
+	}
+	return false
+}
+
 // Test for the "view" RoleBinding and if not existing try to create it, if that fails we can't use useKUBEPing
 // first bool = Role Binding exist
 // second bool = We need to requeue or not...
 
 func (r *WebServerReconciler) createRoleBinding(ctx context.Context, webServer *webserversv1alpha1.WebServer, resource *rbac.RoleBinding, resourceName string, resourceNamespace string) (bool, bool, error) {
+	// First try to check if there is a roleBinding that allows KUBEPing
+	checked := r.checkRoleBinding(ctx, webServer)
+	if checked {
+		return true, false, nil
+	}
+
+	// Then try to create it.
 	err := r.Client.Get(ctx, client.ObjectKey{
 		Namespace: resourceNamespace,
 		Name:      resourceName,
