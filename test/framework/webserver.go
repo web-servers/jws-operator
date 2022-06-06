@@ -5,6 +5,30 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+func makeSecureWebserver(namespace string, name string, imageStreamName string, imageStreamNamespace string, replicas int32) *webserversv1alpha1.WebServer {
+	return &webserversv1alpha1.WebServer{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "WebServer",
+			APIVersion: "web.servers.org/v1alpha1",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: namespace,
+		},
+		Spec: webserversv1alpha1.WebServerSpec{
+			ApplicationName:      name,
+			Replicas:             replicas,
+			UseSessionClustering: true,
+			RouteHostname:        "tls",
+			TLSSecret:            "test-tls-secret",
+			WebImageStream: &webserversv1alpha1.WebImageStreamSpec{
+				ImageStreamName:      imageStreamName,
+				ImageStreamNamespace: imageStreamNamespace,
+			},
+		},
+	}
+}
+
 // MakeBasicWebServer creates a basic WebServer resource
 func makeApplicationImageWebServer(namespace string, name string, applicationImage string, replicas int32) *webserversv1alpha1.WebServer {
 	return &webserversv1alpha1.WebServer{

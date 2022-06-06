@@ -24,8 +24,6 @@ type WebServerSpec struct {
 	UseSessionClustering bool `json:"useSessionClustering,omitempty"`
 	// Route behaviour:[TLS/tls]hostname/NONE or empty.
 	RouteHostname string `json:"routeHostname,omitempty"`
-	// IsNotJWS boolean that specifies if the image is JWS or not.
-	IsNotJWS bool `json:"isNotJWS,omitempty"`
 	// TLSSecret secret containing server.cert the server certificate, server.key the server key and optional ca.cert the CA cert of the client certificates
 	TLSSecret string `json:"tlsSecret,omitempty"`
 	// TLSPassword passphrase for the key in the client.key

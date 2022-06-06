@@ -271,8 +271,14 @@ quay.io/${USER}/test
 ```
 When on openshift the jboss-webserver56-openjdk8-tomcat9-ubi8-image-stream ImageStream is used by the tests, to create it
 ```
-oc create -f xpaas-streams/jws56-tomcat9-image-stream.json
 oc secrets link default secretfortests --for=pull
+oc create -f xpaas-streams/jws56-tomcat9-image-stream.json
+```
+
+To test the routes created by the operator for tls we need a secret to mount to the pod containing the certificates for tomcat.
+Secret named 'test-tls-secret' must contain a 'server.crt', 'server.key' and 'ca.crt' . Route tests mounts this to '/tls' and execute the tests. You can create the secret with this command:
+```
+kubectl create secret generic test-tls-secret    --from-file=server.crt=server.crt    --from-file=server.key=server.key    --from-file=ca.crt=ca.crt
 ```
 
 To run the test to:

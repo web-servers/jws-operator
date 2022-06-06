@@ -2,6 +2,7 @@ package framework
 
 import (
 	"context"
+	"crypto/tls"
 	"encoding/json"
 	"errors"
 	"io/ioutil"
@@ -19,9 +20,11 @@ import (
 	webserversv1alpha1 "github.com/web-servers/jws-operator/api/v1alpha1"
 	kbappsv1 "k8s.io/api/apps/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+
 	// metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/kubectl/pkg/util/podutils"
+
 	// podv1 "k8s.io/kubernetes/pkg/api/v1/pod"
 	routev1 "github.com/openshift/api/route/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -71,7 +74,7 @@ func WebServerApplicationImageBasicTest(clt client.Client, ctx context.Context, 
 		time.Sleep(time.Second * 5)
 	}()
 
-	return webServerBasicTest(clt, ctx, t, webServer, testURI)
+	return webServerBasicTest(clt, ctx, t, webServer, testURI, false)
 
 }
 
@@ -116,7 +119,21 @@ func WebServerApplicationImageSourcesBasicTest(clt client.Client, ctx context.Co
 		time.Sleep(time.Second * 5)
 	}()
 
-	return webServerBasicTest(clt, ctx, t, webServer, "/"+testURI+"/demo")
+	return webServerBasicTest(clt, ctx, t, webServer, "/"+testURI+"/demo", false)
+}
+
+func WebServerSecureRouteTest(clt client.Client, ctx context.Context, t *testing.T, namespace string, name string, imageStreamName string, testURI string) (err error) {
+
+	webServer := makeSecureWebserver(namespace, name, imageStreamName, namespace, 1)
+
+	// cleanup
+	defer func() {
+		clt.Delete(context.Background(), webServer)
+		time.Sleep(time.Second * 5)
+	}()
+
+	return webServerBasicTest(clt, ctx, t, webServer, testURI, true)
+
 }
 
 // WebServerApplicationImageSourcesScriptBasicTest tests the deployment of an application image with sources
@@ -154,7 +171,7 @@ STORAGE_DRIVER=vfs buildah push --authfile /auth/.dockerconfigjson ${webAppWarIm
 		time.Sleep(time.Second * 5)
 	}()
 
-	err = webServerBasicTest(clt, ctx, t, webServer, "/"+testURI+"/index.html")
+	err = webServerBasicTest(clt, ctx, t, webServer, "/"+testURI+"/index.html", false)
 	if err != nil {
 		return err
 	}
@@ -233,7 +250,7 @@ func WebServerImageStreamBasicTest(clt client.Client, ctx context.Context, t *te
 		time.Sleep(time.Second * 5)
 	}()
 
-	return webServerBasicTest(clt, ctx, t, webServer, testURI)
+	return webServerBasicTest(clt, ctx, t, webServer, testURI, false)
 }
 
 // WebServerImageStreamScaleTest tests the scaling of an Image Stream operator
@@ -261,7 +278,7 @@ func WebServerImageStreamSourcesBasicTest(clt client.Client, ctx context.Context
 		time.Sleep(time.Second * 5)
 	}()
 
-	return webServerBasicTest(clt, ctx, t, webServer, testURI)
+	return webServerBasicTest(clt, ctx, t, webServer, testURI, false)
 }
 
 // WebServerImageStreamSourcesScaleTest tests the scaling of an Image Stream operator with sources
@@ -279,18 +296,17 @@ func WebServerImageStreamSourcesScaleTest(clt client.Client, ctx context.Context
 }
 
 // webServerBasicTest tests if the deployed pods of the operator are working
-func webServerBasicTest(clt client.Client, ctx context.Context, t *testing.T, webServer *webserversv1alpha1.WebServer, testURI string) (err error) {
+func webServerBasicTest(clt client.Client, ctx context.Context, t *testing.T, webServer *webserversv1alpha1.WebServer, testURI string, isSecure bool) (err error) {
 
 	err = deployWebServer(clt, ctx, t, webServer)
 	if err != nil {
 		return err
 	}
 
-	cookie, err := webServerRouteTest(clt, ctx, t, webServer, testURI, false, nil)
+	cookie, err := webServerRouteTest(clt, ctx, t, webServer, testURI, false, nil, isSecure)
 
-	if cookie == nil {
-		// return errors.New("The cookie was nil!")
-	}
+	_ = cookie //to overcome "var declared but not used" problem
+
 	return err
 
 }
@@ -306,22 +322,20 @@ func webServerScaleTest(clt client.Client, ctx context.Context, t *testing.T, we
 	// scale up test.
 	webServerScale(clt, ctx, t, webServer, testURI, 4)
 
-	cookie, err := webServerRouteTest(clt, ctx, t, webServer, testURI, false, nil)
+	cookie, err := webServerRouteTest(clt, ctx, t, webServer, testURI, false, nil, false)
 	if err != nil {
 		return err
 	}
-	if cookie == nil {
-	}
+	_ = cookie
 
 	// scale down test.
 	webServerScale(clt, ctx, t, webServer, testURI, 1)
 
-	cookie, err = webServerRouteTest(clt, ctx, t, webServer, testURI, false, nil)
+	cookie, err = webServerRouteTest(clt, ctx, t, webServer, testURI, false, nil, false)
 	if err != nil {
 		return err
 	}
-	if cookie == nil {
-	}
+	_ = cookie
 	return nil
 }
 
@@ -467,7 +481,7 @@ func waitUntilReady(clt client.Client, ctx context.Context, t *testing.T, webSer
 }
 
 // webServerRouteTest tests the Route created for the operator pods
-func webServerRouteTest(clt client.Client, ctx context.Context, t *testing.T, webServer *webserversv1alpha1.WebServer, URI string, sticky bool, oldCookie *http.Cookie) (sessionCookie *http.Cookie, err error) {
+func webServerRouteTest(clt client.Client, ctx context.Context, t *testing.T, webServer *webserversv1alpha1.WebServer, URI string, sticky bool, oldCookie *http.Cookie, isSecure bool) (sessionCookie *http.Cookie, err error) {
 
 	curwebServer := &webserversv1alpha1.WebServer{}
 	err = clt.Get(ctx, types.NamespacedName{Name: webServer.ObjectMeta.Name, Namespace: webServer.ObjectMeta.Namespace}, curwebServer)
@@ -484,7 +498,11 @@ func webServerRouteTest(clt client.Client, ctx context.Context, t *testing.T, we
 			return nil, errors.New("Can't read balancer!")
 		}
 		port := balancer.Spec.Ports[0].NodePort
-		URL = "http://" + os.Getenv("NODENAME") + ":" + strconv.Itoa(int(port)) + URI
+		if isSecure {
+			URL = "https://" + os.Getenv("NODENAME") + ":" + strconv.Itoa(int(port)) + URI
+		} else {
+			URL = "http://" + os.Getenv("NODENAME") + ":" + strconv.Itoa(int(port)) + URI
+		}
 	} else {
 		for i := 1; i < 20; i++ {
 			err = clt.Get(ctx, types.NamespacedName{Name: webServer.ObjectMeta.Name, Namespace: webServer.ObjectMeta.Namespace}, curwebServer)
@@ -509,11 +527,15 @@ func webServerRouteTest(clt client.Client, ctx context.Context, t *testing.T, we
 			return nil, errors.New("Route is empty!")
 		}
 		t.Logf("Route:  (%s)\n", curwebServer.Status.Hosts)
-		URL = "http://" + curwebServer.Status.Hosts[0] + URI
+		if isSecure {
+			URL = "https://" + curwebServer.Status.Hosts[0] + URI
+		} else {
+			URL = "http://" + curwebServer.Status.Hosts[0] + URI
+		}
 	}
 
 	// Wait a little to avoid 503 codes.
-	time.Sleep(10 * time.Second)
+	time.Sleep(20 * time.Second)
 
 	req, err := http.NewRequest("GET", URL, nil)
 	if err != nil {
@@ -526,7 +548,13 @@ func webServerRouteTest(clt client.Client, ctx context.Context, t *testing.T, we
 	} else {
 		t.Logf("GET:  (%s)\n", URL)
 	}
-	client := &http.Client{}
+	var client = &http.Client{}
+	if isSecure { //disable security check for the client to overcome issues with the certificate
+		tr := &http.Transport{
+			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+		}
+		client = &http.Client{Transport: tr}
+	}
 	res, err := client.Do(req)
 	if err != nil {
 		// Probably the  dns information needs more time.
