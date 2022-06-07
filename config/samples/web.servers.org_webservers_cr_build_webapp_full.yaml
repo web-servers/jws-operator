@@ -12,10 +12,10 @@ spec:
       sourceRepositoryURL: https://github.com/jfclere/demo-webapp
       sourceRepositoryRef: "jakartaEE"
       contextDir: .
-      deployPath: /deployments/
-      applicationSizeLimit: 1Gi
+      webAppWarImagePushSecret: secretfortests
+      webAppWarImage: quay.io/jfclere/test
       builder:
-        image: maven:3.8.1-openjdk-8
+        image: quay.io/jfclere/tomcat10-buildah
         # This is what the default build script looks like with the above specs
         applicationBuildScript :
           |
@@ -68,5 +68,11 @@ spec:
             exit 1;
           fi
 
-          # Copies the resulting war to the mounted persistent volume
-          cp target/*.war /mnt/${webAppWarFileName};
+          # Copies the resulting war to deployments/${webAppWarFileName}
+          mkdir /tmp/deployments
+          cp /tmp/*/target/*.war /tmp/deployments/${webAppWarFileName};
+
+          cd /tmp
+          HOME=/tmp
+          STORAGE_DRIVER=vfs buildah bud -f /Dockerfile.JWS -t ${webAppWarImage} --authfile /auth/.dockerconfigjson --build-arg webAppSourceImage=${webAppSourceImage}
+          STORAGE_DRIVER=vfs buildah push --authfile /auth/.dockerconfigjson ${webAppWarImage}
