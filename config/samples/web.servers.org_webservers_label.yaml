@@ -1,11 +1,12 @@
 apiVersion: web.servers.org/v1alpha1
 kind: WebServer
 metadata:
-  name: example-imagestream-webserver
+  name: tomcat-in-the-cloud-war
+  labels:
+    rebuild: nope
 spec:
-  # Add fields here
-  applicationName: jws-app
+  applicationName: test-app
   replicas: 2
   webImageStream:
-    imageStreamNamespace: openshift
     imageStreamName: jboss-webserver56-openjdk8-tomcat9-openshift-ubi8
+    imageStreamNamespace: jclere-namespace
