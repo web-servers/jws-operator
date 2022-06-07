@@ -8,4 +8,4 @@ spec:
   replicas: 2
   webImageStream:
     imageStreamNamespace: openshift
-    imageStreamName: jboss-webserver54-openjdk8-tomcat9-ubi8-openshift
+    imageStreamName: jboss-webserver56-openjdk8-tomcat9-openshift-ubi8
