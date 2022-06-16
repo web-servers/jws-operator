@@ -336,7 +336,11 @@ func (r *WebServerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 			err = r.Update(ctx, deployment)
 			if err != nil {
 				log.Error(err, "Failed to update Deployment.", "Deployment.Namespace", deployment.Namespace, "Deployment.Name", deployment.Name)
-				return ctrl.Result{}, err
+				if errors.IsConflict(err) {
+					log.V(1).Info(err.Error())
+				} else {
+					return ctrl.Result{}, err
+				}
 			}
 			// Spec updated - return and requeue
 			return ctrl.Result{Requeue: true}, nil
@@ -417,7 +421,12 @@ func (r *WebServerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 			err = r.Update(ctx, deploymentConfig)
 			if err != nil {
 				log.Info("Failed to update DeploymentConfig." + "DeploymentConfig.Namespace" + deploymentConfig.Namespace + "DeploymentConfig.Name" + deploymentConfig.Name)
-				return ctrl.Result{}, err
+				if errors.IsConflict(err) {
+					log.V(1).Info(err.Error())
+				} else {
+					return ctrl.Result{}, err
+				}
+
 			}
 			// Spec updated - return and requeue
 			return ctrl.Result{Requeue: true}, nil
@@ -533,10 +542,17 @@ func (r *WebServerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 	}
 
 	if updateStatus {
-		err := r.updateWebServerStatus(webServer, r.Client, ctx)
-		if err != nil {
-			return ctrl.Result{}, err
+
+		if err := r.Status().Update(ctx, webServer); err != nil {
+			log.Error(err, "Failed to update the status of WebServer")
+			if errors.IsConflict(err) {
+				log.V(1).Info(err.Error())
+				return ctrl.Result{Requeue: true}, nil
+			} else {
+				return ctrl.Result{}, err
+			}
 		}
+
 	}
 
 	if requeue {
