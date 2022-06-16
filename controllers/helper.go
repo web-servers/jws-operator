@@ -456,7 +456,6 @@ func (r *WebServerReconciler) generateLabelsForWeb(webServer *webserversv1alpha1
 	// labels["app.openshift.io/runtime"] = os.Getenv("LABEL_APP_RUNTIME")
 	if webServer.Labels != nil {
 		for labelKey, labelValue := range webServer.Labels {
-			log.Info("labels: " + labelKey + " : " + labelValue)
 			labels[labelKey] = labelValue
 		}
 	}
@@ -499,19 +498,6 @@ func (r *WebServerReconciler) getPodStatus(pods []corev1.Pod) ([]webserversv1alp
 		log.Info("Some pods don't have an IP address yet, reconciliation requeue scheduled")
 	}
 	return podStatuses, requeue
-}
-
-// updateWebServerStatus updates status of the WebServer resource.
-func (r *WebServerReconciler) updateWebServerStatus(webServer *webserversv1alpha1.WebServer, client client.Client, ctx context.Context) error {
-	log.Info("Updating the status of WebServer")
-
-	if err := r.Status().Update(ctx, webServer); err != nil {
-		log.Error(err, "Failed to update the status of WebServer")
-		return err
-	}
-
-	log.Info("The status of WebServer was updated successfully")
-	return nil
 }
 
 // Calculate a hash of the Spec (configuration) to redeploy/rebuild if needed.
