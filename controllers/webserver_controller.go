@@ -403,6 +403,23 @@ func (r *WebServerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 			return result, err
 		}
 
+		// Check if we need to delete it and recreate it.
+		currentHash := r.getWebServerHash(webServer)
+		if deploymentConfig.Labels["webserver-hash"] == "" {
+			deploymentConfig.Labels["webserver-hash"] = currentHash
+		} else {
+			if deploymentConfig.Labels["webserver-hash"] != currentHash {
+				// TODO we probably can update the deployement in some more cases...
+				// Just Delete and requeue
+				err = r.Client.Delete(ctx, deploymentConfig)
+				if err != nil && errors.IsNotFound(err) {
+					return ctrl.Result{}, nil
+				}
+				log.Info("Webserver hash changed: Delete DeploymentConfig and requeue reconciliation")
+				return ctrl.Result{RequeueAfter: (500 * time.Millisecond)}, nil
+			}
+		}
+
 		if int(deploymentConfig.Status.LatestVersion) == 0 {
 			log.Info("The DeploymentConfig has not finished deploying the pods yet")
 			return ctrl.Result{RequeueAfter: (500 * time.Millisecond)}, nil
