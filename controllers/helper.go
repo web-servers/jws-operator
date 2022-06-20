@@ -369,6 +369,7 @@ func (r *WebServerReconciler) createDeploymentConfig(ctx context.Context, webSer
 	if err != nil && errors.IsNotFound(err) {
 		// Create a new resource
 		log.Info("Creating a new DeploymentConfig: " + resourceName + " Namespace: " + resourceNamespace)
+		resource.ObjectMeta.Labels["webserver-hash"] = r.getWebServerHash(webServer)
 		err = r.Client.Create(ctx, resource)
 		if err != nil && !errors.IsAlreadyExists(err) {
 			log.Error(err, "Failed to create a new DeploymentConfig: "+resourceName+" Namespace: "+resourceNamespace)
