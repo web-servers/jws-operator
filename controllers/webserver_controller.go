@@ -11,8 +11,8 @@ import (
 
 	webserversv1alpha1 "github.com/web-servers/jws-operator/api/v1alpha1"
 
+	appsv1 "github.com/openshift/api/apps/v1"
 	buildv1 "github.com/openshift/api/build/v1"
-	// kbappsv1 "k8s.io/api/apps/v1"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -46,13 +46,19 @@ var (
 // }
 
 // add adds a new Controller to mgr with r as the reconcile.Reconciler
-//		Owns(&kbappsv1.Deployment{}). (NOT OK???)
 func (r *WebServerReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	r.isOpenShift = isOpenShift(mgr.GetConfig())
 	r.hasServiceMonitor = hasServiceMonitor(mgr.GetConfig())
-	return ctrl.NewControllerManagedBy(mgr).
-		For(&webserversv1alpha1.WebServer{}).
-		Complete(r)
+	if r.isOpenShift {
+		return ctrl.NewControllerManagedBy(mgr).
+			For(&webserversv1alpha1.WebServer{}).
+			Owns(&appsv1.DeploymentConfig{}).
+			Complete(r)
+	} else {
+		return ctrl.NewControllerManagedBy(mgr).
+			For(&webserversv1alpha1.WebServer{}).
+			Complete(r)
+	}
 
 }
 
