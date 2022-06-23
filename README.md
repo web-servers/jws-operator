@@ -291,6 +291,7 @@ The whole testsuite takes about 40 minutes...
 ```bash
 oc adm policy add-scc-to-user anyuid -z builder
 ```
+**Note** When using podman remember the auth.json is in ${XDG_RUNTIME_DIR}/containers the format is like the $HOME/.docker/config.json but has the username/repo instead just username (like "quay.io/jfclere/jws-operator" versus "quay.io/jfclere" in docker).
 
 ## What to do next?
 
