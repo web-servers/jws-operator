@@ -14,11 +14,10 @@ import (
 	appsv1 "github.com/openshift/api/apps/v1"
 	buildv1 "github.com/openshift/api/build/v1"
 
+	imagestreamv1 "github.com/openshift/api/image/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 
@@ -373,17 +372,13 @@ func (r *WebServerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 			imageStreamName = imageStream.Name
 			imageStreamNamespace = imageStream.Namespace
 
-			u := &unstructured.Unstructured{}
-			u.SetGroupVersionKind(schema.GroupVersionKind{
-				Group:   "image.openshift.io",
-				Kind:    "ImageStream",
-				Version: "v1",
-			})
+			is := &imagestreamv1.ImageStream{}
 
-			err := r.Client.Get(context.Background(), client.ObjectKey{
+			err = r.Get(ctx, client.ObjectKey{
 				Namespace: imageStreamNamespace,
 				Name:      imageStreamName,
-			}, u)
+			}, is)
+
 			if errors.IsNotFound(err) {
 				log.Error(err, "Namespace/ImageStream doesn't exist.")
 				return ctrl.Result{}, nil
@@ -420,17 +415,13 @@ func (r *WebServerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 			}
 		}
 
-		u := &unstructured.Unstructured{}
-		u.SetGroupVersionKind(schema.GroupVersionKind{
-			Group:   "image.openshift.io",
-			Kind:    "ImageStream",
-			Version: "v1",
-		})
+		is := &imagestreamv1.ImageStream{}
 
-		err := r.Client.Get(context.Background(), client.ObjectKey{
+		err = r.Get(ctx, client.ObjectKey{
 			Namespace: imageStreamNamespace,
 			Name:      imageStreamName,
-		}, u)
+		}, is)
+
 		if errors.IsNotFound(err) {
 			log.Error(err, "Namespace/ImageStream doesn't exist.")
 			return ctrl.Result{}, nil
