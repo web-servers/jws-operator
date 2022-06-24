@@ -16,7 +16,9 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 
@@ -371,6 +373,22 @@ func (r *WebServerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 			imageStreamName = imageStream.Name
 			imageStreamNamespace = imageStream.Namespace
 
+			u := &unstructured.Unstructured{}
+			u.SetGroupVersionKind(schema.GroupVersionKind{
+				Group:   "image.openshift.io",
+				Kind:    "ImageStream",
+				Version: "v1",
+			})
+
+			err := r.Client.Get(context.Background(), client.ObjectKey{
+				Namespace: imageStreamNamespace,
+				Name:      imageStreamName,
+			}, u)
+			if errors.IsNotFound(err) {
+				log.Error(err, "Namespace/ImageStream doesn't exist.")
+				return ctrl.Result{}, nil
+			}
+
 			// Check if a BuildConfig already exists, and if not create a new one
 			buildConfig := r.generateBuildConfig(webServer)
 			result, err = r.createBuildConfig(ctx, webServer, buildConfig, buildConfig.Name, buildConfig.Namespace)
@@ -400,6 +418,22 @@ func (r *WebServerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 				return ctrl.Result{}, nil
 
 			}
+		}
+
+		u := &unstructured.Unstructured{}
+		u.SetGroupVersionKind(schema.GroupVersionKind{
+			Group:   "image.openshift.io",
+			Kind:    "ImageStream",
+			Version: "v1",
+		})
+
+		err := r.Client.Get(context.Background(), client.ObjectKey{
+			Namespace: imageStreamNamespace,
+			Name:      imageStreamName,
+		}, u)
+		if errors.IsNotFound(err) {
+			log.Error(err, "Namespace/ImageStream doesn't exist.")
+			return ctrl.Result{}, nil
 		}
 
 		// Check if a DeploymentConfig already exists and if not, create a new one
