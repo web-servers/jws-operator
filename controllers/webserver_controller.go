@@ -14,11 +14,10 @@ import (
 	appsv1 "github.com/openshift/api/apps/v1"
 	buildv1 "github.com/openshift/api/build/v1"
 
+	imagestreamv1 "github.com/openshift/api/image/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 
@@ -304,19 +303,26 @@ func (r *WebServerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 			return result, err
 		}
 
-		// Check if we need to delete it and recreate it.
+		// Check if we need to update it.
 		currentHash := r.getWebServerHash(webServer)
-		if deployment.Labels["webserver-hash"] == "" {
-			deployment.Labels["webserver-hash"] = currentHash
+		if deployment.ObjectMeta.Labels["webserver-hash"] == "" {
+			deployment.ObjectMeta.Labels["webserver-hash"] = currentHash
+			updateDeployment = true
 		} else {
-			if deployment.Labels["webserver-hash"] != currentHash {
-				// TODO we probably can update the deployement in some more cases...
-				// Just Delete and requeue
-				err = r.Client.Delete(ctx, deployment)
-				if err != nil && errors.IsNotFound(err) {
-					return ctrl.Result{}, nil
+			if deployment.ObjectMeta.Labels["webserver-hash"] != currentHash {
+				// Just Update and requeue
+				r.generateUpdatedDeployment(webServer, deployment)
+				deployment.ObjectMeta.Labels["webserver-hash"] = currentHash
+				err = r.Client.Update(ctx, deployment)
+				if err != nil {
+					log.Error(err, "Failed to update Deployment.", "Deployment.Namespace", deployment.Namespace, "Deployment.Name", deployment.Name)
+					if errors.IsConflict(err) {
+						log.V(1).Info(err.Error())
+					} else {
+						return ctrl.Result{}, nil
+					}
 				}
-				log.Info("Webserver hash changed: Delete Deployment and requeue reconciliation")
+				log.Info("Webserver hash changed: Update Deployment and requeue reconciliation")
 				return ctrl.Result{RequeueAfter: (500 * time.Millisecond)}, nil
 			}
 		}
@@ -373,17 +379,13 @@ func (r *WebServerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 			imageStreamName = imageStream.Name
 			imageStreamNamespace = imageStream.Namespace
 
-			u := &unstructured.Unstructured{}
-			u.SetGroupVersionKind(schema.GroupVersionKind{
-				Group:   "image.openshift.io",
-				Kind:    "ImageStream",
-				Version: "v1",
-			})
+			is := &imagestreamv1.ImageStream{}
 
-			err := r.Client.Get(context.Background(), client.ObjectKey{
+			err = r.Get(ctx, client.ObjectKey{
 				Namespace: imageStreamNamespace,
 				Name:      imageStreamName,
-			}, u)
+			}, is)
+
 			if errors.IsNotFound(err) {
 				log.Error(err, "Namespace/ImageStream doesn't exist.")
 				return ctrl.Result{}, nil
@@ -420,17 +422,13 @@ func (r *WebServerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 			}
 		}
 
-		u := &unstructured.Unstructured{}
-		u.SetGroupVersionKind(schema.GroupVersionKind{
-			Group:   "image.openshift.io",
-			Kind:    "ImageStream",
-			Version: "v1",
-		})
+		is := &imagestreamv1.ImageStream{}
 
-		err := r.Client.Get(context.Background(), client.ObjectKey{
+		err = r.Get(ctx, client.ObjectKey{
 			Namespace: imageStreamNamespace,
 			Name:      imageStreamName,
-		}, u)
+		}, is)
+
 		if errors.IsNotFound(err) {
 			log.Error(err, "Namespace/ImageStream doesn't exist.")
 			return ctrl.Result{}, nil
@@ -446,16 +444,23 @@ func (r *WebServerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		// Check if we need to delete it and recreate it.
 		currentHash := r.getWebServerHash(webServer)
 		if deploymentConfig.Labels["webserver-hash"] == "" {
-			deploymentConfig.Labels["webserver-hash"] = currentHash
+			deploymentConfig.ObjectMeta.Labels["webserver-hash"] = currentHash
+			updateDeployment = true
 		} else {
 			if deploymentConfig.Labels["webserver-hash"] != currentHash {
-				// TODO we probably can update the deployement in some more cases...
-				// Just Delete and requeue
-				err = r.Client.Delete(ctx, deploymentConfig)
-				if err != nil && errors.IsNotFound(err) {
-					return ctrl.Result{}, nil
+				// Just Update and requeue
+				r.generateUpdatedDeploymentConfig(webServer, imageStreamName, imageStreamNamespace, deploymentConfig)
+				deploymentConfig.ObjectMeta.Labels["webserver-hash"] = currentHash
+				err = r.Client.Update(ctx, deploymentConfig)
+				if err != nil {
+					log.Error(err, "Failed to update DeploymentConfig.", "Deployment.Namespace", deploymentConfig.Namespace, "Deployment.Name", deploymentConfig.Name)
+					if errors.IsConflict(err) {
+						log.V(1).Info(err.Error())
+					} else {
+						return ctrl.Result{}, nil
+					}
 				}
-				log.Info("Webserver hash changed: Delete DeploymentConfig and requeue reconciliation")
+				log.Info("Webserver hash changed: Update DeploymentConfig and requeue reconciliation")
 				return ctrl.Result{RequeueAfter: (500 * time.Millisecond)}, nil
 			}
 		}

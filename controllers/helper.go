@@ -463,6 +463,21 @@ func (r *WebServerReconciler) generateLabelsForWeb(webServer *webserversv1alpha1
 	return labels
 }
 
+// generateSelectorLabelsForWeb return a map of labels that are used for identification
+// of objects belonging to the particular WebServer instance
+// NOTE: that is ONLY for the Selector of the Deployment
+// the other labels might change and that is NOT allowed when updating a Deployment
+func (r *WebServerReconciler) generateSelectorLabelsForWeb(webServer *webserversv1alpha1.WebServer) map[string]string {
+	labels := map[string]string{
+		"deploymentConfig": webServer.Spec.ApplicationName,
+		"WebServer":        webServer.Name,
+		"application":      webServer.Spec.ApplicationName,
+		// app.kubernetes.io/name is used for HPA selector like in wildfly
+		"app.kubernetes.io/name": webServer.Name,
+	}
+	return labels
+}
+
 // sortPodListByName sorts the pod list by number in the name
 //  expecting the format which the StatefulSet works with which is `<podname>-<number>`
 func (r *WebServerReconciler) sortPodListByName(podList *corev1.PodList) *corev1.PodList {
