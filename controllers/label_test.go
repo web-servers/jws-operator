@@ -66,7 +66,6 @@ var _ = Describe("WebServer controller", func() {
 			}
 
 			// make sure we cleanup at the end of this test.
-
 			defer func() {
 				k8sClient.Delete(context.Background(), webserver)
 				time.Sleep(time.Second * 5)
@@ -110,11 +109,15 @@ var _ = Describe("WebServer controller", func() {
 			}
 			webserver.ObjectMeta.SetLabels(newLabels)
 
-			err := k8sClient.Update(ctx, webserver)
+			Eventually(func() bool {
+				err := k8sClient.Update(ctx, webserver)
 
-			if !errors.IsConflict(err) && err != nil {
-				thetest.Fatal(err)
-			}
+				if err != nil && !errors.IsConflict(err) {
+					thetest.Fatal(err)
+				}
+				return !errors.IsConflict(err)
+
+			}, time.Second*60, time.Millisecond*250).Should(BeTrue())
 
 			// Check it is started.
 			webserverLookupKey = types.NamespacedName{Name: name, Namespace: namespace}
@@ -153,7 +156,7 @@ var _ = Describe("WebServer controller", func() {
 						client.InNamespace(webserver.Namespace),
 						client.MatchingLabels(labels),
 					}
-					err = k8sClient.List(ctx, podList, listOpts...)
+					k8sClient.List(ctx, podList, listOpts...)
 
 					numberOfDeployedPods := int32(len(podList.Items))
 					if numberOfDeployedPods != webserver.Spec.Replicas {
@@ -162,7 +165,7 @@ var _ = Describe("WebServer controller", func() {
 					} else {
 						return true
 					}
-				}, time.Second*60, time.Millisecond*250).Should(BeTrue())
+				}, time.Second*300, time.Millisecond*500).Should(BeTrue())
 			}
 
 			// remove the created webserver
@@ -176,7 +179,10 @@ var _ = Describe("WebServer controller", func() {
 				return errors.IsNotFound(err)
 			}, time.Second*20, time.Millisecond*250).Should(BeTrue())
 
-			isopenshift := webserverstests.WebServerHaveRoutes(k8sClient, ctx, thetest)
+			isopenshift := false
+			if noskip {
+				isopenshift = webserverstests.WebServerHaveRoutes(k8sClient, ctx, thetest)
+			}
 			if isopenshift {
 				name = "label-test-openshift"
 				webserver = &webserversv1alpha1.WebServer{
@@ -234,11 +240,15 @@ var _ = Describe("WebServer controller", func() {
 				}
 				webserver.ObjectMeta.SetLabels(newLabels)
 
-				err := k8sClient.Update(ctx, webserver)
+				Eventually(func() bool {
+					err := k8sClient.Update(ctx, webserver)
 
-				if !errors.IsConflict(err) && err != nil {
-					thetest.Fatal(err)
-				}
+					if err != nil && !errors.IsConflict(err) {
+						thetest.Fatal(err)
+					}
+					return !errors.IsConflict(err)
+
+				}, time.Second*60, time.Millisecond*250).Should(BeTrue())
 
 				// Check it is started.
 				webserverLookupKey = types.NamespacedName{Name: name, Namespace: namespace}
@@ -276,7 +286,7 @@ var _ = Describe("WebServer controller", func() {
 							client.InNamespace(webserver.Namespace),
 							client.MatchingLabels(labels),
 						}
-						err = k8sClient.List(ctx, podList, listOpts...)
+						k8sClient.List(ctx, podList, listOpts...)
 
 						numberOfDeployedPods := int32(len(podList.Items))
 						if numberOfDeployedPods != webserver.Spec.Replicas {
@@ -285,7 +295,7 @@ var _ = Describe("WebServer controller", func() {
 						} else {
 							return true
 						}
-					}, time.Second*60, time.Millisecond*250).Should(BeTrue())
+					}, time.Second*300, time.Millisecond*500).Should(BeTrue())
 				}
 
 				// remove the created webserver

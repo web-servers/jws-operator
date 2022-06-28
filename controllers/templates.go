@@ -227,7 +227,7 @@ func (r *WebServerReconciler) generateDeployment(webServer *webserversv1alpha1.W
 			},
 			Replicas: &replicas,
 			Selector: &metav1.LabelSelector{
-				MatchLabels: r.generateLabelsForWeb(webServer),
+				MatchLabels: r.generateSelectorLabelsForWeb(webServer),
 			},
 			Template: podTemplateSpec,
 		},
@@ -235,6 +235,31 @@ func (r *WebServerReconciler) generateDeployment(webServer *webserversv1alpha1.W
 
 	controllerutil.SetControllerReference(webServer, deployment, r.Scheme)
 	return deployment
+}
+func (r *WebServerReconciler) generateUpdatedDeployment(webServer *webserversv1alpha1.WebServer, deployment *kbappsv1.Deployment) {
+
+	replicas := int32(webServer.Spec.Replicas)
+	applicationimage := webServer.Spec.WebImage.ApplicationImage
+	objectMeta := r.generateObjectMeta(webServer, webServer.Spec.ApplicationName)
+	objectMeta.Labels = r.generateLabelsForWeb(webServer)
+	// With a builder we use the WebAppWarImage (webServer.Spec.WebImage.WebApp.WebAppWarImage)
+	if webServer.Spec.WebImage.WebApp != nil {
+		applicationimage = webServer.Spec.WebImage.WebApp.WebAppWarImage
+	}
+	podTemplateSpec := r.generatePodTemplate(webServer, applicationimage)
+	deployment.ObjectMeta = objectMeta
+	spec := kbappsv1.DeploymentSpec{
+		Strategy: kbappsv1.DeploymentStrategy{
+			Type: kbappsv1.RecreateDeploymentStrategyType,
+		},
+		Replicas: &replicas,
+		Selector: &metav1.LabelSelector{
+			MatchLabels: r.generateSelectorLabelsForWeb(webServer),
+		},
+		Template: podTemplateSpec,
+	}
+	deployment.Spec = spec
+	controllerutil.SetControllerReference(webServer, deployment, r.Scheme)
 }
 
 func (r *WebServerReconciler) generateImageStream(webServer *webserversv1alpha1.WebServer) *imagev1.ImageStream {
@@ -439,6 +464,43 @@ func (r *WebServerReconciler) generateDeploymentConfig(webServer *webserversv1al
 	return deploymentConfig
 }
 
+// DeploymentConfig is the OpenShift "extension" of Deployment
+func (r *WebServerReconciler) generateUpdatedDeploymentConfig(webServer *webserversv1alpha1.WebServer, imageStreamName string, imageStreamNamespace string, deploymentConfig *appsv1.DeploymentConfig) {
+
+	replicas := int32(1)
+	podTemplateSpec := r.generatePodTemplate(webServer, webServer.Spec.ApplicationName)
+	// objectMeta := r.generateObjectMeta(webServer, webServer.Spec.ApplicationName)
+	// objectMeta.Labels = r.generateLabelsForWeb(webServer)
+	deploymentConfig.ObjectMeta.Labels = r.generateLabelsForWeb(webServer)
+	spec := appsv1.DeploymentConfigSpec{
+		Strategy: appsv1.DeploymentStrategy{
+			Type: appsv1.DeploymentStrategyTypeRecreate,
+		},
+		Triggers: []appsv1.DeploymentTriggerPolicy{{
+			Type: appsv1.DeploymentTriggerOnImageChange,
+			ImageChangeParams: &appsv1.DeploymentTriggerImageChangeParams{
+				Automatic:      true,
+				ContainerNames: []string{webServer.Spec.ApplicationName},
+				From: corev1.ObjectReference{
+					Kind:      "ImageStreamTag",
+					Name:      imageStreamName + ":latest",
+					Namespace: imageStreamNamespace,
+				},
+			},
+		},
+			{
+				Type: appsv1.DeploymentTriggerOnConfigChange,
+			}},
+		Replicas: replicas,
+		// Why not a metav1.LabelSelector like in Deployment? ask OpenShift!!!
+		Selector: r.generateLabelsForWeb(webServer),
+		Template: &podTemplateSpec,
+	}
+	deploymentConfig.Spec = spec
+
+	controllerutil.SetControllerReference(webServer, deploymentConfig, r.Scheme)
+}
+
 func (r *WebServerReconciler) generateRoute(webServer *webserversv1alpha1.WebServer) *routev1.Route {
 	objectMeta := r.generateObjectMeta(webServer, webServer.Spec.ApplicationName)
 	objectMeta.Annotations = map[string]string{
@@ -510,6 +572,7 @@ func (r *WebServerReconciler) generateLoadBalancer(webServer *webserversv1alpha1
 func (r *WebServerReconciler) generatePodTemplate(webServer *webserversv1alpha1.WebServer, image string) corev1.PodTemplateSpec {
 	objectMeta := r.generateObjectMeta(webServer, webServer.Spec.ApplicationName)
 	objectMeta.Labels = r.generateLabelsForWeb(webServer)
+	objectMeta.Labels["webserver-hash"] = r.getWebServerHash(webServer)
 	var health *webserversv1alpha1.WebServerHealthCheckSpec = &webserversv1alpha1.WebServerHealthCheckSpec{}
 	if webServer.Spec.WebImage != nil {
 		health = webServer.Spec.WebImage.WebServerHealthCheck
