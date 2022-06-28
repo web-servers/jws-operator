@@ -109,12 +109,15 @@ var _ = Describe("WebServer controller", func() {
 			}
 			webserver.ObjectMeta.SetLabels(newLabels)
 
-			err := k8sClient.Update(ctx, webserver)
+			Eventually(func() bool {
+				err := k8sClient.Update(ctx, webserver)
 
-			// if !errors.IsConflict(err) && err != nil {
-			if err != nil {
-				thetest.Fatal(err)
-			}
+				if err != nil && !errors.IsConflict(err) {
+					thetest.Fatal(err)
+				}
+				return !errors.IsConflict(err)
+
+			}, time.Second*30, time.Millisecond*250).Should(BeTrue())
 
 			// Check it is started.
 			webserverLookupKey = types.NamespacedName{Name: name, Namespace: namespace}
@@ -153,7 +156,7 @@ var _ = Describe("WebServer controller", func() {
 						client.InNamespace(webserver.Namespace),
 						client.MatchingLabels(labels),
 					}
-					err = k8sClient.List(ctx, podList, listOpts...)
+					k8sClient.List(ctx, podList, listOpts...)
 
 					numberOfDeployedPods := int32(len(podList.Items))
 					if numberOfDeployedPods != webserver.Spec.Replicas {
@@ -237,11 +240,15 @@ var _ = Describe("WebServer controller", func() {
 				}
 				webserver.ObjectMeta.SetLabels(newLabels)
 
-				err := k8sClient.Update(ctx, webserver)
+				Eventually(func() bool {
+					err := k8sClient.Update(ctx, webserver)
 
-				if err != nil {
-					thetest.Fatal(err)
-				}
+					if err != nil && !errors.IsConflict(err) {
+						thetest.Fatal(err)
+					}
+					return !errors.IsConflict(err)
+
+				}, time.Second*30, time.Millisecond*250).Should(BeTrue())
 
 				// Check it is started.
 				webserverLookupKey = types.NamespacedName{Name: name, Namespace: namespace}
@@ -279,7 +286,7 @@ var _ = Describe("WebServer controller", func() {
 							client.InNamespace(webserver.Namespace),
 							client.MatchingLabels(labels),
 						}
-						err = k8sClient.List(ctx, podList, listOpts...)
+						k8sClient.List(ctx, podList, listOpts...)
 
 						numberOfDeployedPods := int32(len(podList.Items))
 						if numberOfDeployedPods != webserver.Spec.Replicas {
