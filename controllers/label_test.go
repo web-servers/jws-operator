@@ -117,7 +117,7 @@ var _ = Describe("WebServer controller", func() {
 				}
 				return !errors.IsConflict(err)
 
-			}, time.Second*30, time.Millisecond*250).Should(BeTrue())
+			}, time.Second*60, time.Millisecond*250).Should(BeTrue())
 
 			// Check it is started.
 			webserverLookupKey = types.NamespacedName{Name: name, Namespace: namespace}
@@ -248,7 +248,7 @@ var _ = Describe("WebServer controller", func() {
 					}
 					return !errors.IsConflict(err)
 
-				}, time.Second*30, time.Millisecond*250).Should(BeTrue())
+				}, time.Second*60, time.Millisecond*250).Should(BeTrue())
 
 				// Check it is started.
 				webserverLookupKey = types.NamespacedName{Name: name, Namespace: namespace}
