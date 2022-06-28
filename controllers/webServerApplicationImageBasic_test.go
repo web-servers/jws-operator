@@ -5,15 +5,13 @@ import (
 	"fmt"
 
 	. "github.com/onsi/ginkgo"
+	imagestreamv1 "github.com/openshift/api/image/v1"
+
 	. "github.com/onsi/gomega"
 	webserverstests "github.com/web-servers/jws-operator/test/framework"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/tools/clientcmd"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -53,6 +51,7 @@ var _ = Describe("WebServer controller", func() {
 				if err != nil {
 					thetest.Fatal(err)
 				}
+
 				Expect(webserverstests.WebServerApplicationImageSourcesScriptBasicTest(k8sClient, ctx, thetest, namespace, "sourcesscriptbasictest", "quay.io/jfclere/tomcat10:latest", "https://github.com/jfclere/demo-webapp", "jakartaEE", "quay.io/"+username+"/test", "secretfortests", "quay.io/jfclere/tomcat10-buildah", randemo)).Should(Succeed())
 				Expect(webserverstests.WebServerApplicationImageBasicTest(k8sClient, ctx, thetest, namespace, "rhregistrybasictest", "registry.redhat.io/jboss-webserver-5/jws56-openjdk11-openshift-rhel8", "/health")).Should(Succeed())
 				Expect(webserverstests.WebServerApplicationImageBasicTest(k8sClient, ctx, thetest, namespace, "basictest", "quay.io/jfclere/tomcat10:latest", "/health")).Should(Succeed())
@@ -62,17 +61,13 @@ var _ = Describe("WebServer controller", func() {
 				Expect(webserverstests.WebServerApplicationImageSourcesScaleTest(k8sClient, ctx, thetest, namespace, "sourcesscaletest", "quay.io/jfclere/tomcat10:latest", "https://github.com/jfclere/demo-webapp", "jakartaEE", "quay.io/"+username+"/test", "secretfortests", "quay.io/jfclere/tomcat10-buildah", randemo)).Should(Succeed())
 				isopenshift := webserverstests.WebServerHaveRoutes(k8sClient, ctx, thetest)
 				if isopenshift {
-					// Using a unstructured object.
-					u := &unstructured.Unstructured{}
-					u.SetGroupVersionKind(schema.GroupVersionKind{
-						Group:   "image.openshift.io",
-						Kind:    "ImageStream",
-						Version: "v1",
-					})
+
+					is := &imagestreamv1.ImageStream{}
+
 					err := k8sClient.Get(context.Background(), client.ObjectKey{
 						Namespace: namespace,
 						Name:      "jboss-webserver56-openjdk8-tomcat9-openshift-ubi8",
-					}, u)
+					}, is)
 					if errors.IsNotFound(err) {
 						thetest.Fatal(err)
 					}
@@ -88,22 +83,3 @@ var _ = Describe("WebServer controller", func() {
 		})
 	})
 })
-
-func GetResourcesDynamically(dynamic dynamic.Interface, ctx context.Context,
-	group string, version string, resource string, namespace string) (
-	[]unstructured.Unstructured, error) {
-
-	resourceId := schema.GroupVersionResource{
-		Group:    group,
-		Version:  version,
-		Resource: resource,
-	}
-	list, err := dynamic.Resource(resourceId).Namespace(namespace).
-		List(ctx, metav1.ListOptions{})
-
-	if err != nil {
-		return nil, err
-	}
-
-	return list.Items, nil
-}
