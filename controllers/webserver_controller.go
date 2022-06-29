@@ -258,15 +258,23 @@ func (r *WebServerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		currentHash := r.getWebServerHash(webServer)
 		if deployment.Labels["webserver-hash"] == "" {
 			deployment.Labels["webserver-hash"] = currentHash
+			updateDeployment = true
 		} else {
 			if deployment.Labels["webserver-hash"] != currentHash {
-				// TODO we probably can update the deployement in some more cases...
-				// Just Delete and requeue
-				err = r.Client.Delete(context.TODO(), deployment)
-				if err != nil && errors.IsNotFound(err) {
-					return ctrl.Result{}, nil
+				// Just Update and requeue
+				r.generateUpdatedDeployment(webServer, deployment)
+				deployment.ObjectMeta.Labels["webserver-hash"] = currentHash
+				err = r.Client.Update(ctx, deployment)
+				if err != nil {
+					log.Error(err, "Failed to update Deployment.", "Deployment.Namespace", deployment.Namespace, "Deployment.Name", deployment.Name)
+					if errors.IsConflict(err) {
+						log.V(1).Info(err.Error())
+					} else {
+						return ctrl.Result{}, nil
+					}
+
 				}
-				log.Info("Webserver hash changed: Delete Deployment and requeue reconciliation")
+				log.Info("Webserver hash changed: Update Deployment and requeue reconciliation")
 				return ctrl.Result{RequeueAfter: (500 * time.Millisecond)}, nil
 			}
 		}
@@ -355,6 +363,30 @@ func (r *WebServerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		result, err = r.createDeploymentConfig(webServer, deploymentConfig, deploymentConfig.Name, deploymentConfig.Namespace)
 		if err != nil || result != (ctrl.Result{}) {
 			return result, err
+		}
+
+		// Check if we need to delete it and recreate it.
+		currentHash := r.getWebServerHash(webServer)
+		if deploymentConfig.Labels["webserver-hash"] == "" {
+			deploymentConfig.ObjectMeta.Labels["webserver-hash"] = currentHash
+			updateDeployment = true
+		} else {
+			if deploymentConfig.Labels["webserver-hash"] != currentHash {
+				// Just Update and requeue
+				r.generateUpdatedDeploymentConfig(webServer, imageStreamName, imageStreamNamespace, deploymentConfig)
+				deploymentConfig.ObjectMeta.Labels["webserver-hash"] = currentHash
+				err = r.Client.Update(ctx, deploymentConfig)
+				if err != nil {
+					log.Error(err, "Failed to update DeploymentConfig.", "Deployment.Namespace", deploymentConfig.Namespace, "Deployment.Name", deploymentConfig.Name)
+					if errors.IsConflict(err) {
+						log.V(1).Info(err.Error())
+					} else {
+						return ctrl.Result{}, nil
+					}
+				}
+				log.Info("Webserver hash changed: Update DeploymentConfig and requeue reconciliation")
+				return ctrl.Result{RequeueAfter: (500 * time.Millisecond)}, nil
+			}
 		}
 
 		if int(deploymentConfig.Status.LatestVersion) == 0 {

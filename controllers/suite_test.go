@@ -18,6 +18,7 @@ package controllers
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
@@ -38,6 +39,9 @@ import (
 	routev1 "github.com/openshift/api/route/v1"
 	webserversv1alpha1 "github.com/web-servers/jws-operator/api/v1alpha1"
 	//+kubebuilder:scaffold:imports
+
+	core "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // These tests use Ginkgo (BDD-style Go testing framework). Refer to
@@ -140,3 +144,20 @@ var _ = AfterSuite(func() {
 	err := testEnv.Stop()
 	Expect(err).NotTo(HaveOccurred())
 })
+
+func SetupTest(ctx context.Context) *core.Namespace {
+	ns := &core.Namespace{}
+
+	*ns = core.Namespace{
+		ObjectMeta: metav1.ObjectMeta{Name: "test-env"},
+	}
+
+	err := k8sClient.Create(ctx, ns)
+	if err != nil {
+		fmt.Printf("NAMESPACE CREATED")
+	} else {
+		fmt.Printf("NAMESPACE NOT CREATED PROBABLY ALREADY EXISTS")
+	}
+
+	return ns
+}

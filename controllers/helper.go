@@ -330,6 +330,7 @@ func (r *WebServerReconciler) createDeploymentConfig(webServer *webserversv1alph
 	if err != nil && errors.IsNotFound(err) {
 		// Create a new resource
 		log.Info("Creating a new DeploymentConfig: " + resourceName + " Namespace: " + resourceNamespace)
+		resource.ObjectMeta.Labels["webserver-hash"] = r.getWebServerHash(webServer)
 		err = r.Client.Create(context.TODO(), resource)
 		if err != nil && !errors.IsAlreadyExists(err) {
 			log.Error(err, "Failed to create a new DeploymentConfig: "+resourceName+" Namespace: "+resourceNamespace)
@@ -407,9 +408,10 @@ func (r *WebServerReconciler) getPodList(webServer *webserversv1alpha1.WebServer
 //  of objects belonging to the particular WebServer instance
 func (r *WebServerReconciler) generateLabelsForWeb(webServer *webserversv1alpha1.WebServer) map[string]string {
 	labels := map[string]string{
-		"deploymentConfig": webServer.Spec.ApplicationName,
-		"WebServer":        webServer.Name,
-		"application":      webServer.Spec.ApplicationName,
+		"deploymentConfig":       webServer.Spec.ApplicationName,
+		"WebServer":              webServer.Name,
+		"application":            webServer.Spec.ApplicationName,
+		"app.kubernetes.io/name": webServer.Name,
 	}
 	// labels["app.kubernetes.io/name"] = webServer.Name
 	// labels["app.kubernetes.io/managed-by"] = os.Getenv("LABEL_APP_MANAGED_BY")
@@ -419,6 +421,21 @@ func (r *WebServerReconciler) generateLabelsForWeb(webServer *webserversv1alpha1
 			log.Info("labels: " + labelKey + " : " + labelValue)
 			labels[labelKey] = labelValue
 		}
+	}
+	return labels
+}
+
+// generateSelectorLabelsForWeb return a map of labels that are used for identification
+// of objects belonging to the particular WebServer instance
+// NOTE: that is ONLY for the Selector of the Deployment
+// the other labels might change and that is NOT allowed when updating a Deployment
+func (r *WebServerReconciler) generateSelectorLabelsForWeb(webServer *webserversv1alpha1.WebServer) map[string]string {
+	labels := map[string]string{
+		"deploymentConfig": webServer.Spec.ApplicationName,
+		"WebServer":        webServer.Name,
+		"application":      webServer.Spec.ApplicationName,
+		// app.kubernetes.io/name is used for HPA selector like in wildfly
+		"app.kubernetes.io/name": webServer.Name,
 	}
 	return labels
 }

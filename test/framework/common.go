@@ -837,6 +837,9 @@ func webServerTestFor(clt client.Client, ctx context.Context, t *testing.T, webS
 			}
 			if res.StatusCode != 200 {
 				t.Logf("FAIL status: %d body: %s\n", res.StatusCode, body)
+				if res.StatusCode == 503 {
+					continue
+				}
 				return errors.New(URL + " does not contain" + content)
 			}
 			if strings.Contains(string(body), content) {
