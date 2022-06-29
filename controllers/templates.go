@@ -237,14 +237,15 @@ func (r *WebServerReconciler) generateUpdatedDeployment(webServer *webserversv1a
 
 	replicas := int32(webServer.Spec.Replicas)
 	applicationimage := webServer.Spec.WebImage.ApplicationImage
-	objectMeta := r.generateObjectMeta(webServer, webServer.Spec.ApplicationName)
-	objectMeta.Labels = r.generateLabelsForWeb(webServer)
+	// objectMeta := r.generateObjectMeta(webServer, webServer.Spec.ApplicationName)
+	// objectMeta.Labels = r.generateLabelsForWeb(webServer)
+	deployment.ObjectMeta.Labels = r.generateLabelsForWeb(webServer)
 	// With a builder we use the WebAppWarImage (webServer.Spec.WebImage.WebApp.WebAppWarImage)
 	if webServer.Spec.WebImage.WebApp != nil {
 		applicationimage = webServer.Spec.WebImage.WebApp.WebAppWarImage
 	}
 	podTemplateSpec := r.generatePodTemplate(webServer, applicationimage)
-	deployment.ObjectMeta = objectMeta
+	// deployment.ObjectMeta = objectMeta
 	spec := kbappsv1.DeploymentSpec{
 		Strategy: kbappsv1.DeploymentStrategy{
 			Type: kbappsv1.RecreateDeploymentStrategyType,
