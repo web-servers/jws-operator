@@ -145,6 +145,8 @@ cd $$TMP_DIR ;\
 go mod init tmp ;\
 echo "Downloading $(2)" ;\
 GOBIN=$(PROJECT_DIR)/bin go get $(2) ;\
+echo "Installing $(2)" ;\
+GOBIN=$(PROJECT_DIR)/bin go install -v $(2) ;\
 rm -rf $$TMP_DIR ;\
 }
 endef
