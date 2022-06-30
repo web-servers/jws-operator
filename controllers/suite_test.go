@@ -39,6 +39,7 @@ import (
 	appsv1 "github.com/openshift/api/apps/v1"
 	routev1 "github.com/openshift/api/route/v1"
 	webserversv1alpha1 "github.com/web-servers/jws-operator/api/v1alpha1"
+
 	//+kubebuilder:scaffold:imports
 
 	core "k8s.io/api/core/v1"
@@ -73,10 +74,9 @@ func TestAPIs(t *testing.T) {
 }
 
 var _ = BeforeSuite(func() {
-	// Expect(os.Setenv("TEST_ASSET_KUBE_APISERVER", "/home/jfclere/go/bin/kube-apiserver")).To(Succeed())
-	// Expect(os.Setenv("TEST_ASSET_ETCD", "/home/jfclere/go/bin/etcd")).To(Succeed())
-	// Expect(os.Setenv("TEST_ASSET_KUBECTL", "/home/jfclere/go/bin/kubectl")).To(Succeed())
+	var useExistingCluster = false
 	if os.Getenv("REALCLUSTER") != "" {
+		useExistingCluster = true
 		noskip = true
 		if os.Getenv("NODENAME") != "" {
 			// on very basic kubernetes NODENAME tells the tests to use nodename:nodePort to test
@@ -100,7 +100,7 @@ var _ = BeforeSuite(func() {
 	testEnv = &envtest.Environment{
 		CRDDirectoryPaths:     []string{filepath.Join("..", "config", "crd", "bases")},
 		ErrorIfCRDPathMissing: true,
-		UseExistingCluster:    &[]bool{true}[0],
+		UseExistingCluster:    &useExistingCluster,
 	}
 
 	cfg, err := testEnv.Start()
