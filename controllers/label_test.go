@@ -107,17 +107,17 @@ var _ = Describe("WebServer controller", func() {
 			newLabels := map[string]string{
 				"ready": "non",
 			}
-			webserver.ObjectMeta.SetLabels(newLabels)
+			createdWebserver.ObjectMeta.SetLabels(newLabels)
 
 			Eventually(func() bool {
-				err := k8sClient.Update(ctx, webserver)
+				err := k8sClient.Update(ctx, createdWebserver)
 
 				if err != nil && !errors.IsConflict(err) {
 					thetest.Fatal(err)
 				}
 				return !errors.IsConflict(err)
 
-			}, time.Second*60, time.Millisecond*250).Should(BeTrue())
+			}, time.Second*120, time.Second*5).Should(BeTrue())
 
 			// Check it is started.
 			webserverLookupKey = types.NamespacedName{Name: name, Namespace: namespace}
