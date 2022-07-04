@@ -105,7 +105,11 @@ var _ = Describe("WebServer controller", func() {
 			Expect(deployment.Spec.Template.GetLabels()["ready"]).Should(Equal("oui"))
 
 			newLabels := map[string]string{
-				"ready": "non",
+				"ready":  "non",
+				"ready1": "non1",
+				"ready2": "non2",
+				"ready3": "non3",
+				"ready4": "non4",
 			}
 			createdWebserver.ObjectMeta.SetLabels(newLabels)
 
@@ -148,8 +152,7 @@ var _ = Describe("WebServer controller", func() {
 					podList := &corev1.PodList{}
 
 					labels := map[string]string{
-						"WebServer": webserver.Name,
-						"ready":     "non",
+						"ready": "non",
 					}
 
 					listOpts := []client.ListOption{
@@ -236,7 +239,11 @@ var _ = Describe("WebServer controller", func() {
 				Expect(deployment.Spec.Template.GetLabels()["ready"]).Should(Equal("oui"))
 
 				newLabels := map[string]string{
-					"ready": "non",
+					"ready":  "non",
+					"ready1": "non1",
+					"ready2": "non2",
+					"ready3": "non3",
+					"ready4": "non4",
 				}
 				webserver.ObjectMeta.SetLabels(newLabels)
 
@@ -278,8 +285,7 @@ var _ = Describe("WebServer controller", func() {
 						podList := &corev1.PodList{}
 
 						labels := map[string]string{
-							"WebServer": webserver.Name,
-							"ready":     "non",
+							"ready": "non",
 						}
 
 						listOpts := []client.ListOption{

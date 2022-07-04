@@ -525,9 +525,19 @@ func (r *WebServerReconciler) getWebServerHash(webServer *webserversv1alpha1.Web
 
 	/* add the labels */
 	if webServer.ObjectMeta.Labels != nil {
-		for labelKey, labelValue := range webServer.ObjectMeta.Labels {
-			h.Write([]byte(labelKey + ":" + labelValue))
+		keys := make([]string, len(webServer.ObjectMeta.Labels))
+		i := 0
+		for k := range webServer.ObjectMeta.Labels {
+			keys[i] = k
+			i++
 		}
+		sort.Strings(keys)
+
+		// To perform the opertion you want
+		for _, k := range keys {
+			h.Write([]byte(k + ":" + webServer.ObjectMeta.Labels[k]))
+		}
+
 	}
 	if webServer.Spec.WebImage != nil {
 		/* Same for WebImage */
