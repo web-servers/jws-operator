@@ -103,7 +103,18 @@ func WebServerApplicationImageUpdateTest(clt client.Client, ctx context.Context,
 		time.Sleep(time.Second * 5)
 	}()
 
-	return webServerApplicationImageUpdateTest(clt, ctx, t, webServer, newImageName, testURI)
+	err = webServerApplicationImageUpdateTest(clt, ctx, t, webServer, newImageName, testURI)
+	if err != nil {
+		return err
+	}
+
+	cookie, err := webServerRouteTest(clt, ctx, t, webServer, testURI, false, nil, false)
+	if err != nil {
+		return err
+	}
+	_ = cookie
+
+	return err
 }
 
 // WebServerApplicationImageSourcesBasicTest tests the deployment of an application image with sources
@@ -359,6 +370,12 @@ func webServerScale(clt client.Client, ctx context.Context, t *testing.T, webSer
 func webServerApplicationImageUpdateTest(clt client.Client, ctx context.Context, t *testing.T, webServer *webserversv1alpha1.WebServer, newImageName string, testURI string) (err error) {
 
 	deployWebServer(clt, ctx, t, webServer)
+
+	cookie, err := webServerRouteTest(clt, ctx, t, webServer, testURI, false, nil, false)
+	if err != nil {
+		return err
+	}
+	_ = cookie
 
 	webServerApplicationImageUpdate(clt, ctx, t, webServer, newImageName, testURI)
 
