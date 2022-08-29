@@ -25,7 +25,7 @@ To build the operator, you will first need to install the following:
 
 Now that the required tools are installed, follow these few steps to build it:
 
-0. make sure you have kube-apiserver, etcd and kubectl installed, they are needed for docker-build to make local tests. (see https://book.kubebuilder.io/reference/artifacts.html)
+0. make sure you have kube-apiserver, etcd and kubectl installed, they are needed for docker-build to make local tests. (see https://book.kubebuilder.io/reference/artifacts.html and the notes below)
 1. Clone the repo in $GOPATH/src/github.com/web-servers
 2. Set a name for your image. Default value is docker.io/${USER}/jws-operator:latest
 3. The first time you build you have to download controller-gen in bin
