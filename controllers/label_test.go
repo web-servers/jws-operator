@@ -111,6 +111,14 @@ var _ = Describe("WebServer controller", func() {
 				"ready3": "non3",
 				"ready4": "non4",
 			}
+
+			//get created webserver with updated recourceversion to continue
+			err := k8sClient.Get(ctx, types.NamespacedName{Name: name, Namespace: namespace}, createdWebserver)
+
+			if errors.IsNotFound(err) {
+				thetest.Fatal(err)
+			}
+
 			createdWebserver.ObjectMeta.SetLabels(newLabels)
 
 			Eventually(func() bool {
@@ -245,10 +253,18 @@ var _ = Describe("WebServer controller", func() {
 					"ready3": "non3",
 					"ready4": "non4",
 				}
-				webserver.ObjectMeta.SetLabels(newLabels)
+
+				//get created webserver with updated recourceversion to continue
+				err := k8sClient.Get(ctx, types.NamespacedName{Name: name, Namespace: namespace}, createdWebserver)
+
+				if errors.IsNotFound(err) {
+					thetest.Fatal(err)
+				}
+
+				createdWebserver.ObjectMeta.SetLabels(newLabels)
 
 				Eventually(func() bool {
-					err := k8sClient.Update(ctx, webserver)
+					err := k8sClient.Update(ctx, createdWebserver)
 
 					if err != nil && !errors.IsConflict(err) {
 						thetest.Fatal(err)
@@ -289,13 +305,13 @@ var _ = Describe("WebServer controller", func() {
 						}
 
 						listOpts := []client.ListOption{
-							client.InNamespace(webserver.Namespace),
+							client.InNamespace(createdWebserver.Namespace),
 							client.MatchingLabels(labels),
 						}
 						k8sClient.List(ctx, podList, listOpts...)
 
 						numberOfDeployedPods := int32(len(podList.Items))
-						if numberOfDeployedPods != webserver.Spec.Replicas {
+						if numberOfDeployedPods != createdWebserver.Spec.Replicas {
 							log.Info("The number of deployed pods does not match the WebServer specification podList.")
 							return false
 						} else {
@@ -305,7 +321,7 @@ var _ = Describe("WebServer controller", func() {
 				}
 
 				// remove the created webserver
-				Expect(k8sClient.Delete(ctx, webserver)).Should(Succeed())
+				Expect(k8sClient.Delete(ctx, createdWebserver)).Should(Succeed())
 
 			}
 
