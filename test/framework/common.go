@@ -8,18 +8,24 @@ import (
 	"io/ioutil"
 	"net/http"
 	"os"
+	"os/exec"
 	"strconv"
 	"strings"
 	"testing"
 	"time"
 
+	. "github.com/onsi/gomega"
+	v2 "k8s.io/api/autoscaling/v2"
 	corev1 "k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 
 	// "github.com/operator-framework/operator-sdk/pkg/test"
 	webserversv1alpha1 "github.com/web-servers/jws-operator/api/v1alpha1"
 	kbappsv1 "k8s.io/api/apps/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/resource"
 
 	// metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -145,6 +151,223 @@ func WebServerSecureRouteTest(clt client.Client, ctx context.Context, t *testing
 
 	return webServerBasicTest(clt, ctx, t, webServer, testURI, true)
 
+}
+
+func HPATest(clt client.Client, ctx context.Context, t *testing.T, namespace string, name string, testURI string) (err error) {
+
+	webServer := &webserversv1alpha1.WebServer{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: namespace,
+		},
+		Spec: webserversv1alpha1.WebServerSpec{
+			ApplicationName: "hpa-test",
+			Replicas:        int32(4),
+			WebImage: &webserversv1alpha1.WebImageSpec{
+				ApplicationImage: "quay.io/jfclere/tomcat-demo",
+			},
+			Resources: &corev1.ResourceRequirements{
+				Limits: corev1.ResourceList{
+					corev1.ResourceCPU:    resource.MustParse("500m"),
+					corev1.ResourceMemory: resource.MustParse("2Gi"),
+				},
+				Requests: corev1.ResourceList{
+					corev1.ResourceCPU:    resource.MustParse("100m"),
+					corev1.ResourceMemory: resource.MustParse("1Gi"),
+				},
+			},
+		},
+	}
+
+	err = clt.Create(ctx, webServer)
+
+	if err != nil {
+		t.Logf("Webserver creation failed due to: %s\n", err)
+		t.Fatal(err)
+		return err
+	}
+
+	err = waitUntilReady(clt, ctx, t, webServer)
+
+	if err != nil {
+		t.Logf("Failed to deploy the application due to: %s\n", err)
+		t.Fatal(err)
+		return err
+	}
+
+	t.Logf("Application %s is deployed ", name)
+
+	hpa := &v2.HorizontalPodAutoscaler{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "HorizontalPodAutoscaler",
+			APIVersion: "autoscaling/v2",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "hpatest-hpa",
+			Namespace: namespace,
+		},
+		Spec: v2.HorizontalPodAutoscalerSpec{
+			ScaleTargetRef: v2.CrossVersionObjectReference{
+				APIVersion: "web.servers.org/v1alpha1",
+				Kind:       "WebServer",
+				Name:       name,
+			},
+			MinReplicas: nil,
+			MaxReplicas: 5,
+		},
+	}
+
+	var percentage = int32(4)
+	metric := &v2.MetricSpec{
+		Type: v2.ResourceMetricSourceType,
+		Resource: &v2.ResourceMetricSource{
+			Name: v1.ResourceCPU,
+			Target: v2.MetricTarget{
+				Type:               v2.UtilizationMetricType,
+				AverageUtilization: &percentage,
+			},
+		},
+	}
+	metrics := make([]v2.MetricSpec, 0, 4)
+
+	metrics = append(metrics, *metric)
+
+	hpa.Spec.Metrics = metrics
+
+	err = clt.Create(ctx, hpa)
+
+	if err != nil {
+		t.Logf("HorizontalPodAutoscaler creation failed due to: %s\n", err)
+		t.Fatal(err)
+		return err
+	}
+
+	// cleanup
+	defer func() {
+		clt.Delete(context.Background(), hpa)
+		time.Sleep(time.Second * 5)
+		clt.Delete(context.Background(), webServer)
+		time.Sleep(time.Second * 5)
+	}()
+
+	return autoScalingTest(clt, ctx, t, webServer, testURI, hpa)
+
+}
+
+func autoScalingTest(clt client.Client, ctx context.Context, t *testing.T, webServer *webserversv1alpha1.WebServer, testURI string, hpa *v2.HorizontalPodAutoscaler) (err error) {
+
+	curwebServer := &webserversv1alpha1.WebServer{}
+	err = clt.Get(ctx, types.NamespacedName{Name: webServer.ObjectMeta.Name, Namespace: webServer.ObjectMeta.Namespace}, curwebServer)
+	if err != nil {
+		return errors.New("can't read webserver")
+	}
+	URL := ""
+	if os.Getenv("NODENAME") != "" {
+		// here we need to use nodePort
+		balancer := &corev1.Service{}
+		err = clt.Get(ctx, types.NamespacedName{Name: webServer.Spec.ApplicationName + "-lb", Namespace: webServer.ObjectMeta.Namespace}, balancer)
+		if err != nil {
+			t.Logf("WebServer.Status.Hosts error!!!")
+			return errors.New("can't read balancer")
+		}
+		port := balancer.Spec.Ports[0].NodePort
+
+		URL = "http://" + os.Getenv("NODENAME") + ":" + strconv.Itoa(int(port)) + testURI
+
+	} else {
+		for i := 1; i < 20; i++ {
+			err = clt.Get(ctx, types.NamespacedName{Name: webServer.ObjectMeta.Name, Namespace: webServer.ObjectMeta.Namespace}, curwebServer)
+			if err != nil {
+				t.Logf("WebServer.Status.Hosts error!!!")
+				time.Sleep(10 * time.Second)
+				continue
+			}
+			if len(curwebServer.Status.Hosts) == 0 {
+				t.Logf("WebServer.Status.Hosts is empty. Attempt %d/20\n", i)
+				time.Sleep(20 * time.Second)
+			} else {
+				break
+			}
+		}
+		if err != nil {
+			return err
+		}
+
+		if len(curwebServer.Status.Hosts) == 0 {
+			t.Logf("WebServer.Status.Hosts is empty\n")
+			return errors.New("route is empty")
+		}
+		t.Logf("Route:  (%s)\n", curwebServer.Status.Hosts)
+
+		URL = "http://" + curwebServer.Status.Hosts[0] + testURI
+
+	}
+
+	// Wait a little to let the hpa scale down the pod
+	Eventually(func() bool {
+		err = clt.Get(ctx, types.NamespacedName{Name: webServer.ObjectMeta.Name, Namespace: webServer.ObjectMeta.Namespace}, curwebServer)
+		if err != nil {
+			t.Fatalf("can't read webserver")
+		}
+
+		if int32(curwebServer.Status.Replicas) == int32(4) {
+			return false
+		} else {
+			return true
+		}
+
+	}, time.Second*420, time.Second*30).Should(BeTrue())
+
+	err = clt.Get(ctx, types.NamespacedName{Name: webServer.ObjectMeta.Name, Namespace: webServer.ObjectMeta.Namespace}, curwebServer)
+	if err != nil {
+		return errors.New("can't read webserver")
+	}
+
+	if int32(curwebServer.Status.Replicas) == int32(4) {
+		return errors.New("didn't scaled down")
+	}
+
+	Eventually(func() bool {
+
+		for i := 0; i < 100; i++ {
+			go getRequest(URL)
+		}
+
+		if err != nil {
+			return false
+		}
+
+		err = clt.Get(ctx, types.NamespacedName{Name: webServer.ObjectMeta.Name, Namespace: webServer.ObjectMeta.Namespace}, curwebServer)
+		if err != nil {
+			t.Fatalf("can't read webserver")
+		}
+
+		if int32(curwebServer.Status.Replicas) > int32(1) {
+			return true
+		}
+
+		return false
+
+	}, time.Second*250, time.Millisecond*10).Should(BeTrue())
+
+	err = clt.Get(ctx, types.NamespacedName{Name: webServer.ObjectMeta.Name, Namespace: webServer.ObjectMeta.Namespace}, curwebServer)
+	if err != nil {
+		return errors.New("can't read webserver")
+	}
+
+	if int32(curwebServer.Status.Replicas) < int32(2) {
+		return errors.New("didn't scaled up")
+	} else {
+		return nil
+	}
+
+}
+
+func getRequest(URL string) (interface{}, error) {
+	cmd := exec.Command("curl", URL)
+	stdout, err := cmd.Output()
+
+	return stdout, err
 }
 
 // WebServerApplicationImageSourcesScriptBasicTest tests the deployment of an application image with sources
