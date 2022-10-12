@@ -40,6 +40,9 @@ spec:
                 description: The base for the names of the deployed application resources
                 pattern: ^[a-z]([-a-z0-9]*[a-z0-9])?$
                 type: string
+              persistentLogs:
+                description: If true operator will create a PVC to save the logs.
+                type: boolean
               replicas:
                 description: The desired number of replicas for the application
                 format: int32
@@ -73,7 +76,7 @@ spec:
                     type: object
                 type: object
               routeHostname:
-                description: Route behaviour:[TLS/tls]hostname/NONE or empty.
+                description: Route behaviour:[tls]hostname/NONE or empty.
                 type: string
               tlsPassword:
                 description: TLSPassword passphrase for the key in the client.key
