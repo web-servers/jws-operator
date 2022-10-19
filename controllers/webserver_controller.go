@@ -102,6 +102,7 @@ type WebServerReconciler struct {
 // +kubebuilder:rbac:groups=apps.openshift.io,resources=deploymentconfigs,verbs=create;get;list;delete
 
 // +kubebuilder:rbac:groups=route.openshift.io,resources=routes,verbs=create;get;list;delete;watch
+// +kubebuilder:rbac:groups=route.openshift.io,resources=routes/custom-host,verbs=create;get;
 
 // +kubebuilder:rbac:groups=web.servers.org,resources=webservers,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=web.servers.org,resources=webservers/status,verbs=get;update;patch
@@ -176,7 +177,7 @@ func (r *WebServerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 
 	// Check if a Service for routing already exists, and if not create a new one
 	routingService := &corev1.Service{}
-	if strings.HasPrefix(webServer.Spec.RouteHostname, "TLS") || strings.HasPrefix(webServer.Spec.RouteHostname, "tls") {
+	if strings.HasPrefix(webServer.Spec.RouteHostname, "tls") {
 		log.Info("generating routing service with port 8443 " + "cause webServer.Spec.RouteHostname= " + webServer.Spec.RouteHostname)
 		routingService = r.generateRoutingService(webServer, 8443)
 	} else {
@@ -497,7 +498,7 @@ func (r *WebServerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 
 	if r.isOpenShift {
 
-		if webServer.Spec.RouteHostname != "NONE" && (!strings.HasPrefix(webServer.Spec.RouteHostname, "TLS") && !strings.HasPrefix(webServer.Spec.RouteHostname, "tls")) {
+		if webServer.Spec.RouteHostname != "NONE" && !strings.HasPrefix(webServer.Spec.RouteHostname, "tls") {
 
 			// Check if a Route already exists, and if not create a new one
 			route := r.generateRoute(webServer)
@@ -517,7 +518,7 @@ func (r *WebServerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 				webServer.Status.Hosts = hosts
 				log.Info("Status.Hosts update scheduled")
 			}
-		} else if strings.HasPrefix(webServer.Spec.RouteHostname, "TLS") || strings.HasPrefix(webServer.Spec.RouteHostname, "tls") {
+		} else if strings.HasPrefix(webServer.Spec.RouteHostname, "tls") {
 			// Check if a Route already exists, and if not create a new one
 			route := r.generateSecureRoute(webServer)
 			result, err = r.createRoute(ctx, webServer, route, route.Name, route.Namespace)
