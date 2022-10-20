@@ -506,13 +506,26 @@ func (r *WebServerReconciler) generateRoute(webServer *webserversv1alpha1.WebSer
 	objectMeta.Annotations = map[string]string{
 		"description": "Route for application's http service.",
 	}
-	route := &routev1.Route{
-		ObjectMeta: objectMeta,
-		Spec: routev1.RouteSpec{
-			To: routev1.RouteTargetReference{
-				Name: webServer.Spec.ApplicationName,
+	route := &routev1.Route{}
+	if webServer.Spec.RouteHostname == "" {
+		route = &routev1.Route{
+			ObjectMeta: objectMeta,
+			Spec: routev1.RouteSpec{
+				To: routev1.RouteTargetReference{
+					Name: webServer.Spec.ApplicationName,
+				},
 			},
-		},
+		}
+	} else {
+		route = &routev1.Route{
+			ObjectMeta: objectMeta,
+			Spec: routev1.RouteSpec{
+				Host: webServer.Spec.RouteHostname,
+				To: routev1.RouteTargetReference{
+					Name: webServer.Spec.ApplicationName,
+				},
+			},
+		}
 	}
 
 	controllerutil.SetControllerReference(webServer, route, r.Scheme)
@@ -524,16 +537,32 @@ func (r *WebServerReconciler) generateSecureRoute(webServer *webserversv1alpha1.
 	objectMeta.Annotations = map[string]string{
 		"description": "Route for application's https service.",
 	}
-	route := &routev1.Route{
-		ObjectMeta: objectMeta,
-		Spec: routev1.RouteSpec{
-			To: routev1.RouteTargetReference{
-				Name: webServer.Spec.ApplicationName,
+	route := &routev1.Route{}
+	if len(webServer.Spec.RouteHostname) <= 3 {
+		route = &routev1.Route{
+			ObjectMeta: objectMeta,
+			Spec: routev1.RouteSpec{
+				To: routev1.RouteTargetReference{
+					Name: webServer.Spec.ApplicationName,
+				},
+				TLS: &routev1.TLSConfig{
+					Termination: routev1.TLSTerminationPassthrough,
+				},
 			},
-			TLS: &routev1.TLSConfig{
-				Termination: routev1.TLSTerminationPassthrough,
+		}
+	} else {
+		route = &routev1.Route{
+			ObjectMeta: objectMeta,
+			Spec: routev1.RouteSpec{
+				Host: webServer.Spec.RouteHostname[4:],
+				To: routev1.RouteTargetReference{
+					Name: webServer.Spec.ApplicationName,
+				},
+				TLS: &routev1.TLSConfig{
+					Termination: routev1.TLSTerminationPassthrough,
+				},
 			},
-		},
+		}
 	}
 
 	controllerutil.SetControllerReference(webServer, route, r.Scheme)
@@ -817,7 +846,7 @@ func (r *WebServerReconciler) generateVolumePodBuilder(webServer *webserversv1al
 func (r *WebServerReconciler) generateCommandForServerXml(webServer *webserversv1alpha1.WebServer) map[string]string {
 	cmd := make(map[string]string)
 	connector := ""
-	if strings.HasPrefix(webServer.Spec.RouteHostname, "TLS") || strings.HasPrefix(webServer.Spec.RouteHostname, "tls") {
+	if strings.HasPrefix(webServer.Spec.RouteHostname, "tls") {
 		// "/tls" is the dir in which the secret's contents are mounted to the pod
 		connector =
 			"https=\"<!-- No HTTPS configuration discovered -->\"\n" +
@@ -825,25 +854,33 @@ func (r *WebServerReconciler) generateCommandForServerXml(webServer *webserversv
 
 				"https=\"" +
 				"<Connector port=\\\"8443\\\" protocol=\\\"HTTP/1.1\\\" " +
-				"maxThreads=\\\"200\\\" SSLEnabled=\\\"true\\\"> " +
-				"<SSLHostConfig caCertificateFile=\\\"/tls/ca.crt\\\" certificateVerification=\\\"optional\\\"> " +
-				"<Certificate certificateFile=\\\"/tls/server.crt\\\" " +
-				"certificateKeyFile=\\\"/tls/server.key\\\"/> " +
-				"</SSLHostConfig> " +
-				"</Connector>\"\n" +
-				"elif [ -d \"/tls\" -a -f \"/tls/server.crt\" -a -f \"/tls/server.key\" ] ; then\n" +
-				"https=\"" +
-				"<Connector port=\\\"8443\\\" protocol=\\\"HTTP/1.1\\\" " +
-				"maxThreads=\\\"200\\\" SSLEnabled=\\\"true\\\"> " +
-				"<SSLHostConfig> " +
-				"<Certificate certificateFile=\\\"/tls/server.crt\\\" " +
-				"certificateKeyFile=\\\"/tls/server.key\\\"/> " +
-				"</SSLHostConfig> " +
-				"</Connector>\"\n" +
-				"elif [ ! -f \"/tls/server.crt\" -o ! -f \"/tls/server.key\" ] ; then \n" +
-				"log_warning \"Partial HTTPS configuration, the https connector WILL NOT be configured.\" \n" +
-				"fi \n" +
-				"sed -i \"/<Service name=/a ${https}\" ${FILE}\n"
+				"maxThreads=\\\"200\\\" SSLEnabled=\\\"true\\\"> "
+		if webServer.Spec.CertificateVerification == "required" || webServer.Spec.CertificateVerification == "optional" {
+			connector += "<SSLHostConfig caCertificateFile=\\\"/tls/ca.crt\\\" certificateVerification=\\\"" + webServer.Spec.CertificateVerification + "\\\"> "
+		} else {
+			connector += "<SSLHostConfig caCertificateFile=\\\"/tls/ca.crt\\\"> "
+		}
+		connector += "<Certificate certificateFile=\\\"/tls/server.crt\\\" " +
+			"certificateKeyFile=\\\"/tls/server.key\\\"/> " +
+			"</SSLHostConfig> " +
+			"</Connector>\"\n" +
+			"elif [ -d \"/tls\" -a -f \"/tls/server.crt\" -a -f \"/tls/server.key\" ] ; then\n" +
+			"https=\"" +
+			"<Connector port=\\\"8443\\\" protocol=\\\"HTTP/1.1\\\" " +
+			"maxThreads=\\\"200\\\" SSLEnabled=\\\"true\\\"> "
+		if webServer.Spec.CertificateVerification == "required" || webServer.Spec.CertificateVerification == "optional" {
+			connector += "<SSLHostConfig " + "certificateVerification=\\\"" + webServer.Spec.CertificateVerification + "\\\"> "
+		} else {
+			connector += "<SSLHostConfig> "
+		}
+		connector += "<Certificate certificateFile=\\\"/tls/server.crt\\\" " +
+			"certificateKeyFile=\\\"/tls/server.key\\\"/> " +
+			"</SSLHostConfig> " +
+			"</Connector>\"\n" +
+			"elif [ ! -f \"/tls/server.crt\" -o ! -f \"/tls/server.key\" ] ; then \n" +
+			"log_warning \"Partial HTTPS configuration, the https connector WILL NOT be configured.\" \n" +
+			"fi \n" +
+			"sed -i \"/<Service name=/a ${https}\" ${FILE}\n"
 	}
 	if r.getUseKUBEPing(webServer) {
 		cmd["test.sh"] = "FILE=`find /opt -name server.xml`\n" +

@@ -22,8 +22,10 @@ type WebServerSpec struct {
 	Replicas int32 `json:"replicas"`
 	// Use Session Clustering
 	UseSessionClustering bool `json:"useSessionClustering,omitempty"`
-	// Route behaviour:[TLS/tls]hostname/NONE or empty.
+	// Route behaviour:[tls]hostname/NONE or empty.
 	RouteHostname string `json:"routeHostname,omitempty"`
+	// certificateVerification for tomcat configuration: required/optional or empty.
+	CertificateVerification string `json:"certificateVerification,omitempty"`
 	// TLSSecret secret containing server.cert the server certificate, server.key the server key and optional ca.cert the CA cert of the client certificates
 	TLSSecret string `json:"tlsSecret,omitempty"`
 	// TLSPassword passphrase for the key in the client.key
