@@ -139,9 +139,9 @@ func WebServerApplicationImageSourcesBasicTest(clt client.Client, ctx context.Co
 	return webServerBasicTest(clt, ctx, t, webServer, "/"+testURI+"/demo", false)
 }
 
-func WebServerSecureRouteTest(clt client.Client, ctx context.Context, t *testing.T, namespace string, name string, imageStreamName string, testURI string) (err error) {
+func WebServerSecureRouteTest(clt client.Client, ctx context.Context, t *testing.T, namespace string, name string, imageStreamName string, testURI string, defaultIngressDomain string) (err error) {
 
-	webServer := makeSecureWebserver(namespace, name, imageStreamName, namespace, 1)
+	webServer := makeSecureWebserver(namespace, name, imageStreamName, namespace, 1, defaultIngressDomain)
 
 	// cleanup
 	defer func() {
@@ -767,8 +767,9 @@ func webServerRouteTest(clt client.Client, ctx context.Context, t *testing.T, we
 			return nil, errors.New("Route is empty!")
 		}
 		t.Logf("Route:  (%s)\n", curwebServer.Status.Hosts)
+		t.Logf("RouteHostName:  (%s)\n", curwebServer.Spec.RouteHostname)
 		if isSecure {
-			URL = "https://" + curwebServer.Status.Hosts[0] + URI
+			URL = "https://" + curwebServer.Spec.RouteHostname[4:] + URI
 		} else {
 			URL = "http://" + curwebServer.Status.Hosts[0] + URI
 		}
