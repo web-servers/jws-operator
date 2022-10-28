@@ -43,6 +43,10 @@ spec:
               persistentLogs:
                 description: If true operator will create a PVC to save the logs.
                 type: boolean
+              certificateVerification:
+                description: 'certificateVerification for tomcat configuration: required/optional
+                  or empty.'
+                type: string
               replicas:
                 description: The desired number of replicas for the application
                 format: int32

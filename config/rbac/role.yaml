@@ -154,6 +154,13 @@ rules:
   - list
   - watch
 - apiGroups:
+  - route.openshift.io
+  resources:
+  - routes/custom-host
+  verbs:
+  - create
+  - get
+- apiGroups:
   - web.servers.org
   resources:
   - webservers
