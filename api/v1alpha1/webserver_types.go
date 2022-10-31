@@ -38,6 +38,8 @@ type WebServerSpec struct {
 	Resources *corev1.ResourceRequirements `json:"resources,omitempty"`
 	//If true operator will create a PVC to save the logs.
 	PersistentLogs bool `json:"persistentLogs,omitempty"`
+	//If true operator will log tomcat's access logs
+	EnableAccessLogs bool `json:"enableAccessLogs,omitempty"`
 }
 
 // (Deployment method 1) Application image

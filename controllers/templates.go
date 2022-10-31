@@ -773,6 +773,12 @@ func (r *WebServerReconciler) generateEnvVars(webServer *webserversv1alpha1.WebS
 			Value: value,
 		},
 	}
+	if webServer.Spec.EnableAccessLogs {
+		env = append(env, corev1.EnvVar{
+			Name:  "ENABLE_ACCESS_LOG",
+			Value: "true",
+		})
+	}
 	if webServer.Spec.UseSessionClustering {
 		// Add parameter USE_SESSION_CLUSTERING
 		env = append(env, corev1.EnvVar{
@@ -965,6 +971,18 @@ func (r *WebServerReconciler) generateCommandForServerXml(webServer *webserversv
 			"if [ $? -ne 0 ]; then\n" +
 			"  sed -i '/cluster.html/a        <Cluster className=\"org.apache.catalina.ha.tcp.SimpleTcpCluster\" channelSendOptions=\"6\">\\n <Channel className=\"org.apache.catalina.tribes.group.GroupChannel\">\\n <Membership className=\"org.apache.catalina.tribes.membership.cloud.CloudMembershipService\" membershipProviderClassName=\"org.apache.catalina.tribes.membership.cloud.KubernetesMembershipProvider\"/>\\n </Channel>\\n </Cluster>\\n' ${FILE}\n" +
 			"fi\n" + connector
+		if webServer.Spec.EnableAccessLogs {
+			cmd["test.sh"] = cmd["test.sh"] + "grep -q directory='\"/proc/self/fd\"' ${FILE}\n" +
+				"if [ $? -eq 0 ]; then\n" +
+				"sed -i 's|directory=\"/proc/self/fd\"|directory=\"/opt/tomcat_logs\"|g' ${FILE}\n" +
+				"sed -i \"s|prefix=\\\"1\\\"|prefix=\\\"access-$HOSTNAME\\\"|g\" ${FILE}\n" +
+				"sed -i 's|suffix=\"\"|suffix=\".log\"|g' ${FILE}\n" +
+				"else\n" +
+				"sed -i 's|directory=\"logs\"|directory=\"/opt/tomcat_logs\"|g' ${FILE}\n" +
+				"sed -i \"s|prefix=\\\"localhost_access_log\\\"|prefix=\\\"access-$HOSTNAME\\\"|g\" ${FILE}\n" +
+				"sed -i 's|suffix=\".txt\"|suffix=\".log\"|g' ${FILE}\n" +
+				"fi\n"
+		}
 	} else {
 		cmd["test.sh"] = "FILE=`find /opt -name server.xml`\n" +
 			"if [ -z \"${FILE}\" ]; then\n" +
@@ -974,6 +992,18 @@ func (r *WebServerReconciler) generateCommandForServerXml(webServer *webserversv
 			"if [ $? -ne 0 ]; then\n" +
 			"  sed -i '/cluster.html/a        <Cluster className=\"org.apache.catalina.ha.tcp.SimpleTcpCluster\" channelSendOptions=\"6\">\\n <Channel className=\"org.apache.catalina.tribes.group.GroupChannel\">\\n <Membership className=\"org.apache.catalina.tribes.membership.cloud.CloudMembershipService\" membershipProviderClassName=\"org.apache.catalina.tribes.membership.cloud.DNSMembershipProvider\"/>\\n </Channel>\\n </Cluster>\\n' ${FILE}\n" +
 			"fi\n" + connector
+		if webServer.Spec.EnableAccessLogs {
+			cmd["test.sh"] = cmd["test.sh"] + "grep -q directory='\"/proc/self/fd\"' ${FILE}\n" +
+				"if [ $? -eq 0 ]; then\n" +
+				"sed -i 's|directory=\"/proc/self/fd\"|directory=\"/opt/tomcat_logs\"|g' ${FILE}\n" +
+				"sed -i \"s|prefix=\\\"1\\\"|prefix=\\\"access-$HOSTNAME\\\"|g\" ${FILE}\n" +
+				"sed -i 's|suffix=\"\"|suffix=\".log\"|g' ${FILE}\n" +
+				"else\n" +
+				"sed -i 's|directory=\"logs\"|directory=\"/opt/tomcat_logs\"|g' ${FILE}\n" +
+				"sed -i \"s|prefix=\\\"localhost_access_log\\\"|prefix=\\\"access-$HOSTNAME\\\"|g\" ${FILE}\n" +
+				"sed -i 's|suffix=\".txt\"|suffix=\".log\"|g' ${FILE}\n" +
+				"fi\n"
+		}
 	}
 	return cmd
 }
