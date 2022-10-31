@@ -243,6 +243,23 @@ func (r *WebServerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 
 	}
 
+	if webServer.Spec.PersistentLogs {
+		// Check if exists a ConfigMap for the LoggingProperties otherwise create it.
+		configMap := r.generateConfigMapForLoggingProperties(webServer)
+		result, err = r.createConfigMap(ctx, webServer, configMap, configMap.Name, configMap.Namespace)
+		if err != nil || result != (ctrl.Result{}) {
+			return result, err
+		}
+
+		// Check if exists a PersistentVolumeClaim for logs otherwise create it.
+		persistentVolumeClaim := r.generatePersistentVolumeClaimForLogging(webServer)
+		result, err = r.createPersistentVolumeClaim(ctx, webServer, persistentVolumeClaim, persistentVolumeClaim.Name, persistentVolumeClaim.Namespace)
+		if err != nil || result != (ctrl.Result{}) {
+			return result, err
+		}
+
+	}
+
 	var foundReplicas int32
 	if webServer.Spec.WebImage != nil {
 

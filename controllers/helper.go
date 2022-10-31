@@ -274,6 +274,28 @@ func (r *WebServerReconciler) createConfigMap(ctx context.Context, webServer *we
 	return reconcile.Result{}, err
 }
 
+func (r *WebServerReconciler) createPersistentVolumeClaim(ctx context.Context, webServer *webserversv1alpha1.WebServer, resource *corev1.PersistentVolumeClaim, resourceName string, resourceNamespace string) (ctrl.Result, error) {
+	err := r.Client.Get(ctx, client.ObjectKey{
+		Namespace: resourceNamespace,
+		Name:      resourceName,
+	}, resource)
+	if err != nil && errors.IsNotFound(err) {
+		// Create a new resource
+		log.Info("Creating a new PersistentVolumeClaim: " + resourceName + " Namespace: " + resourceNamespace)
+		err = r.Client.Create(ctx, resource)
+		if err != nil && !errors.IsAlreadyExists(err) {
+			log.Error(err, "Failed to create a new PersistentVolumeClaim: "+resourceName+" Namespace: "+resourceNamespace)
+			return reconcile.Result{}, err
+		}
+		// Resource created successfully - return and requeue
+		return ctrl.Result{Requeue: true}, nil
+	} else if err != nil {
+		log.Error(err, "Failed to get PersistentVolumeClaim "+resourceName)
+		return reconcile.Result{}, err
+	}
+	return reconcile.Result{}, err
+}
+
 func (r *WebServerReconciler) createBuildPod(ctx context.Context, webServer *webserversv1alpha1.WebServer, resource *corev1.Pod, resourceName string, resourceNamespace string) (ctrl.Result, error) {
 	err := r.Client.Get(ctx, client.ObjectKey{
 		Namespace: resourceNamespace,

@@ -3,6 +3,7 @@ package controllers
 import (
 	"strings"
 
+	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/util/intstr"
 
 	webserversv1alpha1 "github.com/web-servers/jws-operator/api/v1alpha1"
@@ -117,6 +118,37 @@ func (r *WebServerReconciler) generateConfigMapForDNS(webServer *webserversv1alp
 
 	controllerutil.SetControllerReference(webServer, cmap, r.Scheme)
 	return cmap
+}
+
+// logging.properties for saving logs to catalina.out inside the pod
+func (r *WebServerReconciler) generateConfigMapForLoggingProperties(webServer *webserversv1alpha1.WebServer) *corev1.ConfigMap {
+
+	cmap := &corev1.ConfigMap{
+		ObjectMeta: r.generateObjectMeta(webServer, "config-volume"),
+		Data:       r.generateLoggingProperties(webServer),
+	}
+
+	controllerutil.SetControllerReference(webServer, cmap, r.Scheme)
+	return cmap
+}
+
+// pvc for saving logs
+func (r *WebServerReconciler) generatePersistentVolumeClaimForLogging(webServer *webserversv1alpha1.WebServer) *corev1.PersistentVolumeClaim {
+
+	pvc := &corev1.PersistentVolumeClaim{
+		ObjectMeta: r.generateObjectMeta(webServer, "volume-pvc"),
+		Spec: corev1.PersistentVolumeClaimSpec{
+			AccessModes: []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},
+			Resources: corev1.ResourceRequirements{
+				Requests: corev1.ResourceList{
+					corev1.ResourceName(corev1.ResourceStorage): resource.MustParse("1Gi"),
+				},
+			},
+		},
+	}
+
+	controllerutil.SetControllerReference(webServer, pvc, r.Scheme)
+	return pvc
 }
 
 // Custom build script for the pod builder
@@ -748,12 +780,32 @@ func (r *WebServerReconciler) generateEnvVars(webServer *webserversv1alpha1.WebS
 			Value: "/env/my-files/test.sh",
 		})
 	}
+	if webServer.Spec.PersistentLogs {
+		//custum logging.properties path
+		env = append(env, corev1.EnvVar{
+			Name:  "CATALINA_LOGGING_CONFIG",
+			Value: "-Djava.util.logging.config.file=/opt/operator_conf/logging.properties",
+		})
+	}
 	return env
 }
 
 // Create the VolumeMounts
 func (r *WebServerReconciler) generateVolumeMounts(webServer *webserversv1alpha1.WebServer) []corev1.VolumeMount {
 	var volm []corev1.VolumeMount
+
+	if webServer.Spec.PersistentLogs {
+		volm = append(volm, corev1.VolumeMount{
+			Name:      "config-volume",
+			MountPath: "/opt/operator_conf/logging.properties",
+			SubPath:   "logging.properties",
+		})
+		volm = append(volm, corev1.VolumeMount{
+			Name:      "volume-pvc",
+			MountPath: "/opt/tomcat_logs",
+		})
+	}
+
 	if webServer.Spec.UseSessionClustering {
 		volm = append(volm, corev1.VolumeMount{
 			Name:      "webserver-" + webServer.Name,
@@ -774,6 +826,28 @@ func (r *WebServerReconciler) generateVolumeMounts(webServer *webserversv1alpha1
 // Create the Volumes
 func (r *WebServerReconciler) generateVolumes(webServer *webserversv1alpha1.WebServer) []corev1.Volume {
 	var vol []corev1.Volume
+	if webServer.Spec.PersistentLogs {
+		vol = append(vol, corev1.Volume{
+			Name: "config-volume",
+			VolumeSource: corev1.VolumeSource{
+				ConfigMap: &corev1.ConfigMapVolumeSource{
+					LocalObjectReference: corev1.LocalObjectReference{
+						Name: "config-volume",
+					},
+				},
+			},
+		})
+
+		vol = append(vol, corev1.Volume{
+			Name: "volume-pvc",
+			VolumeSource: corev1.VolumeSource{
+				PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
+					ClaimName: "volume-pvc",
+				},
+			},
+		})
+	}
+
 	if webServer.Spec.UseSessionClustering {
 		vol = append(vol, corev1.Volume{
 			Name: "webserver-" + webServer.Name,
@@ -909,6 +983,22 @@ func (r *WebServerReconciler) generateCommandForServerXml(webServer *webserversv
 func (r *WebServerReconciler) generateCommandForBuider(script string) map[string]string {
 	cmd := make(map[string]string)
 	cmd["build.sh"] = script
+	return cmd
+}
+
+func (r *WebServerReconciler) generateLoggingProperties(webServer *webserversv1alpha1.WebServer) map[string]string {
+	cmd := make(map[string]string)
+	cmd["logging.properties"] = "handlers = java.util.logging.ConsoleHandler, 1catalina.org.apache.juli.AsyncFileHandler\n" +
+
+		".handlers = java.util.logging.ConsoleHandler, 1catalina.org.apache.juli.AsyncFileHandler\n" +
+
+		"java.util.logging.ConsoleHandler.level = FINE\n" +
+		"java.util.logging.ConsoleHandler.formatter = org.apache.juli.OneLineFormatter\n" +
+
+		"1catalina.org.apache.juli.AsyncFileHandler.level = FINE\n" +
+		"1catalina.org.apache.juli.AsyncFileHandler.directory = /opt/tomcat_logs\n" +
+		"1catalina.org.apache.juli.AsyncFileHandler.prefix = catalina.\n" +
+		"1catalina.org.apache.juli.AsyncFileHandler.maxDays = 90"
 	return cmd
 }
 
