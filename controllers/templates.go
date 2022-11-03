@@ -138,7 +138,7 @@ func (r *WebServerReconciler) generatePersistentVolumeClaimForLogging(webServer 
 	pvc := &corev1.PersistentVolumeClaim{
 		ObjectMeta: r.generateObjectMeta(webServer, "volume-pvc"),
 		Spec: corev1.PersistentVolumeClaimSpec{
-			AccessModes: []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},
+			AccessModes: []corev1.PersistentVolumeAccessMode{corev1.ReadWriteMany},
 			Resources: corev1.ResourceRequirements{
 				Requests: corev1.ResourceList{
 					corev1.ResourceName(corev1.ResourceStorage): resource.MustParse("1Gi"),
