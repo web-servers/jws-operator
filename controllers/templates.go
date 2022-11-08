@@ -748,7 +748,7 @@ func (r *WebServerReconciler) generateCustomProbe(webServer *webserversv1alpha1.
 	probeScriptSlice := make([]string, 0)
 	pos := strings.Index(probeScript, "\"")
 	if pos != -1 {
-		probeScriptSlice = append(strings.Split(probeScript[0:pos], " "), probeScript[pos:])
+		probeScriptSlice = append(strings.Split(probeScript[0:pos-1], " "), probeScript[pos:])
 	} else {
 		probeScriptSlice = strings.Split(probeScript, " ")
 	}
