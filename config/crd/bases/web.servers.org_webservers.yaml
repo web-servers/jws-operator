@@ -40,13 +40,16 @@ spec:
                 description: The base for the names of the deployed application resources
                 pattern: ^[a-z]([-a-z0-9]*[a-z0-9])?$
                 type: string
-              persistentLogs:
-                description: If true operator will create a PVC to save the logs.
-                type: boolean
               certificateVerification:
                 description: 'certificateVerification for tomcat configuration: required/optional
                   or empty.'
                 type: string
+              enableAccessLogs:
+                description: If true operator will log tomcat's access logs
+                type: boolean
+              persistentLogs:
+                description: If true operator will create a PVC to save the logs.
+                type: boolean
               replicas:
                 description: The desired number of replicas for the application
                 format: int32
