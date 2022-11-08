@@ -134,11 +134,10 @@ func (r *WebServerReconciler) generateConfigMapForLoggingProperties(webServer *w
 
 // pvc for saving logs
 func (r *WebServerReconciler) generatePersistentVolumeClaimForLogging(webServer *webserversv1alpha1.WebServer) *corev1.PersistentVolumeClaim {
-
 	pvc := &corev1.PersistentVolumeClaim{
-		ObjectMeta: r.generateObjectMeta(webServer, "volume-pvc"),
+		ObjectMeta: r.generateObjectMeta(webServer, "volume-pvc-"+webServer.Name),
 		Spec: corev1.PersistentVolumeClaimSpec{
-			AccessModes: []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},
+			AccessModes: []corev1.PersistentVolumeAccessMode{corev1.ReadWriteMany}, //works only if you remove "default" from StorageClass
 			Resources: corev1.ResourceRequirements{
 				Requests: corev1.ResourceList{
 					corev1.ResourceName(corev1.ResourceStorage): resource.MustParse("1Gi"),
@@ -807,7 +806,7 @@ func (r *WebServerReconciler) generateVolumeMounts(webServer *webserversv1alpha1
 			SubPath:   "logging.properties",
 		})
 		volm = append(volm, corev1.VolumeMount{
-			Name:      "volume-pvc",
+			Name:      "volume-pvc-" + webServer.Name,
 			MountPath: "/opt/tomcat_logs",
 		})
 	}
@@ -845,10 +844,10 @@ func (r *WebServerReconciler) generateVolumes(webServer *webserversv1alpha1.WebS
 		})
 
 		vol = append(vol, corev1.Volume{
-			Name: "volume-pvc",
+			Name: "volume-pvc-" + webServer.Name,
 			VolumeSource: corev1.VolumeSource{
 				PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
-					ClaimName: "volume-pvc",
+					ClaimName: "volume-pvc-" + webServer.Name,
 				},
 			},
 		})
@@ -970,7 +969,9 @@ func (r *WebServerReconciler) generateCommandForServerXml(webServer *webserversv
 			"grep -q MembershipProvider ${FILE}\n" +
 			"if [ $? -ne 0 ]; then\n" +
 			"  sed -i '/cluster.html/a        <Cluster className=\"org.apache.catalina.ha.tcp.SimpleTcpCluster\" channelSendOptions=\"6\">\\n <Channel className=\"org.apache.catalina.tribes.group.GroupChannel\">\\n <Membership className=\"org.apache.catalina.tribes.membership.cloud.CloudMembershipService\" membershipProviderClassName=\"org.apache.catalina.tribes.membership.cloud.KubernetesMembershipProvider\"/>\\n </Channel>\\n </Cluster>\\n' ${FILE}\n" +
-			"fi\n" + connector
+			"fi\n" + connector +
+			"FILE=`find /opt -name catalina.sh`\n" +
+			"sed -i 's|-Djava.io.tmpdir=\"\\\\\"$CATALINA_TMPDIR\\\\\"\" \\\\|-Djava.io.tmpdir=\"$CATALINA_TMPDIR\" \\\\\\n       -Dpod_name=\"$HOSTNAME\" \\\\|g' ${FILE}\n"
 		if webServer.Spec.EnableAccessLogs {
 			cmd["test.sh"] = cmd["test.sh"] + "grep -q directory='\"/proc/self/fd\"' ${FILE}\n" +
 				"if [ $? -eq 0 ]; then\n" +
@@ -991,7 +992,9 @@ func (r *WebServerReconciler) generateCommandForServerXml(webServer *webserversv
 			"grep -q MembershipProvider ${FILE}\n" +
 			"if [ $? -ne 0 ]; then\n" +
 			"  sed -i '/cluster.html/a        <Cluster className=\"org.apache.catalina.ha.tcp.SimpleTcpCluster\" channelSendOptions=\"6\">\\n <Channel className=\"org.apache.catalina.tribes.group.GroupChannel\">\\n <Membership className=\"org.apache.catalina.tribes.membership.cloud.CloudMembershipService\" membershipProviderClassName=\"org.apache.catalina.tribes.membership.cloud.DNSMembershipProvider\"/>\\n </Channel>\\n </Cluster>\\n' ${FILE}\n" +
-			"fi\n" + connector
+			"fi\n" + connector +
+			"FILE=`find /opt -name catalina.sh`\n" +
+			"sed -i 's|-Djava.io.tmpdir=\"\\\\\"$CATALINA_TMPDIR\\\\\"\" \\\\|-Djava.io.tmpdir=\"$CATALINA_TMPDIR\" \\\\\\n       -Dpod_name=\"$HOSTNAME\" \\\\|g' ${FILE}\n"
 		if webServer.Spec.EnableAccessLogs {
 			cmd["test.sh"] = cmd["test.sh"] + "grep -q directory='\"/proc/self/fd\"' ${FILE}\n" +
 				"if [ $? -eq 0 ]; then\n" +
@@ -1027,7 +1030,7 @@ func (r *WebServerReconciler) generateLoggingProperties(webServer *webserversv1a
 
 		"1catalina.org.apache.juli.AsyncFileHandler.level = FINE\n" +
 		"1catalina.org.apache.juli.AsyncFileHandler.directory = /opt/tomcat_logs\n" +
-		"1catalina.org.apache.juli.AsyncFileHandler.prefix = catalina.\n" +
+		"1catalina.org.apache.juli.AsyncFileHandler.prefix = catalina${pod_name}.\n" +
 		"1catalina.org.apache.juli.AsyncFileHandler.maxDays = 90"
 	return cmd
 }
