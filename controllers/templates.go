@@ -969,9 +969,7 @@ func (r *WebServerReconciler) generateCommandForServerXml(webServer *webserversv
 			"grep -q MembershipProvider ${FILE}\n" +
 			"if [ $? -ne 0 ]; then\n" +
 			"  sed -i '/cluster.html/a        <Cluster className=\"org.apache.catalina.ha.tcp.SimpleTcpCluster\" channelSendOptions=\"6\">\\n <Channel className=\"org.apache.catalina.tribes.group.GroupChannel\">\\n <Membership className=\"org.apache.catalina.tribes.membership.cloud.CloudMembershipService\" membershipProviderClassName=\"org.apache.catalina.tribes.membership.cloud.KubernetesMembershipProvider\"/>\\n </Channel>\\n </Cluster>\\n' ${FILE}\n" +
-			"fi\n" + connector +
-			"FILE=`find /opt -name catalina.sh`\n" +
-			"sed -i 's|-Djava.io.tmpdir=\"\\\\\"$CATALINA_TMPDIR\\\\\"\" \\\\|-Djava.io.tmpdir=\"$CATALINA_TMPDIR\" \\\\\\n       -Dpod_name=\"$HOSTNAME\" \\\\|g' ${FILE}\n"
+			"fi\n" + connector
 		if webServer.Spec.EnableAccessLogs {
 			cmd["test.sh"] = cmd["test.sh"] + "grep -q directory='\"/proc/self/fd\"' ${FILE}\n" +
 				"if [ $? -eq 0 ]; then\n" +
@@ -984,6 +982,12 @@ func (r *WebServerReconciler) generateCommandForServerXml(webServer *webserversv
 				"sed -i 's|suffix=\".txt\"|suffix=\".log\"|g' ${FILE}\n" +
 				"fi\n"
 		}
+		cmd["test.sh"] = cmd["test.sh"] + "FILE=`find /opt -name catalina.sh`\n" +
+			"if [ -z \"${FILE}\" ]; then\n" +
+			"  FILE=`find /deployments -name catalina.sh`\n" +
+			"fi\n" +
+			"sed -i 's|-Djava.io.tmpdir=\"\\\\\"$CATALINA_TMPDIR\\\\\"\" \\\\|-Djava.io.tmpdir=\"$CATALINA_TMPDIR\" \\\\\\n       -Dpod_name=\"$HOSTNAME\" \\\\|g' ${FILE}\n"
+
 	} else {
 		cmd["test.sh"] = "FILE=`find /opt -name server.xml`\n" +
 			"if [ -z \"${FILE}\" ]; then\n" +
@@ -992,9 +996,7 @@ func (r *WebServerReconciler) generateCommandForServerXml(webServer *webserversv
 			"grep -q MembershipProvider ${FILE}\n" +
 			"if [ $? -ne 0 ]; then\n" +
 			"  sed -i '/cluster.html/a        <Cluster className=\"org.apache.catalina.ha.tcp.SimpleTcpCluster\" channelSendOptions=\"6\">\\n <Channel className=\"org.apache.catalina.tribes.group.GroupChannel\">\\n <Membership className=\"org.apache.catalina.tribes.membership.cloud.CloudMembershipService\" membershipProviderClassName=\"org.apache.catalina.tribes.membership.cloud.DNSMembershipProvider\"/>\\n </Channel>\\n </Cluster>\\n' ${FILE}\n" +
-			"fi\n" + connector +
-			"FILE=`find /opt -name catalina.sh`\n" +
-			"sed -i 's|-Djava.io.tmpdir=\"\\\\\"$CATALINA_TMPDIR\\\\\"\" \\\\|-Djava.io.tmpdir=\"$CATALINA_TMPDIR\" \\\\\\n       -Dpod_name=\"$HOSTNAME\" \\\\|g' ${FILE}\n"
+			"fi\n" + connector
 		if webServer.Spec.EnableAccessLogs {
 			cmd["test.sh"] = cmd["test.sh"] + "grep -q directory='\"/proc/self/fd\"' ${FILE}\n" +
 				"if [ $? -eq 0 ]; then\n" +
@@ -1007,6 +1009,12 @@ func (r *WebServerReconciler) generateCommandForServerXml(webServer *webserversv
 				"sed -i 's|suffix=\".txt\"|suffix=\".log\"|g' ${FILE}\n" +
 				"fi\n"
 		}
+		cmd["test.sh"] = cmd["test.sh"] + "FILE=`find /opt -name catalina.sh`\n" +
+			"if [ -z \"${FILE}\" ]; then\n" +
+			"  FILE=`find /deployments -name catalina.sh`\n" +
+			"fi\n" +
+			"sed -i 's|-Djava.io.tmpdir=\"\\\\\"$CATALINA_TMPDIR\\\\\"\" \\\\|-Djava.io.tmpdir=\"$CATALINA_TMPDIR\" \\\\\\n       -Dpod_name=\"$HOSTNAME\" \\\\|g' ${FILE}\n"
+
 	}
 	return cmd
 }
