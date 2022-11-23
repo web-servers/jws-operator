@@ -40,6 +40,8 @@ type WebServerSpec struct {
 	PersistentLogs bool `json:"persistentLogs,omitempty"`
 	//If true operator will log tomcat's access logs
 	EnableAccessLogs bool `json:"enableAccessLogs,omitempty"`
+	// IsNotJWS boolean that specifies if the image is JWS or not.
+	IsNotJWS bool `json:"isNotJWS,omitempty"`
 }
 
 // (Deployment method 1) Application image

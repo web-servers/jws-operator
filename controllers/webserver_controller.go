@@ -234,6 +234,15 @@ func (r *WebServerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 
 		}
 
+		if webServer.Spec.IsNotJWS {
+			// Check if exists a ConfigMap for ASF image start otherwise create it.
+			configMap := r.generateConfigMapForASFStart(webServer)
+			result, err = r.createConfigMap(ctx, webServer, configMap, configMap.Name, configMap.Namespace)
+			if err != nil || result != (ctrl.Result{}) {
+				return result, err
+			}
+		}
+
 		// Check if exists a ConfigMap for the server.xml <Cluster/> definition otherwise create it.
 		configMap := r.generateConfigMapForDNS(webServer)
 		result, err = r.createConfigMap(ctx, webServer, configMap, configMap.Name, configMap.Namespace)

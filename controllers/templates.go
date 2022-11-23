@@ -120,6 +120,18 @@ func (r *WebServerReconciler) generateConfigMapForDNS(webServer *webserversv1alp
 	return cmap
 }
 
+// Script for asf images that misses start.sh
+func (r *WebServerReconciler) generateConfigMapForASFStart(webServer *webserversv1alpha1.WebServer) *corev1.ConfigMap {
+
+	cmap := &corev1.ConfigMap{
+		ObjectMeta: r.generateObjectMeta(webServer, "start-sh-webserver-"+webServer.Name),
+		Data:       r.generateCommandForASFStart(webServer),
+	}
+
+	controllerutil.SetControllerReference(webServer, cmap, r.Scheme)
+	return cmap
+}
+
 // logging.properties for saving logs to catalina.out inside the pod
 func (r *WebServerReconciler) generateConfigMapForLoggingProperties(webServer *webserversv1alpha1.WebServer) *corev1.ConfigMap {
 
@@ -672,6 +684,10 @@ func (r *WebServerReconciler) generatePodTemplate(webServer *webserversv1alpha1.
 			ImagePullSecrets: r.generateimagePullSecrets(webServer),
 		},
 	}
+	if webServer.Spec.IsNotJWS {
+		template.Spec.Containers[0].Command = append(template.Spec.Containers[0].Command, "/bin/sh")
+		template.Spec.Containers[0].Args = append(template.Spec.Containers[0].Args, "-c", "/opt/start/start.sh")
+	}
 	// if the user specified the resources directive propagate it to the container (required for HPA).
 	if webServer.Spec.Resources != nil {
 		template.Spec.Containers[0].Resources = *webServer.Spec.Resources
@@ -817,6 +833,14 @@ func (r *WebServerReconciler) generateVolumeMounts(webServer *webserversv1alpha1
 			MountPath: "/env/my-files",
 		})
 	}
+
+	if webServer.Spec.IsNotJWS {
+		volm = append(volm, corev1.VolumeMount{
+			Name:      "start-sh-webserver-" + webServer.Name,
+			MountPath: "/opt/start",
+		})
+	}
+
 	if webServer.Spec.TLSSecret != "" {
 		volm = append(volm, corev1.VolumeMount{
 			Name:      "webserver-tls" + webServer.Name,
@@ -866,6 +890,22 @@ func (r *WebServerReconciler) generateVolumes(webServer *webserversv1alpha1.WebS
 		})
 
 	}
+
+	if webServer.Spec.IsNotJWS {
+		executeMode := int32(0777)
+		vol = append(vol, corev1.Volume{
+			Name: "start-sh-webserver-" + webServer.Name,
+			VolumeSource: corev1.VolumeSource{
+				ConfigMap: &corev1.ConfigMapVolumeSource{
+					LocalObjectReference: corev1.LocalObjectReference{
+						Name: "start-sh-webserver-" + webServer.Name,
+					},
+					DefaultMode: &executeMode,
+				},
+			},
+		})
+	}
+
 	if webServer.Spec.TLSSecret != "" {
 		vol = append(vol, corev1.Volume{
 			Name: "webserver-tls" + webServer.Name,
@@ -920,6 +960,45 @@ func (r *WebServerReconciler) generateVolumePodBuilder(webServer *webserversv1al
 	return vol
 }
 
+func (r *WebServerReconciler) generateCommandForASFStart(webServer *webserversv1alpha1.WebServer) map[string]string {
+	cmd := make(map[string]string)
+	cmd["start.sh"] = "#!/bin/sh\n" +
+
+		"# This script executes any script in the list ENV_FILES\n" +
+		"# the ENV_FILES can be created by the operator\n" +
+		"# and are sources here.\n" +
+		"# The entry point is modified...\n" +
+		"# ENTRYPOINT [ \"sh\", \"-c\", \"java $JAVA_OPTS -jar app.jar\" ]\n" +
+		"# ENTRYPOINT [ \"sh\", \"-c\", \"/opt/start.sh\" ]\n" +
+
+		"if [ -n \"$ENV_FILES\" ]; then\n" +
+		"(\n" +
+		"for prop_file_arg in $(echo $ENV_FILES | sed \"s/,/ /g\"); do\n" +
+		"for prop_file in $(find $prop_file_arg -maxdepth 0 2>/dev/null); do\n" +
+		"(\n" +
+		"if [ -f $prop_file ]; then\n" +
+		"echo \"Run: $prop_file\"\n" +
+		"sh $prop_file\n" +
+		"else\n" +
+		"echo \"Could not process environment for $prop_file.  File does not exist.\"\n" +
+		"fi\n" +
+		")\n" +
+		"done\n" +
+		"done\n" +
+		")\n" +
+		"fi\n" +
+
+		"# Copy the war in webapps (probably we can use a ENV_FILES for that)\n" +
+		"cp /deployments/*.war /deployments/webapps/ || true\n"
+	if webServer.Spec.PersistentLogs {
+		cmd["start.sh"] = cmd["start.sh"] + "#operator's configuration for logging\n" +
+			"export JAVA_OPTS=\"-Dcatalina.base=. -Djava.security.egd=file:/dev/urandom -Djava.util.logging.manager=org.apache.juli.ClassLoaderLogManager -Djava.util.logging.config.file=/opt/operator_conf/logging.properties -Dpod_name=\"$HOSTNAME\"\"\n"
+	}
+	cmd["start.sh"] = cmd["start.sh"] + "# start the tomcat\n" +
+		"java $JAVA_OPTS -jar app.jar\n"
+	return cmd
+}
+
 // create the shell script to modify server.xml
 //
 func (r *WebServerReconciler) generateCommandForServerXml(webServer *webserversv1alpha1.WebServer) map[string]string {
@@ -959,63 +1038,41 @@ func (r *WebServerReconciler) generateCommandForServerXml(webServer *webserversv
 			"elif [ ! -f \"/tls/server.crt\" -o ! -f \"/tls/server.key\" ] ; then \n" +
 			"log_warning \"Partial HTTPS configuration, the https connector WILL NOT be configured.\" \n" +
 			"fi \n" +
-			"sed -i \"/<Service name=/a ${https}\" ${FILE}\n"
+			"sed \"/<Service name=/a ${https}\" ${FILE}> /deployments/tmp; cat /deployments/tmp > ${FILE}; rm /deployments/tmp\n"
 	}
+
+	cmd["test.sh"] = "FILE=`find /opt -name server.xml`\n" +
+		"if [ -z \"${FILE}\" ]; then\n" +
+		"  FILE=`find /deployments -name server.xml`\n" +
+		"fi\n" +
+		"grep -q MembershipProvider ${FILE}\n" +
+		"if [ $? -ne 0 ]; then\n"
 	if r.getUseKUBEPing(webServer) {
-		cmd["test.sh"] = "FILE=`find /opt -name server.xml`\n" +
-			"if [ -z \"${FILE}\" ]; then\n" +
-			"  FILE=`find /deployments -name server.xml`\n" +
-			"fi\n" +
-			"grep -q MembershipProvider ${FILE}\n" +
-			"if [ $? -ne 0 ]; then\n" +
-			"  sed -i '/cluster.html/a        <Cluster className=\"org.apache.catalina.ha.tcp.SimpleTcpCluster\" channelSendOptions=\"6\">\\n <Channel className=\"org.apache.catalina.tribes.group.GroupChannel\">\\n <Membership className=\"org.apache.catalina.tribes.membership.cloud.CloudMembershipService\" membershipProviderClassName=\"org.apache.catalina.tribes.membership.cloud.KubernetesMembershipProvider\"/>\\n </Channel>\\n </Cluster>\\n' ${FILE}\n" +
+		cmd["test.sh"] = cmd["test.sh"] + "  sed '/cluster.html/a        <Cluster className=\"org.apache.catalina.ha.tcp.SimpleTcpCluster\" channelSendOptions=\"6\">\\n <Channel className=\"org.apache.catalina.tribes.group.GroupChannel\">\\n <Membership className=\"org.apache.catalina.tribes.membership.cloud.CloudMembershipService\" membershipProviderClassName=\"org.apache.catalina.tribes.membership.cloud.KubernetesMembershipProvider\"/>\\n </Channel>\\n </Cluster>\\n' ${FILE}> /deployments/tmp; cat /deployments/tmp > ${FILE}; rm /deployments/tmp\n" +
 			"fi\n" + connector
-		if webServer.Spec.EnableAccessLogs {
-			cmd["test.sh"] = cmd["test.sh"] + "grep -q directory='\"/proc/self/fd\"' ${FILE}\n" +
-				"if [ $? -eq 0 ]; then\n" +
-				"sed -i 's|directory=\"/proc/self/fd\"|directory=\"/opt/tomcat_logs\"|g' ${FILE}\n" +
-				"sed -i \"s|prefix=\\\"1\\\"|prefix=\\\"access-$HOSTNAME\\\"|g\" ${FILE}\n" +
-				"sed -i 's|suffix=\"\"|suffix=\".log\"|g' ${FILE}\n" +
-				"else\n" +
-				"sed -i 's|directory=\"logs\"|directory=\"/opt/tomcat_logs\"|g' ${FILE}\n" +
-				"sed -i \"s|prefix=\\\"localhost_access_log\\\"|prefix=\\\"access-$HOSTNAME\\\"|g\" ${FILE}\n" +
-				"sed -i 's|suffix=\".txt\"|suffix=\".log\"|g' ${FILE}\n" +
-				"fi\n"
-		}
-		cmd["test.sh"] = cmd["test.sh"] + "FILE=`find /opt -name catalina.sh`\n" +
-			"if [ -z \"${FILE}\" ]; then\n" +
-			"  FILE=`find /deployments -name catalina.sh`\n" +
-			"fi\n" +
-			"sed -i 's|-Djava.io.tmpdir=\"\\\\\"$CATALINA_TMPDIR\\\\\"\" \\\\|-Djava.io.tmpdir=\"$CATALINA_TMPDIR\" \\\\\\n       -Dpod_name=\"$HOSTNAME\" \\\\|g' ${FILE}\n"
-
 	} else {
-		cmd["test.sh"] = "FILE=`find /opt -name server.xml`\n" +
-			"if [ -z \"${FILE}\" ]; then\n" +
-			"  FILE=`find /deployments -name server.xml`\n" +
-			"fi\n" +
-			"grep -q MembershipProvider ${FILE}\n" +
-			"if [ $? -ne 0 ]; then\n" +
-			"  sed -i '/cluster.html/a        <Cluster className=\"org.apache.catalina.ha.tcp.SimpleTcpCluster\" channelSendOptions=\"6\">\\n <Channel className=\"org.apache.catalina.tribes.group.GroupChannel\">\\n <Membership className=\"org.apache.catalina.tribes.membership.cloud.CloudMembershipService\" membershipProviderClassName=\"org.apache.catalina.tribes.membership.cloud.DNSMembershipProvider\"/>\\n </Channel>\\n </Cluster>\\n' ${FILE}\n" +
+		cmd["test.sh"] = cmd["test.sh"] + "  sed '/cluster.html/a        <Cluster className=\"org.apache.catalina.ha.tcp.SimpleTcpCluster\" channelSendOptions=\"6\">\\n <Channel className=\"org.apache.catalina.tribes.group.GroupChannel\">\\n <Membership className=\"org.apache.catalina.tribes.membership.cloud.CloudMembershipService\" membershipProviderClassName=\"org.apache.catalina.tribes.membership.cloud.DNSMembershipProvider\"/>\\n </Channel>\\n </Cluster>\\n' ${FILE}> /deployments/tmp; cat /deployments/tmp > ${FILE}; rm /deployments/tmp\n" +
 			"fi\n" + connector
-		if webServer.Spec.EnableAccessLogs {
-			cmd["test.sh"] = cmd["test.sh"] + "grep -q directory='\"/proc/self/fd\"' ${FILE}\n" +
-				"if [ $? -eq 0 ]; then\n" +
-				"sed -i 's|directory=\"/proc/self/fd\"|directory=\"/opt/tomcat_logs\"|g' ${FILE}\n" +
-				"sed -i \"s|prefix=\\\"1\\\"|prefix=\\\"access-$HOSTNAME\\\"|g\" ${FILE}\n" +
-				"sed -i 's|suffix=\"\"|suffix=\".log\"|g' ${FILE}\n" +
-				"else\n" +
-				"sed -i 's|directory=\"logs\"|directory=\"/opt/tomcat_logs\"|g' ${FILE}\n" +
-				"sed -i \"s|prefix=\\\"localhost_access_log\\\"|prefix=\\\"access-$HOSTNAME\\\"|g\" ${FILE}\n" +
-				"sed -i 's|suffix=\".txt\"|suffix=\".log\"|g' ${FILE}\n" +
-				"fi\n"
-		}
-		cmd["test.sh"] = cmd["test.sh"] + "FILE=`find /opt -name catalina.sh`\n" +
-			"if [ -z \"${FILE}\" ]; then\n" +
-			"  FILE=`find /deployments -name catalina.sh`\n" +
-			"fi\n" +
-			"sed -i 's|-Djava.io.tmpdir=\"\\\\\"$CATALINA_TMPDIR\\\\\"\" \\\\|-Djava.io.tmpdir=\"$CATALINA_TMPDIR\" \\\\\\n       -Dpod_name=\"$HOSTNAME\" \\\\|g' ${FILE}\n"
-
 	}
+	if webServer.Spec.EnableAccessLogs {
+		cmd["test.sh"] = cmd["test.sh"] + "grep -q directory='\"/proc/self/fd\"' ${FILE}\n" +
+			"if [ $? -eq 0 ]; then\n" +
+			"sed -i 's|directory=\"/proc/self/fd\"|directory=\"/opt/tomcat_logs\"|g' ${FILE}\n" +
+			"sed -i \"s|prefix=\\\"1\\\"|prefix=\\\"access-$HOSTNAME\\\"|g\" ${FILE}\n" +
+			"sed -i 's|suffix=\"\"|suffix=\".log\"|g' ${FILE}\n" +
+			"else\n" +
+			"sed 's|directory=\"logs\"|directory=\"/opt/tomcat_logs\"|g' ${FILE}> /deployments/tmp; cat /deployments/tmp > ${FILE}; rm /deployments/tmp\n" +
+			"sed \"s|prefix=\\\"localhost_access_log\\\"|prefix=\\\"access-$HOSTNAME\\\"|g\" ${FILE}> /deployments/tmp; cat /deployments/tmp > ${FILE}; rm /deployments/tmp\n" +
+			"sed 's|suffix=\".txt\"|suffix=\".log\"|g' ${FILE}> /deployments/tmp; cat /deployments/tmp > ${FILE}; rm /deployments/tmp\n" +
+			"fi\n"
+	}
+	cmd["test.sh"] = cmd["test.sh"] + "FILE=`find /opt -name catalina.sh`\n" +
+		"if [ -z \"${FILE}\" ]; then\n" +
+		"  echo \"JAVA_OPS configuration executed via /opt/start/start.sh\"\n" +
+		"else\n" +
+		"  sed -i 's|-Djava.io.tmpdir=\"\\\\\"$CATALINA_TMPDIR\\\\\"\" \\\\|-Djava.io.tmpdir=\"$CATALINA_TMPDIR\" \\\\\\n       -Dpod_name=\"$HOSTNAME\" \\\\|g' ${FILE}\n" +
+		"fi\n"
+
 	return cmd
 }
 
