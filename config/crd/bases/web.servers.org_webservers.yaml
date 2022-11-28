@@ -47,6 +47,10 @@ spec:
               enableAccessLogs:
                 description: If true operator will log tomcat's access logs
                 type: boolean
+              isNotJWS:
+                description: IsNotJWS boolean that specifies if the image is JWS or
+                  not.
+                type: boolean
               persistentLogs:
                 description: If true operator will create a PVC to save the logs.
                 type: boolean
