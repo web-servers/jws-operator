@@ -21,6 +21,50 @@ Use the DNSping or KUBEping session clustering if filled, default don't use sess
 ```
   useSessionClustering: true
 ```
+## routeHostname
+Create a route or not (NONE) and tell if the route uses TLS (tls) and allow to specify a hostname.
+```
+  routeHostname: NONE
+```
+The route will NOT be created by the operator, it needs to be create by hands.
+```
+  routeHostname: tls
+```
+The operator will create a passthrough route to the tomcat.
+
+## certificateVerification
+Use the TLS connector with a client certificates. The value are required, optional or empty see Tomcat connector docs and look for certificateVerification in the connector.
+```
+  certificateVerification: required
+```
+
+## TLSSecret
+Secret to use for the server certificate (server.cert) and server key (server.key) and optional CA certificat for the client certificates (ca.cert).
+```
+  tlsSecret: tlssecret
+```
+
+## TLSPassord
+The passpharse used to protect the server key.
+```
+  tlsPassword: changeit
+```
+
+## Resources
+The configuration of the resources used by the webserver, ie CPU and memory, Use limits and requests.
+Those are used for the auto scaling.
+```
+   resources:
+     limits:
+       cpu: 500m
+     requests:
+       cpu: 200m
+```
+See Horizontal Pod Autoscaling in openshift or kubernetes for more details how to use it.
+
+## PersistentLogs / EnableAccessLogs / IsNotJWS
+Something is needed here too.
+
 ## webImage (to deploy from existing images)
 The webImage controls how to deploy pods from existing images.
 It has the applicationImage (Mandatory), webApp (might be empty) and webServerHealthCheck (a default is used when empty)
