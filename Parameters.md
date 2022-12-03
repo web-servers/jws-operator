@@ -62,8 +62,23 @@ Those are used for the auto scaling.
 ```
 See Horizontal Pod Autoscaling in openshift or kubernetes for more details how to use it.
 
-## PersistentLogs / EnableAccessLogs / IsNotJWS
-Something is needed here too.
+## PersistentLogs
+If PersistentLogs is true catalina.out of every pod will be saved in a PersistentVolume in order to remain available after a possible pod failure. (Note that useSessionClustering need to be true)
+```
+  persistentLogs: true
+```
+
+## EnableAccessLogs
+If EnableAccessLogs is true but PersistentLogs is false access log will just get produced but not saved in a PV. Access logs of every pod will be saved in a PV in case that EnableAccessLogs and PersistentLogs are true in parallel.(Note that useSessionClustering need to be true)
+```
+  enableAccessLogs: true
+```
+
+## IsNotJWS
+This parameter is used with PersistentLogs or/and EnableAccessLogs to show the operator how to configure the container for persistent logs because JWS image needs different configuration than the ASF tomcat imag. Setting it to true means that the given image is ASF tomcat image.
+```
+  isNotJWS: true
+```
 
 ## webImage (to deploy from existing images)
 The webImage controls how to deploy pods from existing images.
