@@ -234,12 +234,22 @@ func (r *WebServerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 
 		}
 
-		var health *webserversv1alpha1.WebServerHealthCheckSpec = &webserversv1alpha1.WebServerHealthCheckSpec{}
-		if webServer.Spec.WebImage != nil {
-			health = webServer.Spec.WebImage.WebServerHealthCheck
-		} else {
-			health = webServer.Spec.WebImageStream.WebServerHealthCheck
+		// Check if exists a ConfigMap for the server.xml <Cluster/> definition otherwise create it.
+		configMap := r.generateConfigMapForDNS(webServer)
+		result, err = r.createConfigMap(ctx, webServer, configMap, configMap.Name, configMap.Namespace)
+		if err != nil || result != (ctrl.Result{}) {
+			return result, err
 		}
+
+	}
+
+	var health *webserversv1alpha1.WebServerHealthCheckSpec = &webserversv1alpha1.WebServerHealthCheckSpec{}
+	if webServer.Spec.WebImage != nil {
+		health = webServer.Spec.WebImage.WebServerHealthCheck
+	} else {
+		health = webServer.Spec.WebImageStream.WebServerHealthCheck
+	}
+	if health != nil {
 		if health.ServerLivenessScript != "" {
 			configMap := r.generateConfigMapForLivenessProbe(webServer)
 			result, err = r.createConfigMap(ctx, webServer, configMap, configMap.Name, configMap.Namespace)
@@ -254,23 +264,15 @@ func (r *WebServerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 				return result, err
 			}
 		}
+	}
 
-		if webServer.Spec.IsNotJWS {
-			// Check if exists a ConfigMap for ASF image start otherwise create it.
-			configMap := r.generateConfigMapForASFStart(webServer)
-			result, err = r.createConfigMap(ctx, webServer, configMap, configMap.Name, configMap.Namespace)
-			if err != nil || result != (ctrl.Result{}) {
-				return result, err
-			}
-		}
-
-		// Check if exists a ConfigMap for the server.xml <Cluster/> definition otherwise create it.
-		configMap := r.generateConfigMapForDNS(webServer)
+	if webServer.Spec.IsNotJWS {
+		// Check if exists a ConfigMap for ASF image start otherwise create it.
+		configMap := r.generateConfigMapForASFStart(webServer)
 		result, err = r.createConfigMap(ctx, webServer, configMap, configMap.Name, configMap.Namespace)
 		if err != nil || result != (ctrl.Result{}) {
 			return result, err
 		}
-
 	}
 
 	if webServer.Spec.PersistentLogs {
