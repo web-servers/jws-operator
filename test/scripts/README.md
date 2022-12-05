@@ -1,27 +1,30 @@
-# set OPERATOR_IMAGE and OPERATOR_BUNDLE_IMAGE
+# Script to test as a no admin user
+The script test-jws_src_test_resources_operators_jws_update-yaml-files.sh and the doc here  allow to test the operator as a "normal" user instead "admin".
+
+## set OPERATOR_IMAGE and OPERATOR_BUNDLE_IMAGE
 ```
 export OPERATOR_IMAGE=registry.redhat.io/jboss-webserver-5/webserver-openjdk8-rhel8-operator:1.0-18
 export OPERATOR_BUNDLE_IMAGE=registry.redhat.io/jboss-webserver-5/webserver-openjdk8-operator-bundle:1.0.0-5
 ```
 
-# run the script
+## run the script
 ```
 bash test-jws_src_test_resources_operators_jws_update-yaml-files.sh
 ```
 it should be able to guess the OPERATOR_IMAGE from OPERATOR_BUNDLE_IMAGE, but to be on safe side export the 2 variables.
 
-# create project
+## create project
 
 oc new-project jws-operator || oc project jws-operator
 
-# install operator pieces in deploy
+## install operator pieces in deploy
 oc apply -f configmap-jws-operator.gen.yaml
 
 oc apply -f operator-group.yaml
 
 oc apply -f operator-subscription.yaml
 
-# check the result (it takes ~ 1 minutes) for example
+## check the result (it takes ~ 1 minutes) for example
 ```
 [jfclere@localhost deploy]$ oc get pods
 NAME                            READY     STATUS    RESTARTS   AGE
@@ -34,7 +37,7 @@ and
               containerImage=registry.redhat.io/jboss-webserver-5/webserver-openjdk8-rhel8-operator:1.0-18
 ```
 
-# give the permissions to ${TEST_USER}
+## give the permissions to ${TEST_USER}
 
 oc adm policy add-role-to-user basic-user ${TEST_USER}
 
