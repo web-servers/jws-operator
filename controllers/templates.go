@@ -1,8 +1,6 @@
 package controllers
 
 import (
-	"strings"
-
 	"k8s.io/apimachinery/pkg/util/intstr"
 
 	webserversv1alpha1 "github.com/web-servers/jws-operator/api/v1alpha1"
@@ -125,6 +123,28 @@ func (r *WebServerReconciler) generateConfigMapForCustomBuildScript(webServer *w
 	cmap := &corev1.ConfigMap{
 		ObjectMeta: r.generateObjectMeta(webServer, "webserver-bd-"+webServer.Name),
 		Data:       r.generateCommandForBuider(webServer.Spec.WebImage.WebApp.Builder.ApplicationBuildScript),
+	}
+
+	controllerutil.SetControllerReference(webServer, cmap, r.Scheme)
+	return cmap
+}
+
+func (r *WebServerReconciler) generateConfigMapForReadinessProbe(webServer *webserversv1alpha1.WebServer) *corev1.ConfigMap {
+
+	cmap := &corev1.ConfigMap{
+		ObjectMeta: r.generateObjectMeta(webServer, "readinessprobescript-sh-webserver-"+webServer.Name),
+		Data:       r.generateReadinessProbeScript(webServer),
+	}
+
+	controllerutil.SetControllerReference(webServer, cmap, r.Scheme)
+	return cmap
+}
+
+func (r *WebServerReconciler) generateConfigMapForLivenessProbe(webServer *webserversv1alpha1.WebServer) *corev1.ConfigMap {
+
+	cmap := &corev1.ConfigMap{
+		ObjectMeta: r.generateObjectMeta(webServer, "livenessprobescript-sh-webserver-"+webServer.Name),
+		Data:       r.generateLivenessProbeScript(webServer),
 	}
 
 	controllerutil.SetControllerReference(webServer, cmap, r.Scheme)
@@ -607,7 +627,7 @@ func (r *WebServerReconciler) generateLivenessProbe(webServer *webserversv1alpha
 		livenessProbeScript = health.ServerLivenessScript
 	}
 	if livenessProbeScript != "" {
-		return r.generateCustomProbe(webServer, livenessProbeScript)
+		return r.generateCustomProbe(webServer, "livenessProbeScript")
 	} else {
 		/* Use the default one */
 		return &corev1.Probe{
@@ -633,7 +653,7 @@ func (r *WebServerReconciler) generateReadinessProbe(webServer *webserversv1alph
 		readinessProbeScript = health.ServerReadinessScript
 	}
 	if readinessProbeScript != "" {
-		return r.generateCustomProbe(webServer, readinessProbeScript)
+		return r.generateCustomProbe(webServer, "readinessProbeScript")
 	} else {
 		/* Use the default one */
 		return &corev1.Probe{
@@ -647,16 +667,10 @@ func (r *WebServerReconciler) generateReadinessProbe(webServer *webserversv1alph
 	}
 }
 
-func (r *WebServerReconciler) generateCustomProbe(webServer *webserversv1alpha1.WebServer, probeScript string) *corev1.Probe {
+func (r *WebServerReconciler) generateCustomProbe(webServer *webserversv1alpha1.WebServer, probeType string) *corev1.Probe {
 	// If the script has the following format: shell -c "command"
 	// we create the slice ["shell", "-c", "command"]
-	probeScriptSlice := make([]string, 0)
-	pos := strings.Index(probeScript, "\"")
-	if pos != -1 {
-		probeScriptSlice = append(strings.Split(probeScript[0:pos], " "), probeScript[pos:])
-	} else {
-		probeScriptSlice = strings.Split(probeScript, " ")
-	}
+	probeScriptSlice := []string{"/bin/bash", "/opt/probe/" + probeType + ".sh"}
 	return &corev1.Probe{
 		Handler: corev1.Handler{
 			Exec: &corev1.ExecAction{
@@ -697,6 +711,30 @@ func (r *WebServerReconciler) generateVolumeMounts(webServer *webserversv1alpha1
 			MountPath: "/env/my-files",
 		})
 	}
+
+	var health *webserversv1alpha1.WebServerHealthCheckSpec = &webserversv1alpha1.WebServerHealthCheckSpec{}
+	if webServer.Spec.WebImage != nil {
+		health = webServer.Spec.WebImage.WebServerHealthCheck
+	} else {
+		health = webServer.Spec.WebImageStream.WebServerHealthCheck
+	}
+	if health != nil {
+		if health.ServerLivenessScript != "" {
+			volm = append(volm, corev1.VolumeMount{
+				Name:      "livenessprobescript-sh-webserver-" + webServer.Name,
+				MountPath: "/opt/probe/livenessProbeScript.sh",
+				SubPath:   "livenessProbeScript.sh",
+			})
+		}
+		if health.ServerReadinessScript != "" {
+			volm = append(volm, corev1.VolumeMount{
+				Name:      "readinessprobescript-sh-webserver-" + webServer.Name,
+				MountPath: "/opt/probe/readinessProbeScript.sh",
+				SubPath:   "readinessProbeScript.sh",
+			})
+		}
+	}
+
 	return volm
 }
 
@@ -715,6 +753,44 @@ func (r *WebServerReconciler) generateVolumes(webServer *webserversv1alpha1.WebS
 			},
 		})
 	}
+
+	var health *webserversv1alpha1.WebServerHealthCheckSpec = &webserversv1alpha1.WebServerHealthCheckSpec{}
+	if webServer.Spec.WebImage != nil {
+		health = webServer.Spec.WebImage.WebServerHealthCheck
+	} else {
+		health = webServer.Spec.WebImageStream.WebServerHealthCheck
+	}
+	if health != nil {
+		if health.ServerReadinessScript != "" {
+			executeMode := int32(0777)
+			vol = append(vol, corev1.Volume{
+				Name: "readinessprobescript-sh-webserver-" + webServer.Name,
+				VolumeSource: corev1.VolumeSource{
+					ConfigMap: &corev1.ConfigMapVolumeSource{
+						LocalObjectReference: corev1.LocalObjectReference{
+							Name: "readinessprobescript-sh-webserver-" + webServer.Name,
+						},
+						DefaultMode: &executeMode,
+					},
+				},
+			})
+		}
+		if health.ServerLivenessScript != "" {
+			executeMode := int32(0777)
+			vol = append(vol, corev1.Volume{
+				Name: "livenessprobescript-sh-webserver-" + webServer.Name,
+				VolumeSource: corev1.VolumeSource{
+					ConfigMap: &corev1.ConfigMapVolumeSource{
+						LocalObjectReference: corev1.LocalObjectReference{
+							Name: "livenessprobescript-sh-webserver-" + webServer.Name,
+						},
+						DefaultMode: &executeMode,
+					},
+				},
+			})
+		}
+	}
+
 	return vol
 }
 
@@ -788,5 +864,31 @@ func (r *WebServerReconciler) generateCommandForServerXml(webServer *webserversv
 func (r *WebServerReconciler) generateCommandForBuider(script string) map[string]string {
 	cmd := make(map[string]string)
 	cmd["build.sh"] = script
+	return cmd
+}
+
+func (r *WebServerReconciler) generateReadinessProbeScript(webServer *webserversv1alpha1.WebServer) map[string]string {
+	cmd := make(map[string]string)
+	cmd["readinessProbeScript.sh"] = "#!/bin/sh\n"
+	var health *webserversv1alpha1.WebServerHealthCheckSpec = &webserversv1alpha1.WebServerHealthCheckSpec{}
+	if webServer.Spec.WebImage != nil {
+		health = webServer.Spec.WebImage.WebServerHealthCheck
+	} else {
+		health = webServer.Spec.WebImageStream.WebServerHealthCheck
+	}
+	cmd["readinessProbeScript.sh"] = cmd["readinessProbeScript.sh"] + health.ServerReadinessScript
+	return cmd
+}
+
+func (r *WebServerReconciler) generateLivenessProbeScript(webServer *webserversv1alpha1.WebServer) map[string]string {
+	cmd := make(map[string]string)
+	cmd["livenessProbeScript.sh"] = "#!/bin/sh\n"
+	var health *webserversv1alpha1.WebServerHealthCheckSpec = &webserversv1alpha1.WebServerHealthCheckSpec{}
+	if webServer.Spec.WebImage != nil {
+		health = webServer.Spec.WebImage.WebServerHealthCheck
+	} else {
+		health = webServer.Spec.WebImageStream.WebServerHealthCheck
+	}
+	cmd["livenessProbeScript.sh"] = cmd["livenessProbeScript.sh"] + health.ServerLivenessScript
 	return cmd
 }
