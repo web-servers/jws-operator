@@ -63,13 +63,13 @@ Those are used for the auto scaling.
 See Horizontal Pod Autoscaling in openshift or kubernetes for more details how to use it.
 
 ## PersistentLogs
-If PersistentLogs is true catalina.out of every pod will be saved in a PersistentVolume in order to remain available after a possible pod failure. (Note that useSessionClustering need to be true)
+If PersistentLogs is true catalina.out of every pod will be saved in a PersistentVolume in order to remain available after a possible pod failure.
 ```
   persistentLogs: true
 ```
 
 ## EnableAccessLogs
-If EnableAccessLogs is true but PersistentLogs is false access log will just get produced but not saved in a PV. Access logs of every pod will be saved in a PV in case that EnableAccessLogs and PersistentLogs are true in parallel.(Note that useSessionClustering need to be true)
+If EnableAccessLogs is true but PersistentLogs is false access log will just get produced but not saved in a PV. Access logs of every pod will be saved in a PV in case that EnableAccessLogs and PersistentLogs are true in parallel.
 ```
   enableAccessLogs: true
 ```
