@@ -153,6 +153,57 @@ func WebServerSecureRouteTest(clt client.Client, ctx context.Context, t *testing
 
 }
 
+func PersistentLogsTest(clt client.Client, ctx context.Context, t *testing.T, namespace string, name string, testURI string) (err error) {
+
+	webServer := &webserversv1alpha1.WebServer{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: namespace,
+		},
+		Spec: webserversv1alpha1.WebServerSpec{
+			ApplicationName: "persistentlogs-test",
+			Replicas:        int32(2),
+			WebImage: &webserversv1alpha1.WebImageSpec{
+				ApplicationImage: "registry.redhat.io/jboss-webserver-5/webserver54-openjdk8-tomcat9-openshift-rhel8",
+				ImagePullSecret:  "secretfortests",
+				WebServerHealthCheck: &webserversv1alpha1.WebServerHealthCheckSpec{
+					ServerReadinessScript: "if [ $(ls /opt/tomcat_logs |grep -c .log) != 4 ];then exit 1;fi",
+				},
+			},
+			PersistentLogs:       true,
+			EnableAccessLogs:     true,
+			UseSessionClustering: true,
+		},
+	}
+
+	err = clt.Create(ctx, webServer)
+
+	if err != nil {
+		t.Logf("Webserver creation failed due to: %s\n", err)
+		t.Fatal(err)
+		return err
+	}
+
+	err = waitUntilReady(clt, ctx, t, webServer)
+
+	if err != nil {
+		t.Logf("Failed to deploy the application due to: %s\n", err)
+		t.Fatal(err)
+		return err
+	}
+
+	t.Logf("Application %s is deployed ", name)
+
+	// cleanup
+	defer func() {
+		clt.Delete(context.Background(), webServer)
+		time.Sleep(time.Second * 5)
+	}()
+
+	return err
+
+}
+
 func HPATest(clt client.Client, ctx context.Context, t *testing.T, namespace string, name string, testURI string) (err error) {
 
 	webServer := &webserversv1alpha1.WebServer{

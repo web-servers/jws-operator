@@ -130,6 +130,7 @@ var _ = Describe("WebServer controller", func() {
 
 					Expect(webserverstests.WebServerSecureRouteTest(k8sClient, ctx, thetest, namespace, "secureroutetest", "jboss-webserver56-openjdk8-tomcat9-openshift-ubi8", "/health", route.Spec.Host[5+len(namespace):])).Should(Succeed()) //tests if the created pod is accessible via the tls route created by the operator
 					Expect(webserverstests.HPATest(k8sClient, ctx, thetest, namespace, "hpatest", "")).Should(Succeed())
+					Expect(webserverstests.PersistentLogsTest(k8sClient, ctx, thetest, namespace, "persistentlogstest", "")).Should(Succeed())
 				}
 			}
 
