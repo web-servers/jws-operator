@@ -199,6 +199,29 @@ func (r *WebServerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 
 	}
 
+	var health *webserversv1alpha1.WebServerHealthCheckSpec = &webserversv1alpha1.WebServerHealthCheckSpec{}
+	if webServer.Spec.WebImage != nil {
+		health = webServer.Spec.WebImage.WebServerHealthCheck
+	} else {
+		health = webServer.Spec.WebImageStream.WebServerHealthCheck
+	}
+	if health != nil {
+		if health.ServerLivenessScript != "" {
+			configMap := r.generateConfigMapForLivenessProbe(webServer)
+			result, err = r.createConfigMap(webServer, configMap, configMap.Name, configMap.Namespace)
+			if err != nil || result != (ctrl.Result{}) {
+				return result, err
+			}
+		}
+		if health.ServerReadinessScript != "" {
+			configMap := r.generateConfigMapForReadinessProbe(webServer)
+			result, err = r.createConfigMap(webServer, configMap, configMap.Name, configMap.Namespace)
+			if err != nil || result != (ctrl.Result{}) {
+				return result, err
+			}
+		}
+	}
+
 	var foundReplicas int32
 	if webServer.Spec.WebImage != nil {
 
