@@ -168,6 +168,7 @@ func (r *WebServerReconciler) generateConfigMapForLoggingProperties(webServer *w
 
 // pvc for saving logs
 func (r *WebServerReconciler) generatePersistentVolumeClaimForLogging(webServer *webserversv1alpha1.WebServer) *corev1.PersistentVolumeClaim {
+
 	pvc := &corev1.PersistentVolumeClaim{
 		ObjectMeta: r.generateObjectMeta(webServer, "volume-pvc-"+webServer.Name),
 		Spec: corev1.PersistentVolumeClaimSpec{
@@ -178,6 +179,14 @@ func (r *WebServerReconciler) generatePersistentVolumeClaimForLogging(webServer 
 				},
 			},
 		},
+	}
+
+	if webServer.Spec.VolumeName != "" {
+		pvc.Spec.VolumeName = webServer.Spec.VolumeName
+	}
+
+	if webServer.Spec.StorageClass != "" {
+		pvc.Spec.StorageClassName = &webServer.Spec.StorageClass
 	}
 
 	controllerutil.SetControllerReference(webServer, pvc, r.Scheme)

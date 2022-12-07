@@ -42,6 +42,10 @@ type WebServerSpec struct {
 	EnableAccessLogs bool `json:"enableAccessLogs,omitempty"`
 	// IsNotJWS boolean that specifies if the image is JWS or not.
 	IsNotJWS bool `json:"isNotJWS,omitempty"`
+	// VolumeName is the name of pv we eant to bound
+	VolumeName string `json:"volumeName,omitempty"`
+	// StorageClass name of the storage class we want to use for the bound
+	StorageClass string `json:"storageClass,omitempty"`
 }
 
 // (Deployment method 1) Application image
