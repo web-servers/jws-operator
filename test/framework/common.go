@@ -173,6 +173,8 @@ func PersistentLogsTest(clt client.Client, ctx context.Context, t *testing.T, na
 			PersistentLogs:       true,
 			EnableAccessLogs:     true,
 			UseSessionClustering: true,
+			VolumeName:           "pv0000",
+			StorageClass:         "nfs-client",
 		},
 	}
 
