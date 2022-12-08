@@ -27,6 +27,8 @@ spec:
               value: 1.2.3.4
             - name: NFS_PATH
               value: /myhome
+            - name: PROVISIONER_NAME
+              value: k8s-sigs.io/nfs-subdir-external-provisioner
       volumes:
         - name: nfs-client-root
           nfs:
