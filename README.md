@@ -280,6 +280,7 @@ Secret named 'test-tls-secret' must contain a 'server.crt', 'server.key' and 'ca
 ```
 kubectl create secret generic test-tls-secret    --from-file=server.crt=server.crt    --from-file=server.key=server.key    --from-file=ca.crt=ca.crt
 ```
+The PersistentLogs tests require a PV and SC to be created, check https://github.com/web-servers/jws-operator/blob/main/test/scripts/README.md to create them before starting the tests.
 
 To run the test to:
 ```
