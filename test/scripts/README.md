@@ -1,3 +1,11 @@
+# Related to the JWS operator
+This contains a set of script and yaml files to use to prepare a cluster to run the jws-operator test on it.
+
+# Script to install PV PersistentVolume and SC StorageClass for PersistentLogs
+The PersistentLogs allows to keep the access_log and catalina files in a PersistentVolume for analysis.
+For the tests a nfs server pod is used to expose a mount point used in the PersistentVolume, the webserver pods use a PVC PersistentVolumeClaim to mount in each pod the nfs exposed poimt.
+
+
 # Script to test as a no admin user
 The script test-jws_src_test_resources_operators_jws_update-yaml-files.sh and the doc here  allow to test the operator as a "normal" user instead "admin".
 
