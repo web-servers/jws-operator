@@ -79,6 +79,17 @@ This parameter is used with PersistentLogs or/and EnableAccessLogs to show the o
 ```
   isNotJWS: true
 ```
+## volumeName
+If PersistentLogs is true, volumeName is the name of PersistentVolume used to store the access_log and catalina.out
+```
+  volumeName: pv0000
+```
+
+## storageClass
+If PersistentLogs is true, storageClass is the name of storageClass of the PersistentVolume used to store the access_log and catalina.out
+```
+  storageClassvolumeName: nfs-client
+```
 
 ## webImage (to deploy from existing images)
 The webImage controls how to deploy pods from existing images.
