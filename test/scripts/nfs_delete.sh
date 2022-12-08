@@ -1,3 +1,4 @@
+kubectl delete sa/nfs-storage-sa
 kubectl delete deployment/nfs-client-provisioner
 kubectl delete deployment/my-nfs
 kubectl delete sc/nfs-client
