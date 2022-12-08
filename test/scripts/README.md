@@ -4,6 +4,13 @@ This contains a set of script and yaml files to use to prepare a cluster to run 
 # Script to install PV PersistentVolume and SC StorageClass for PersistentLogs
 The PersistentLogs allows to keep the access_log and catalina files in a PersistentVolume for analysis.
 For the tests a nfs server pod is used to expose a mount point used in the PersistentVolume, the webserver pods use a PVC PersistentVolumeClaim to mount in each pod the nfs exposed poimt.
+To create what is needed:
+```
+bash nfs_install.sh
+```
+After the tests you can remove:
+```bash nfs_delete.sh
+```
 
 
 # Script to test as a no admin user
