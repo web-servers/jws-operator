@@ -1,0 +1,17 @@
+
+kind: PersistentVolume
+apiVersion: v1
+metadata:
+  name: pv0000
+spec:
+  capacity:
+    storage: 2Gi
+  storageClassName: nfs-client
+  nfs:
+    server: 1.2.3.4
+    path: /myhome
+  accessModes:
+    - ReadWriteMany
+    - ReadWriteOnce
+  persistentVolumeReclaimPolicy: Recycle
+  volumeMode: Filesystem
