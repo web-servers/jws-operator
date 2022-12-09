@@ -104,14 +104,6 @@ var _ = Describe("WebServer controller", func() {
 			Expect(deployment.Spec.Template.GetLabels()["app.kubernetes.io/name"]).Should(Equal(name))
 			Expect(deployment.Spec.Template.GetLabels()["ready"]).Should(Equal("oui"))
 
-			newLabels := map[string]string{
-				"ready":  "non",
-				"ready1": "non1",
-				"ready2": "non2",
-				"ready3": "non3",
-				"ready4": "non4",
-			}
-
 			//get created webserver with updated recourceversion to continue
 			err := k8sClient.Get(ctx, types.NamespacedName{Name: name, Namespace: namespace}, createdWebserver)
 
@@ -119,17 +111,11 @@ var _ = Describe("WebServer controller", func() {
 				thetest.Fatal(err)
 			}
 
-			createdWebserver.ObjectMeta.SetLabels(newLabels)
+			//patch the webserver to change the labels
+			text := "{\"metadata\":{\"labels\":{\"ready\":\"non\",\"ready1\": \"non1\",\"ready2\": \"non2\",\"ready3\": \"non3\",\"ready4\": \"non4\"}}}"
+			bytes := []byte(text)
 
-			Eventually(func() bool {
-				err := k8sClient.Update(ctx, createdWebserver)
-
-				if err != nil && !errors.IsConflict(err) {
-					thetest.Fatal(err)
-				}
-				return !errors.IsConflict(err)
-
-			}, time.Second*120, time.Second*5).Should(BeTrue())
+			_ = k8sClient.Patch(ctx, createdWebserver, client.RawPatch(types.MergePatchType, bytes))
 
 			// Check it is started.
 			webserverLookupKey = types.NamespacedName{Name: name, Namespace: namespace}
@@ -246,14 +232,6 @@ var _ = Describe("WebServer controller", func() {
 				Expect(deployment.Spec.Template.GetLabels()["app.kubernetes.io/name"]).Should(Equal(name))
 				Expect(deployment.Spec.Template.GetLabels()["ready"]).Should(Equal("oui"))
 
-				newLabels := map[string]string{
-					"ready":  "non",
-					"ready1": "non1",
-					"ready2": "non2",
-					"ready3": "non3",
-					"ready4": "non4",
-				}
-
 				//get created webserver with updated recourceversion to continue
 				err := k8sClient.Get(ctx, types.NamespacedName{Name: name, Namespace: namespace}, createdWebserver)
 
@@ -261,17 +239,11 @@ var _ = Describe("WebServer controller", func() {
 					thetest.Fatal(err)
 				}
 
-				createdWebserver.ObjectMeta.SetLabels(newLabels)
+				//patch the webserver to change the labels
+				text := "{\"metadata\":{\"labels\":{\"ready\":\"non\",\"ready1\": \"non1\",\"ready2\": \"non2\",\"ready3\": \"non3\",\"ready4\": \"non4\"}}}"
+				bytes := []byte(text)
 
-				Eventually(func() bool {
-					err := k8sClient.Update(ctx, createdWebserver)
-
-					if err != nil && !errors.IsConflict(err) {
-						thetest.Fatal(err)
-					}
-					return !errors.IsConflict(err)
-
-				}, time.Second*60, time.Millisecond*250).Should(BeTrue())
+				_ = k8sClient.Patch(ctx, createdWebserver, client.RawPatch(types.MergePatchType, bytes))
 
 				// Check it is started.
 				webserverLookupKey = types.NamespacedName{Name: name, Namespace: namespace}
