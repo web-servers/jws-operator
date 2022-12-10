@@ -224,14 +224,11 @@ Note that the first _oc delete_ deletes what the operator creates for the exampl
 
 ## Configuring Readiness or Liveness probes:
 
-serverReadinessScript and serverLivenessScript allow to use a custom liveness or readiness probe, we support 2 formats:
+serverReadinessScript and serverLivenessScript allow to use a custom liveness or readiness probe, we support the following format:
 
 ```
-serverLivenessScript: cmd arg1 arg2 ...
-serverLivenessScript: shell shellarg1 shellargv2 ... "cmd line for the shell"
+serverLivenessScript: commands
 ```
-
-Don't forget '\' if you need to escape something in the cmd line. Don't use ' ' in the arg that is the separator we support.
 
 In case you don't use the HealthCheckValve you have to configure at least a serverReadinessScript.
 
@@ -239,7 +236,7 @@ For example if you are using the JWS 5.4 images you could use the following:
 
 ```
   webServerHealthCheck:
-    serverReadinessScript: /bin/bash -c " /usr/bin/curl --noproxy '*' -s 'http://localhost:8080/health' | /usr/bin/grep -i 'status.*UP'"
+    serverReadinessScript: /usr/bin/curl --noproxy '*' -s 'http://localhost:8080/health' | /usr/bin/grep -i 'status.*UP'
 ```
 
 If you are using a openjdk:8-jre-alpine based image and /test is your health URL:
