@@ -224,11 +224,18 @@ Note that the first _oc delete_ deletes what the operator creates for the exampl
 
 ## Configuring Readiness or Liveness probes:
 
-serverReadinessScript and serverLivenessScript allow to use a custom liveness or readiness probe, we support the following format:
+serverReadinessScript and serverLivenessScript allow to use a custom liveness or readiness probe, we support the following formats:
+
+for a single command:
 
 ```
-serverLivenessScript: commands
+serverLivenessScript: command
 ```
+for script:
+```
+serverLivenessScript: command; command; command
+```
+
 
 In case you don't use the HealthCheckValve you have to configure at least a serverReadinessScript.
 
