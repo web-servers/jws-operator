@@ -6,14 +6,15 @@ import (
 	"time"
 
 	. "github.com/onsi/ginkgo"
-	routev1 "github.com/openshift/api/route/v1"
 
 	imagestreamv1 "github.com/openshift/api/image/v1"
+	routev1 "github.com/openshift/api/route/v1"
 
 	. "github.com/onsi/gomega"
 	webserverstests "github.com/web-servers/jws-operator/test/framework"
 
 	corev1 "k8s.io/api/core/v1"
+	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -131,6 +132,14 @@ var _ = Describe("WebServer controller", func() {
 					Expect(webserverstests.WebServerSecureRouteTest(k8sClient, ctx, thetest, namespace, "secureroutetest", "jboss-webserver56-openjdk8-tomcat9-openshift-ubi8", "/health", route.Spec.Host[5+len(namespace):])).Should(Succeed()) //tests if the created pod is accessible via the tls route created by the operator
 					Expect(webserverstests.HPATest(k8sClient, ctx, thetest, namespace, "hpatest", "")).Should(Succeed())
 					Expect(webserverstests.PersistentLogsTest(k8sClient, ctx, thetest, namespace, "persistentlogstest", "")).Should(Succeed())
+					//check if servicemonitor crd exists b/c only then the feature works
+					crd := &apiextensionsv1.CustomResourceDefinition{}
+					err = k8sClient.Get(context.TODO(), client.ObjectKey{Name: "servicemonitors.monitoring.coreos.com"}, crd)
+					if err != nil {
+						fmt.Printf("servicemonitor CRD not found skipping prometheus Test")
+					} else {
+						Expect(webserverstests.PrometheusTest(k8sClient, ctx, thetest, namespace, "prometheustest")).Should(Succeed())
+					}
 				}
 			}
 
