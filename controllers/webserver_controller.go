@@ -150,6 +150,13 @@ func (r *WebServerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 
 	// create a Prometheus ServiceMonitor (if the resource exists on the cluster)
 	if r.hasServiceMonitor {
+
+		// Check if exists a ConfigMap for prometheus otherwise create it.
+		configMap := r.generateConfigMapForPrometheus(webServer)
+		result, err = r.createConfigMap(ctx, webServer, configMap, configMap.Name, configMap.Namespace)
+		if err != nil || result != (ctrl.Result{}) {
+			return result, err
+		}
 		if serviceMonitor, err := r.GetOrCreateNewServiceMonitor(webServer, ctx, r.generateLabelsForWeb(webServer)); err != nil {
 			return reconcile.Result{}, err
 		} else if serviceMonitor == nil {
