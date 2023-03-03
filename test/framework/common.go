@@ -20,9 +20,11 @@ import (
 	v1 "k8s.io/api/core/v1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/util/wait"
 
 	// "github.com/operator-framework/operator-sdk/pkg/test"
+	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	webserversv1alpha1 "github.com/web-servers/jws-operator/api/v1alpha1"
 	kbappsv1 "k8s.io/api/apps/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -34,6 +36,8 @@ import (
 
 	// podv1 "k8s.io/kubernetes/pkg/api/v1/pod"
 	routev1 "github.com/openshift/api/route/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/kubernetes/scheme"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -187,8 +191,6 @@ func PrometheusTest(clt client.Client, ctx context.Context, t *testing.T, namesp
 
 	t.Logf("Application %s is deployed ", name)
 
-	time.Sleep(time.Second * 60) //waiting for prometheus server to be ready
-
 	crd := &apiextensionsv1.CustomResourceDefinition{}
 	err = clt.Get(ctx, types.NamespacedName{Name: "servicemonitors.monitoring.coreos.com", Namespace: "openshift-monitoring"}, crd)
 	if err != nil {
@@ -209,8 +211,72 @@ func PrometheusTest(clt client.Client, ctx context.Context, t *testing.T, namesp
 	}
 	client := &http.Client{Transport: tr}
 
+	schemeBuilder := runtime.NewSchemeBuilder(
+		monitoringv1.AddToScheme,
+	)
+
+	err = schemeBuilder.AddToScheme(scheme.Scheme)
+	if err != nil {
+		return err
+	}
+
+	replicas := int32(1)
+	webPort := intstr.FromString("web")
+
+	// Create a new Prometheus object
+	prometheus := &monitoringv1.Prometheus{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "app-monitor",
+			Labels: map[string]string{
+				"prometheus": "k8s",
+			},
+			Namespace: namespace,
+		},
+		Spec: monitoringv1.PrometheusSpec{
+			Replicas:           &replicas,
+			ServiceAccountName: "prometheus-k8s",
+			SecurityContext:    &v1.PodSecurityContext{},
+			ServiceMonitorSelector: &metav1.LabelSelector{
+				MatchLabels: map[string]string{
+					"WebServer":              "prometheustest",
+					"app.kubernetes.io/name": "prometheustest",
+					"application":            "prometheus-test",
+					"deploymentConfig":       "prometheus-test",
+				},
+			},
+			RuleSelector: &metav1.LabelSelector{},
+			Alerting: &monitoringv1.AlertingSpec{
+				Alertmanagers: []monitoringv1.AlertmanagerEndpoints{
+					{
+						Namespace: namespace,
+						Name:      "alertmanager-main",
+						Port:      webPort,
+					},
+				},
+			},
+		},
+	}
+	err = clt.Create(ctx, prometheus)
+
+	if err != nil {
+		t.Logf("Prometheus creation failed due to: %s\n", err)
+		t.Fatal(err)
+		return err
+	}
+
 	// Execute the command
-	output, err := exec.Command("oc", "get", "routes", "-n", "openshift-console").Output()
+	_, err = exec.Command("oc", "expose", "svc/prometheus-operated").Output()
+	if err != nil {
+		t.Errorf("Error: %d", err)
+		return
+	}
+
+	unixTime := time.Now().Unix()
+	var unixTimeStart int64 = unixTime
+	var unixTimeEnd int64 = unixTime + 3600
+
+	// Execute the command
+	output, err := exec.Command("oc", "get", "routes").Output()
 	if err != nil {
 		t.Errorf("Error: %d", err)
 		return
@@ -220,25 +286,22 @@ func PrometheusTest(clt client.Client, ctx context.Context, t *testing.T, namesp
 	//parse the output to get the hostname
 	outputLines := strings.Split(string(output), "\n")
 	for _, line := range outputLines {
-		if strings.Contains(line, "console") {
+		if strings.Contains(line, "prometheus-operated") {
 			hostname = strings.Fields(line)[1]
 			break
 		}
 	}
 
+	time.Sleep(time.Second * 90) //waiting for prometheus server to be ready
+
 	// create a http request to Prometheus server
-	req, err := http.NewRequest("GET", "https://"+hostname+"/api/prometheus/api/v1/query?query=tomcat_maxtime_total", nil)
+	req, err := http.NewRequest("GET", "http://"+hostname+"/api/v1/query_range?query=tomcat_bytesreceived_total&start="+strconv.FormatInt(unixTimeStart, 10)+"&end="+strconv.FormatInt(unixTimeEnd, 10)+"&step=14", nil)
 	if err != nil {
+		t.Logf("Failed using curl: " + "http://" + hostname + "/api/v1/query_range?query=tomcat_bytesreceived_total&start=" + strconv.FormatInt(unixTimeStart, 10) + "&end=" + strconv.FormatInt(unixTimeEnd, 10) + "&step=14")
 		t.Fatal(err)
 	}
 
-	//curl -v -H "Cookie: openshift-session-token=$(oc whoami -t)" 'https://console-openshift-console.apps.jws-qe-tzqg.dynamic.xpaas/api/prometheus/api/v1/query?query=tomcat_maxtime_total' --insecure
-
-	// Get the session token
-	sessionToken, _ := exec.Command("oc", "whoami", "-t").Output()
-
-	// Set the Cookie header
-	req.Header.Set("Cookie", "openshift-session-token="+strings.TrimSpace(string(sessionToken)))
+	//curl 'http://prometheus-operated-vmouriki-tests.apps.jws-qe-jkco.dynamic.xpaas/api/v1/query_range?query=tomcat_bytesreceived_total&start=1677769299.323&end=1677772899.323&step=14'
 
 	// send the request
 	res, err := client.Do(req)
@@ -260,9 +323,10 @@ func PrometheusTest(clt client.Client, ctx context.Context, t *testing.T, namesp
 	// print the response body
 	t.Logf("Response body: %s", string(body))
 
-	if strings.Contains(string(body), webServer.Name) && strings.Contains(string(body), "\"service\":\"prometheustest-admin\"") && strings.Contains(string(body), "tomcat_maxtime_total") {
-		t.Logf("Response body contains expected message")
+	if strings.Contains(string(body), webServer.Name) && strings.Contains(string(body), "\"service\":\"prometheustest-admin\"") && strings.Contains(string(body), "tomcat_bytesreceived_total") {
+		t.Logf("Response body contains the expected message")
 	} else {
+		t.Logf("Failed using curl: " + "http://" + hostname + "/api/v1/query_range?query=tomcat_bytesreceived_total&start=" + strconv.FormatInt(unixTimeStart, 10) + "&end=" + strconv.FormatInt(unixTimeEnd, 10) + "&step=14")
 		t.Fatal("Response body does not contain expected message")
 	}
 
