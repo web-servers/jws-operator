@@ -9,7 +9,8 @@ To create what is needed:
 bash nfs_install.sh
 ```
 After the tests you can remove:
-```bash nfs_delete.sh
+```
+bash nfs_delete.sh
 ```
 
 

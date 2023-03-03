@@ -267,7 +267,7 @@ func PrometheusTest(clt client.Client, ctx context.Context, t *testing.T, namesp
 	// Execute the command
 	_, err = exec.Command("oc", "expose", "svc/prometheus-operated").Output()
 	if err != nil {
-		t.Errorf("Error: %d", err)
+		t.Errorf("Error: %s", err)
 		return
 	}
 
@@ -278,7 +278,7 @@ func PrometheusTest(clt client.Client, ctx context.Context, t *testing.T, namesp
 	// Execute the command
 	output, err := exec.Command("oc", "get", "routes").Output()
 	if err != nil {
-		t.Errorf("Error: %d", err)
+		t.Errorf("Error: %s", err)
 		return
 	}
 
@@ -292,7 +292,7 @@ func PrometheusTest(clt client.Client, ctx context.Context, t *testing.T, namesp
 		}
 	}
 
-	time.Sleep(time.Second * 90) //waiting for prometheus server to be ready
+	time.Sleep(time.Second * 120) //waiting for prometheus server to be ready
 
 	// create a http request to Prometheus server
 	req, err := http.NewRequest("GET", "http://"+hostname+"/api/v1/query_range?query=tomcat_bytesreceived_total&start="+strconv.FormatInt(unixTimeStart, 10)+"&end="+strconv.FormatInt(unixTimeEnd, 10)+"&step=14", nil)
