@@ -119,6 +119,10 @@ If you don't use the **-n openshift** or use another ImageStream name you will h
    like:
 
 ```
+kind: WebServer
+metadata:
+  name: example-imagestream-webserver
+spec:
   applicationName: jws-app
   replicas: 2
   webImageStream:

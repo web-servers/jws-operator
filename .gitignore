@@ -1,3 +1,6 @@
+config/manifests/bases/*
+bundle/*
+bundle.Dockerfile
 
 # Binaries for programs and plugins
 *.exe
