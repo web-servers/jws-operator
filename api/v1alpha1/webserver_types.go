@@ -46,6 +46,8 @@ type WebServerSpec struct {
 	VolumeName string `json:"volumeName,omitempty"`
 	// StorageClass name of the storage class we want to use for the bound
 	StorageClass string `json:"storageClass,omitempty"`
+	// SecurityContext defines the security capabilities required to run the application.
+	SecurityContext *corev1.SecurityContext `json:"securityContext,omitempty"`
 }
 
 // (Deployment method 1) Application image
