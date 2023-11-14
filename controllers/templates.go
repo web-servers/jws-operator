@@ -268,6 +268,11 @@ func (r *WebServerReconciler) generateBuildPod(webServer *webserversv1alpha1.Web
 			ServiceAccountName: serviceAccountName,
 			/* secret to pull the image */
 			ImagePullSecrets: r.generateimagePullSecrets(webServer),
+			SecurityContext: &corev1.PodSecurityContext{
+				SeccompProfile: &corev1.SeccompProfile{
+					Type: corev1.SeccompProfileTypeRuntimeDefault,
+				},
+			},
 			Containers: []corev1.Container{
 				{
 					Name:  "war",
@@ -347,6 +352,7 @@ func (r *WebServerReconciler) generateUpdatedDeployment(webServer *webserversv1a
 	if webServer.Spec.WebImage.WebApp != nil {
 		applicationimage = webServer.Spec.WebImage.WebApp.WebAppWarImage
 	}
+	log.Info("generateUpdatedDeployment")
 	podTemplateSpec := r.generatePodTemplate(webServer, applicationimage)
 	deployment.ObjectMeta = objectMeta
 	spec := kbappsv1.DeploymentSpec{
@@ -710,10 +716,16 @@ func (r *WebServerReconciler) generatePodTemplate(webServer *webserversv1alpha1.
 		health = webServer.Spec.WebImageStream.WebServerHealthCheck
 	}
 	terminationGracePeriodSeconds := int64(60)
+
 	template := corev1.PodTemplateSpec{
 		ObjectMeta: objectMeta,
 		Spec: corev1.PodSpec{
 			TerminationGracePeriodSeconds: &terminationGracePeriodSeconds,
+			SecurityContext: &corev1.PodSecurityContext{
+				SeccompProfile: &corev1.SeccompProfile{
+					Type: corev1.SeccompProfileTypeRuntimeDefault,
+				},
+			},
 			Containers: []corev1.Container{{
 				Name:            webServer.Spec.ApplicationName,
 				Image:           image,
@@ -734,8 +746,9 @@ func (r *WebServerReconciler) generatePodTemplate(webServer *webserversv1alpha1.
 					ContainerPort: 9404,
 					Protocol:      corev1.ProtocolTCP,
 				}},
-				Env:          r.generateEnvVars(webServer),
-				VolumeMounts: r.generateVolumeMounts(webServer),
+				SecurityContext: generateSecurityContext(webServer.Spec.SecurityContext),
+				Env:             r.generateEnvVars(webServer),
+				VolumeMounts:    r.generateVolumeMounts(webServer),
 			}},
 			Volumes: r.generateVolumes(webServer),
 			// Add the imagePullSecret to imagePullSecrets
@@ -1138,7 +1151,6 @@ func (r *WebServerReconciler) generateLivenessProbeScript(webServer *webserversv
 }
 
 // create the shell script to modify server.xml
-//
 func (r *WebServerReconciler) generateCommandForServerXml(webServer *webserversv1alpha1.WebServer) map[string]string {
 	cmd := make(map[string]string)
 	connector := ""
@@ -1215,7 +1227,6 @@ func (r *WebServerReconciler) generateCommandForServerXml(webServer *webserversv
 }
 
 // create the shell script to pod builder
-//
 func (r *WebServerReconciler) generateCommandForBuider(script string) map[string]string {
 	cmd := make(map[string]string)
 	cmd["build.sh"] = script
@@ -1256,4 +1267,28 @@ func generateResources(r *corev1.ResourceRequirements) corev1.ResourceRequiremen
 	}
 
 	return rTemplate
+}
+
+// generateSecurityContext supplements a default SecurityContext and returns it.
+func generateSecurityContext(s *corev1.SecurityContext) *corev1.SecurityContext {
+	allowPrivilegeEscalation := new(bool)
+	*allowPrivilegeEscalation = false
+
+	runAsNonRoot := new(bool)
+	*runAsNonRoot = true
+
+	sTemplate := &corev1.SecurityContext{
+		AllowPrivilegeEscalation: allowPrivilegeEscalation,
+		Capabilities: &corev1.Capabilities{
+			Drop: []corev1.Capability{
+				"ALL",
+			},
+		},
+		RunAsNonRoot: runAsNonRoot,
+	}
+	if s != nil {
+		return s
+	}
+
+	return sTemplate
 }
