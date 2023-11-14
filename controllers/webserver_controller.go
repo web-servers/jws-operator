@@ -356,7 +356,9 @@ func (r *WebServerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		log.Info("WebServe createDeployment: " + deployment.Name + " in " + deployment.Namespace + " using: " + deployment.Spec.Template.Spec.Containers[0].Image)
 		result, err = r.createDeployment(ctx, webServer, deployment, deployment.Name, deployment.Namespace)
 		if err != nil || result != (ctrl.Result{}) {
-			log.Info("WebServer can't create deployment")
+			if err != nil {
+				log.Info("WebServer can't create deployment")
+			}
 			return result, err
 		}
 
