@@ -1196,7 +1196,7 @@ func (r *WebServerReconciler) generateCommandForServerXml(webServer *webserversv
 			"elif [ ! -f \"/tls/server.crt\" -o ! -f \"/tls/server.key\" ] ; then \n" +
 			"log_warning \"Partial HTTPS configuration, the https connector WILL NOT be configured.\" \n" +
 			"fi \n" +
-			"sed \"/<Service name=/a ${https}\" ${FILE}> /tmp/tmp.xml; cat /tmp/tmp.xml > ${FILE}; rm /tmp/tmp,xml\n"
+			"sed \"/<Service name=/a ${https}\" ${FILE}> /tmp/tmp.xml; cat /tmp/tmp.xml > ${FILE}; rm /tmp/tmp.xml\n"
 	}
 
 	cmd["test.sh"] = "FILE=`find /opt -name server.xml`\n" +
