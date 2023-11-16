@@ -249,9 +249,17 @@ func (r *WebServerReconciler) generateBuildPod(webServer *webserversv1alpha1.Web
 	serviceAccountName := ""
 	var securityContext *corev1.SecurityContext
 	if r.isOpenShift {
+		// RunAsUser must correspond to the USER in the docker image.
 		serviceAccountName = "builder"
 		securityContext = &corev1.SecurityContext{
 			RunAsUser: &[]int64{1000}[0],
+			Capabilities: &corev1.Capabilities{
+				Add: []corev1.Capability{
+					// "CAP_SETGID", "CAP_SETUID",
+					// "SETGID", "SETUID", "SYS_ADMIN", "SYS_CHROOT",
+					"SYS_ADMIN", "SYS_CHROOT",
+				},
+			},
 		}
 	} else {
 		securityContext = &corev1.SecurityContext{
@@ -1188,7 +1196,7 @@ func (r *WebServerReconciler) generateCommandForServerXml(webServer *webserversv
 			"elif [ ! -f \"/tls/server.crt\" -o ! -f \"/tls/server.key\" ] ; then \n" +
 			"log_warning \"Partial HTTPS configuration, the https connector WILL NOT be configured.\" \n" +
 			"fi \n" +
-			"sed \"/<Service name=/a ${https}\" ${FILE}> /deployments/tmp; cat /deployments/tmp > ${FILE}; rm /deployments/tmp\n"
+			"sed \"/<Service name=/a ${https}\" ${FILE}> /tmp/tmp.xml; cat /tmp/tmp.xml > ${FILE}; rm /tmp/tmp,xml\n"
 	}
 
 	cmd["test.sh"] = "FILE=`find /opt -name server.xml`\n" +
@@ -1198,10 +1206,10 @@ func (r *WebServerReconciler) generateCommandForServerXml(webServer *webserversv
 		"grep -q MembershipProvider ${FILE}\n" +
 		"if [ $? -ne 0 ]; then\n"
 	if r.getUseKUBEPing(webServer) {
-		cmd["test.sh"] = cmd["test.sh"] + "  sed '/cluster.html/a        <Cluster className=\"org.apache.catalina.ha.tcp.SimpleTcpCluster\" channelSendOptions=\"6\">\\n <Channel className=\"org.apache.catalina.tribes.group.GroupChannel\">\\n <Membership className=\"org.apache.catalina.tribes.membership.cloud.CloudMembershipService\" membershipProviderClassName=\"org.apache.catalina.tribes.membership.cloud.KubernetesMembershipProvider\"/>\\n </Channel>\\n </Cluster>\\n' ${FILE}> /deployments/tmp; cat /deployments/tmp > ${FILE}; rm /deployments/tmp\n" +
+		cmd["test.sh"] = cmd["test.sh"] + "  sed '/cluster.html/a        <Cluster className=\"org.apache.catalina.ha.tcp.SimpleTcpCluster\" channelSendOptions=\"6\">\\n <Channel className=\"org.apache.catalina.tribes.group.GroupChannel\">\\n <Membership className=\"org.apache.catalina.tribes.membership.cloud.CloudMembershipService\" membershipProviderClassName=\"org.apache.catalina.tribes.membership.cloud.KubernetesMembershipProvider\"/>\\n </Channel>\\n </Cluster>\\n' ${FILE}> /tmp/tmp.xml; cat /tmp/tmp.xml > ${FILE}; rm /tmp/tmp.xml\n" +
 			"fi\n" + connector
 	} else {
-		cmd["test.sh"] = cmd["test.sh"] + "  sed '/cluster.html/a        <Cluster className=\"org.apache.catalina.ha.tcp.SimpleTcpCluster\" channelSendOptions=\"6\">\\n <Channel className=\"org.apache.catalina.tribes.group.GroupChannel\">\\n <Membership className=\"org.apache.catalina.tribes.membership.cloud.CloudMembershipService\" membershipProviderClassName=\"org.apache.catalina.tribes.membership.cloud.DNSMembershipProvider\"/>\\n </Channel>\\n </Cluster>\\n' ${FILE}> /deployments/tmp; cat /deployments/tmp > ${FILE}; rm /deployments/tmp\n" +
+		cmd["test.sh"] = cmd["test.sh"] + "  sed '/cluster.html/a        <Cluster className=\"org.apache.catalina.ha.tcp.SimpleTcpCluster\" channelSendOptions=\"6\">\\n <Channel className=\"org.apache.catalina.tribes.group.GroupChannel\">\\n <Membership className=\"org.apache.catalina.tribes.membership.cloud.CloudMembershipService\" membershipProviderClassName=\"org.apache.catalina.tribes.membership.cloud.DNSMembershipProvider\"/>\\n </Channel>\\n </Cluster>\\n' ${FILE}> /tmp/tmp.xml; cat /tmp/tmp.xml > ${FILE}; rm /tmp/tmp.xml\n" +
 			"fi\n" + connector
 	}
 	if webServer.Spec.EnableAccessLogs {
@@ -1211,9 +1219,9 @@ func (r *WebServerReconciler) generateCommandForServerXml(webServer *webserversv
 			"sed -i \"s|prefix=\\\"1\\\"|prefix=\\\"access-$HOSTNAME\\\"|g\" ${FILE}\n" +
 			"sed -i 's|suffix=\"\"|suffix=\".log\"|g' ${FILE}\n" +
 			"else\n" +
-			"sed 's|directory=\"logs\"|directory=\"/opt/tomcat_logs\"|g' ${FILE}> /deployments/tmp; cat /deployments/tmp > ${FILE}; rm /deployments/tmp\n" +
-			"sed \"s|prefix=\\\"localhost_access_log\\\"|prefix=\\\"access-$HOSTNAME\\\"|g\" ${FILE}> /deployments/tmp; cat /deployments/tmp > ${FILE}; rm /deployments/tmp\n" +
-			"sed 's|suffix=\".txt\"|suffix=\".log\"|g' ${FILE}> /deployments/tmp; cat /deployments/tmp > ${FILE}; rm /deployments/tmp\n" +
+			"sed 's|directory=\"logs\"|directory=\"/opt/tomcat_logs\"|g' ${FILE}> /tmp/tmp.xml; cat /tmp/tmp.xml > ${FILE}; rm /tmp/tmp.xml\n" +
+			"sed \"s|prefix=\\\"localhost_access_log\\\"|prefix=\\\"access-$HOSTNAME\\\"|g\" ${FILE}> /tmp/tmp.xml; cat /tmp/tmp.xml > ${FILE}; rm /tmp/tmp.xml\n" +
+			"sed 's|suffix=\".txt\"|suffix=\".log\"|g' ${FILE}> /tmp/tmp.xml; cat /tmp/tmp.xml > ${FILE}; rm /tmp/tmp.xml\n" +
 			"fi\n"
 	}
 	cmd["test.sh"] = cmd["test.sh"] + "FILE=`find /opt -name catalina.sh`\n" +
