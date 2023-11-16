@@ -249,9 +249,17 @@ func (r *WebServerReconciler) generateBuildPod(webServer *webserversv1alpha1.Web
 	serviceAccountName := ""
 	var securityContext *corev1.SecurityContext
 	if r.isOpenShift {
+		// RunAsUser must correspond to the USER in the docker image.
 		serviceAccountName = "builder"
 		securityContext = &corev1.SecurityContext{
 			RunAsUser: &[]int64{1000}[0],
+			Capabilities: &corev1.Capabilities{
+				Add: []corev1.Capability{
+					// "CAP_SETGID", "CAP_SETUID",
+					// "SETGID", "SETUID", "SYS_ADMIN", "SYS_CHROOT",
+					"SYS_ADMIN", "SYS_CHROOT",
+				},
+			},
 		}
 	} else {
 		securityContext = &corev1.SecurityContext{
@@ -268,6 +276,11 @@ func (r *WebServerReconciler) generateBuildPod(webServer *webserversv1alpha1.Web
 			ServiceAccountName: serviceAccountName,
 			/* secret to pull the image */
 			ImagePullSecrets: r.generateimagePullSecrets(webServer),
+			SecurityContext: &corev1.PodSecurityContext{
+				SeccompProfile: &corev1.SeccompProfile{
+					Type: corev1.SeccompProfileTypeRuntimeDefault,
+				},
+			},
 			Containers: []corev1.Container{
 				{
 					Name:  "war",
@@ -347,6 +360,7 @@ func (r *WebServerReconciler) generateUpdatedDeployment(webServer *webserversv1a
 	if webServer.Spec.WebImage.WebApp != nil {
 		applicationimage = webServer.Spec.WebImage.WebApp.WebAppWarImage
 	}
+	log.Info("generateUpdatedDeployment")
 	podTemplateSpec := r.generatePodTemplate(webServer, applicationimage)
 	deployment.ObjectMeta = objectMeta
 	spec := kbappsv1.DeploymentSpec{
@@ -710,10 +724,16 @@ func (r *WebServerReconciler) generatePodTemplate(webServer *webserversv1alpha1.
 		health = webServer.Spec.WebImageStream.WebServerHealthCheck
 	}
 	terminationGracePeriodSeconds := int64(60)
+
 	template := corev1.PodTemplateSpec{
 		ObjectMeta: objectMeta,
 		Spec: corev1.PodSpec{
 			TerminationGracePeriodSeconds: &terminationGracePeriodSeconds,
+			SecurityContext: &corev1.PodSecurityContext{
+				SeccompProfile: &corev1.SeccompProfile{
+					Type: corev1.SeccompProfileTypeRuntimeDefault,
+				},
+			},
 			Containers: []corev1.Container{{
 				Name:            webServer.Spec.ApplicationName,
 				Image:           image,
@@ -734,8 +754,9 @@ func (r *WebServerReconciler) generatePodTemplate(webServer *webserversv1alpha1.
 					ContainerPort: 9404,
 					Protocol:      corev1.ProtocolTCP,
 				}},
-				Env:          r.generateEnvVars(webServer),
-				VolumeMounts: r.generateVolumeMounts(webServer),
+				SecurityContext: generateSecurityContext(webServer.Spec.SecurityContext),
+				Env:             r.generateEnvVars(webServer),
+				VolumeMounts:    r.generateVolumeMounts(webServer),
 			}},
 			Volumes: r.generateVolumes(webServer),
 			// Add the imagePullSecret to imagePullSecrets
@@ -1138,7 +1159,6 @@ func (r *WebServerReconciler) generateLivenessProbeScript(webServer *webserversv
 }
 
 // create the shell script to modify server.xml
-//
 func (r *WebServerReconciler) generateCommandForServerXml(webServer *webserversv1alpha1.WebServer) map[string]string {
 	cmd := make(map[string]string)
 	connector := ""
@@ -1176,7 +1196,7 @@ func (r *WebServerReconciler) generateCommandForServerXml(webServer *webserversv
 			"elif [ ! -f \"/tls/server.crt\" -o ! -f \"/tls/server.key\" ] ; then \n" +
 			"log_warning \"Partial HTTPS configuration, the https connector WILL NOT be configured.\" \n" +
 			"fi \n" +
-			"sed \"/<Service name=/a ${https}\" ${FILE}> /deployments/tmp; cat /deployments/tmp > ${FILE}; rm /deployments/tmp\n"
+			"sed \"/<Service name=/a ${https}\" ${FILE}> /tmp/tmp.xml; cat /tmp/tmp.xml > ${FILE}; rm /tmp/tmp.xml\n"
 	}
 
 	cmd["test.sh"] = "FILE=`find /opt -name server.xml`\n" +
@@ -1186,10 +1206,10 @@ func (r *WebServerReconciler) generateCommandForServerXml(webServer *webserversv
 		"grep -q MembershipProvider ${FILE}\n" +
 		"if [ $? -ne 0 ]; then\n"
 	if r.getUseKUBEPing(webServer) {
-		cmd["test.sh"] = cmd["test.sh"] + "  sed '/cluster.html/a        <Cluster className=\"org.apache.catalina.ha.tcp.SimpleTcpCluster\" channelSendOptions=\"6\">\\n <Channel className=\"org.apache.catalina.tribes.group.GroupChannel\">\\n <Membership className=\"org.apache.catalina.tribes.membership.cloud.CloudMembershipService\" membershipProviderClassName=\"org.apache.catalina.tribes.membership.cloud.KubernetesMembershipProvider\"/>\\n </Channel>\\n </Cluster>\\n' ${FILE}> /deployments/tmp; cat /deployments/tmp > ${FILE}; rm /deployments/tmp\n" +
+		cmd["test.sh"] = cmd["test.sh"] + "  sed '/cluster.html/a        <Cluster className=\"org.apache.catalina.ha.tcp.SimpleTcpCluster\" channelSendOptions=\"6\">\\n <Channel className=\"org.apache.catalina.tribes.group.GroupChannel\">\\n <Membership className=\"org.apache.catalina.tribes.membership.cloud.CloudMembershipService\" membershipProviderClassName=\"org.apache.catalina.tribes.membership.cloud.KubernetesMembershipProvider\"/>\\n </Channel>\\n </Cluster>\\n' ${FILE}> /tmp/tmp.xml; cat /tmp/tmp.xml > ${FILE}; rm /tmp/tmp.xml\n" +
 			"fi\n" + connector
 	} else {
-		cmd["test.sh"] = cmd["test.sh"] + "  sed '/cluster.html/a        <Cluster className=\"org.apache.catalina.ha.tcp.SimpleTcpCluster\" channelSendOptions=\"6\">\\n <Channel className=\"org.apache.catalina.tribes.group.GroupChannel\">\\n <Membership className=\"org.apache.catalina.tribes.membership.cloud.CloudMembershipService\" membershipProviderClassName=\"org.apache.catalina.tribes.membership.cloud.DNSMembershipProvider\"/>\\n </Channel>\\n </Cluster>\\n' ${FILE}> /deployments/tmp; cat /deployments/tmp > ${FILE}; rm /deployments/tmp\n" +
+		cmd["test.sh"] = cmd["test.sh"] + "  sed '/cluster.html/a        <Cluster className=\"org.apache.catalina.ha.tcp.SimpleTcpCluster\" channelSendOptions=\"6\">\\n <Channel className=\"org.apache.catalina.tribes.group.GroupChannel\">\\n <Membership className=\"org.apache.catalina.tribes.membership.cloud.CloudMembershipService\" membershipProviderClassName=\"org.apache.catalina.tribes.membership.cloud.DNSMembershipProvider\"/>\\n </Channel>\\n </Cluster>\\n' ${FILE}> /tmp/tmp.xml; cat /tmp/tmp.xml > ${FILE}; rm /tmp/tmp.xml\n" +
 			"fi\n" + connector
 	}
 	if webServer.Spec.EnableAccessLogs {
@@ -1199,9 +1219,9 @@ func (r *WebServerReconciler) generateCommandForServerXml(webServer *webserversv
 			"sed -i \"s|prefix=\\\"1\\\"|prefix=\\\"access-$HOSTNAME\\\"|g\" ${FILE}\n" +
 			"sed -i 's|suffix=\"\"|suffix=\".log\"|g' ${FILE}\n" +
 			"else\n" +
-			"sed 's|directory=\"logs\"|directory=\"/opt/tomcat_logs\"|g' ${FILE}> /deployments/tmp; cat /deployments/tmp > ${FILE}; rm /deployments/tmp\n" +
-			"sed \"s|prefix=\\\"localhost_access_log\\\"|prefix=\\\"access-$HOSTNAME\\\"|g\" ${FILE}> /deployments/tmp; cat /deployments/tmp > ${FILE}; rm /deployments/tmp\n" +
-			"sed 's|suffix=\".txt\"|suffix=\".log\"|g' ${FILE}> /deployments/tmp; cat /deployments/tmp > ${FILE}; rm /deployments/tmp\n" +
+			"sed 's|directory=\"logs\"|directory=\"/opt/tomcat_logs\"|g' ${FILE}> /tmp/tmp.xml; cat /tmp/tmp.xml > ${FILE}; rm /tmp/tmp.xml\n" +
+			"sed \"s|prefix=\\\"localhost_access_log\\\"|prefix=\\\"access-$HOSTNAME\\\"|g\" ${FILE}> /tmp/tmp.xml; cat /tmp/tmp.xml > ${FILE}; rm /tmp/tmp.xml\n" +
+			"sed 's|suffix=\".txt\"|suffix=\".log\"|g' ${FILE}> /tmp/tmp.xml; cat /tmp/tmp.xml > ${FILE}; rm /tmp/tmp.xml\n" +
 			"fi\n"
 	}
 	cmd["test.sh"] = cmd["test.sh"] + "FILE=`find /opt -name catalina.sh`\n" +
@@ -1215,7 +1235,6 @@ func (r *WebServerReconciler) generateCommandForServerXml(webServer *webserversv
 }
 
 // create the shell script to pod builder
-//
 func (r *WebServerReconciler) generateCommandForBuider(script string) map[string]string {
 	cmd := make(map[string]string)
 	cmd["build.sh"] = script
@@ -1256,4 +1275,28 @@ func generateResources(r *corev1.ResourceRequirements) corev1.ResourceRequiremen
 	}
 
 	return rTemplate
+}
+
+// generateSecurityContext supplements a default SecurityContext and returns it.
+func generateSecurityContext(s *corev1.SecurityContext) *corev1.SecurityContext {
+	allowPrivilegeEscalation := new(bool)
+	*allowPrivilegeEscalation = false
+
+	runAsNonRoot := new(bool)
+	*runAsNonRoot = true
+
+	sTemplate := &corev1.SecurityContext{
+		AllowPrivilegeEscalation: allowPrivilegeEscalation,
+		Capabilities: &corev1.Capabilities{
+			Drop: []corev1.Capability{
+				"ALL",
+			},
+		},
+		RunAsNonRoot: runAsNonRoot,
+	}
+	if s != nil {
+		return s
+	}
+
+	return sTemplate
 }
