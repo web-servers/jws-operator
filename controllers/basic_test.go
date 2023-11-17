@@ -49,7 +49,7 @@ var _ = Describe("WebServer controller", func() {
 					ApplicationName: "test-tomcat-demo",
 					Replicas:        int32(2),
 					WebImage: &webserversv1alpha1.WebImageSpec{
-						ApplicationImage: "quay.io/jfclere/tomcat-demo",
+						ApplicationImage: "quay.io/web-servers/tomcat-demo",
 					},
 				},
 			}
