@@ -332,11 +332,6 @@ func (r *WebServerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 				return result, err
 			}
 
-			result, err = r.checkBuildPodPhase(buildPod)
-			if err != nil || result != (ctrl.Result{}) {
-				return result, err
-			}
-
 			// Check if we need to delete it and recreate it.
 			currentHash := r.getWebServerHash(webServer)
 			if buildPod.Labels["webserver-hash"] != currentHash {
@@ -347,6 +342,12 @@ func (r *WebServerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 				}
 				log.Info("Webserver hash changed: Delete BuildPod and requeue reconciliation")
 				return ctrl.Result{RequeueAfter: (500 * time.Millisecond)}, nil
+			}
+
+			// Is the build pod ready.
+			result, err = r.checkBuildPodPhase(buildPod)
+			if err != nil || result != (ctrl.Result{}) {
+				return result, err
 			}
 
 		}
