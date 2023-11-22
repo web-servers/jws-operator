@@ -1164,7 +1164,7 @@ func (r *WebServerReconciler) generateCommandForServerXml(webServer *webserversv
 	connector := ""
 	if strings.HasPrefix(webServer.Spec.RouteHostname, "tls") {
 		// "/tls" is the dir in which the secret's contents are mounted to the pod
-		connector =
+		connector +=
 			"https=\"<!-- No HTTPS configuration discovered -->\"\n" +
 				"if [ -f \"/tls/server.crt\" -a -f \"/tls/server.key\" -a -f \"/tls/ca.crt\" ] ; then\n" +
 
@@ -1207,10 +1207,12 @@ func (r *WebServerReconciler) generateCommandForServerXml(webServer *webserversv
 		"if [ $? -ne 0 ]; then\n"
 	if r.getUseKUBEPing(webServer) {
 		cmd["test.sh"] = cmd["test.sh"] + "  sed '/cluster.html/a        <Cluster className=\"org.apache.catalina.ha.tcp.SimpleTcpCluster\" channelSendOptions=\"6\">\\n <Channel className=\"org.apache.catalina.tribes.group.GroupChannel\">\\n <Membership className=\"org.apache.catalina.tribes.membership.cloud.CloudMembershipService\" membershipProviderClassName=\"org.apache.catalina.tribes.membership.cloud.KubernetesMembershipProvider\"/>\\n </Channel>\\n </Cluster>\\n' ${FILE}> /tmp/tmp.xml; cat /tmp/tmp.xml > ${FILE}; rm /tmp/tmp.xml\n" +
-			"fi\n" + connector
+			"fi\n"
+		cmd["test.sh"] = cmd["test.sh"] + connector
 	} else {
 		cmd["test.sh"] = cmd["test.sh"] + "  sed '/cluster.html/a        <Cluster className=\"org.apache.catalina.ha.tcp.SimpleTcpCluster\" channelSendOptions=\"6\">\\n <Channel className=\"org.apache.catalina.tribes.group.GroupChannel\">\\n <Membership className=\"org.apache.catalina.tribes.membership.cloud.CloudMembershipService\" membershipProviderClassName=\"org.apache.catalina.tribes.membership.cloud.DNSMembershipProvider\"/>\\n </Channel>\\n </Cluster>\\n' ${FILE}> /tmp/tmp.xml; cat /tmp/tmp.xml > ${FILE}; rm /tmp/tmp.xml\n" +
-			"fi\n" + connector
+			"fi\n"
+		cmd["test.sh"] = cmd["test.sh"] + connector
 	}
 	if webServer.Spec.EnableAccessLogs {
 		cmd["test.sh"] = cmd["test.sh"] + "grep -q directory='\"/proc/self/fd\"' ${FILE}\n" +
