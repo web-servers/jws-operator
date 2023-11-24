@@ -41,15 +41,17 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-/* Result for the demo webapp
-{
-  "counter": 2,
-  "id": "2244ED88EBC16E2956F63107405D7CC9",
-  "new": false,
-  "server": "10.129.2.169",
-  "hostname": "test-app-1-psvcz",
-  "newtest": "2020"
-}
+/*
+Result for the demo webapp
+
+	{
+	  "counter": 2,
+	  "id": "2244ED88EBC16E2956F63107405D7CC9",
+	  "new": false,
+	  "server": "10.129.2.169",
+	  "hostname": "test-app-1-psvcz",
+	  "newtest": "2020"
+	}
 */
 type DemoResult struct {
 	Counter  int
@@ -168,7 +170,7 @@ func PrometheusTest(clt client.Client, ctx context.Context, t *testing.T, namesp
 			ApplicationName: "prometheus-test",
 			Replicas:        int32(1),
 			WebImage: &webserversv1alpha1.WebImageSpec{
-				ApplicationImage: "quay.io/jfclere/tomcat-prometheus",
+				ApplicationImage: "quay.io/web-servers/tomcat-prometheus",
 			},
 		},
 	}
@@ -403,7 +405,7 @@ func HPATest(clt client.Client, ctx context.Context, t *testing.T, namespace str
 			ApplicationName: "hpa-test",
 			Replicas:        int32(4),
 			WebImage: &webserversv1alpha1.WebImageSpec{
-				ApplicationImage: "quay.io/jfclere/tomcat-demo",
+				ApplicationImage: "quay.io/web-servers/tomcat-demo",
 			},
 			Resources: &corev1.ResourceRequirements{
 				Limits: corev1.ResourceList{
@@ -1205,7 +1207,8 @@ func isOperatorLocal() bool {
 }
 
 // generateLabelsForWebServer return a map of labels that are used for identification
-//  of objects belonging to the particular WebServer instance
+//
+//	of objects belonging to the particular WebServer instance
 func generateLabelsForWebServer(webServer *webserversv1alpha1.WebServer) map[string]string {
 	labels := map[string]string{
 		"deploymentConfig": webServer.Spec.ApplicationName,

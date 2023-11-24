@@ -501,7 +501,8 @@ func (r *WebServerReconciler) generateSelectorLabelsForWeb(webServer *webservers
 }
 
 // sortPodListByName sorts the pod list by number in the name
-//  expecting the format which the StatefulSet works with which is `<podname>-<number>`
+//
+//	expecting the format which the StatefulSet works with which is `<podname>-<number>`
 func (r *WebServerReconciler) sortPodListByName(podList *corev1.PodList) *corev1.PodList {
 	sort.SliceStable(podList.Items, func(i, j int) bool {
 		return podList.Items[i].ObjectMeta.Name < podList.Items[j].ObjectMeta.Name
