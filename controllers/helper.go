@@ -239,8 +239,13 @@ func (r *WebServerReconciler) createRoleBinding(ctx context.Context, webServer *
 		log.Info("Creating a new RoleBinding: " + resourceName + " Namespace: " + resourceNamespace)
 		err = r.Client.Create(ctx, resource)
 		if err != nil && !errors.IsAlreadyExists(err) {
-			log.Error(err, "Failed to create a new RoleBinding: "+resourceName+" Namespace: "+resourceNamespace)
-			return false, false, err
+			if errors.IsForbidden(err) {
+				log.Info("No permission to create a new RoleBinding: " + resourceName + " Namespace: " + resourceNamespace)
+				return false, false, nil
+			} else {
+				log.Error(err, "Failed to create a new RoleBinding: "+resourceName+" Namespace: "+resourceNamespace)
+				return false, false, err
+			}
 		}
 		// Resource created successfully - return and requeue
 		// return true, true, nil
@@ -303,18 +308,20 @@ func (r *WebServerReconciler) createBuildPod(ctx context.Context, webServer *web
 	}, resource)
 	if err != nil && errors.IsNotFound(err) {
 		// Create a new resource
-		log.Info("Creating a new Pod: " + resourceName + " Namespace: " + resourceNamespace)
+		log.Info("Creating a new Build Pod: " + resourceName + " Namespace: " + resourceNamespace)
 		err = r.Client.Create(ctx, resource)
 		if err != nil && !errors.IsAlreadyExists(err) {
 			log.Error(err, "Failed to create a new Pod: "+resourceName+" Namespace: "+resourceNamespace)
 			return reconcile.Result{}, err
 		}
 		// Resource created successfully - return and requeue
+		log.Info("Created new Build Pod: " + resourceName + " Namespace: " + resourceNamespace)
 		return ctrl.Result{Requeue: true}, nil
 	} else if err != nil {
-		log.Error(err, "Failed to get Pod: "+resourceName)
+		log.Error(err, "Failed to get Build Pod: "+resourceName)
 		return reconcile.Result{}, err
 	}
+	log.Info("Have Build Pod: " + resourceName + " Namespace: " + resourceNamespace)
 	return reconcile.Result{}, err
 }
 
@@ -655,7 +662,12 @@ func (r *WebServerReconciler) setUseKUBEPing(ctx context.Context, webServer *web
 		log.Info("The UseKUBEPing annotation is being updated")
 		err := r.Client.Update(ctx, webServer)
 		if err != nil {
-			log.Error(err, "Failed to update WebServer UseKUBEPing annotation")
+			if errors.IsConflict(err) {
+				log.Info("setUseKUBEPing needs webServer UPDATE!!!")
+				return true, nil
+			} else {
+				log.Error(err, "Failed to update WebServer UseKUBEPing annotation")
+			}
 		}
 		return true, err
 	}
@@ -676,9 +688,13 @@ func (r *WebServerReconciler) getUseKUBEPing(webServer *webserversv1alpha1.WebSe
 func (r *WebServerReconciler) needgetUseKUBEPing(webServer *webserversv1alpha1.WebServer) bool {
 	annotations := webServer.Annotations
 	if annotations != nil {
+		log.Info("needgetUseKUBEPing: annotations")
 		skubeping := annotations["UseKUBEPing"]
 		if skubeping != "" {
+			log.Info("needgetUseKUBEPing: annotations skubeping")
 			return false
+		} else {
+			log.Info("needgetUseKUBEPing: annotations NO skubeping")
 		}
 	}
 	return true

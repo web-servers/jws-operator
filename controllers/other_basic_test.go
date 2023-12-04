@@ -59,6 +59,7 @@ var _ = Describe("WebServer controller", func() {
 			}()
 
 			// create the webserver
+			fmt.Printf("create WebServer Name: %s Namespace: %s\n", webserver.ObjectMeta.Name, webserver.ObjectMeta.Namespace)
 			Expect(k8sClient.Create(ctx, webserver)).Should(Succeed())
 
 			// Check it is started.
@@ -67,6 +68,7 @@ var _ = Describe("WebServer controller", func() {
 			Eventually(func() bool {
 				err := k8sClient.Get(ctx, webserverLookupKey, createdWebserver)
 				if err != nil {
+					log.Info("k8sClient.Get failed")
 					return false
 				}
 				return true
@@ -77,6 +79,7 @@ var _ = Describe("WebServer controller", func() {
 			Eventually(func() bool {
 				err := webserverstests.WaitUntilReady(k8sClient, ctx, thetest, createdWebserver)
 				if err != nil {
+					log.Info("Not ready")
 					return false
 				}
 				return true

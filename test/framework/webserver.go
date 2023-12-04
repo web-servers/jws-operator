@@ -5,7 +5,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func makeSecureWebserver(namespace string, name string, imageStreamName string, imageStreamNamespace string, replicas int32, defaultIngressDomain string) *webserversv1alpha1.WebServer {
+func makeSecureWebserver(namespace string, name string, imageStreamName string, imageStreamNamespace string, replicas int32, defaultIngressDomain string, usesessionclustering bool) *webserversv1alpha1.WebServer {
 	host := "hosttest-" + namespace + "."
 	return &webserversv1alpha1.WebServer{
 		TypeMeta: metav1.TypeMeta{
@@ -19,7 +19,7 @@ func makeSecureWebserver(namespace string, name string, imageStreamName string, 
 		Spec: webserversv1alpha1.WebServerSpec{
 			ApplicationName:      name,
 			Replicas:             replicas,
-			UseSessionClustering: true,
+			UseSessionClustering: usesessionclustering,
 			RouteHostname:        "tls:" + host + defaultIngressDomain,
 			TLSSecret:            "test-tls-secret",
 			WebImageStream: &webserversv1alpha1.WebImageStreamSpec{

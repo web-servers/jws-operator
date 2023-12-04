@@ -108,6 +108,7 @@ var _ = Describe("WebServer controller", func() {
 							Subdomain: "sub",
 							To: routev1.RouteTargetReference{
 								Name: "def",
+								Kind: "Service",
 							},
 						},
 					}
@@ -122,23 +123,49 @@ var _ = Describe("WebServer controller", func() {
 						if err != nil {
 							return false
 						}
+						if len(route.Status.Ingress) == 0 {
+							// The ingress needs time to be created.
+							return false
+						}
 						return true
 					}, time.Second*10, time.Millisecond*250).Should(BeTrue())
 
+					host := route.Status.Ingress[0].Host
 					Expect(k8sClient.Delete(ctx, route)).Should(Succeed())
 					Expect(k8sClient.Delete(ctx, service)).Should(Succeed())
 					//procedure to find defaultIngressDomain
 
-					Expect(webserverstests.WebServerSecureRouteTest(k8sClient, ctx, thetest, namespace, "secureroutetest", "jboss-webserver56-openjdk8-tomcat9-openshift-ubi8", "/health", route.Spec.Host[5+len(namespace):])).Should(Succeed()) //tests if the created pod is accessible via the tls route created by the operator
+					if host != "" {
+						fmt.Printf("route.Status.Ingress[0].Host == %s\n", host)
+						// What is route.Spec.Host[5+len(namespace):]
+						// We have something sub.apps.jws-qe-diha.dynamic.xpaas
+						// A route has something like hpa-test-jclere-namespace.apps.jws-qe-diha.dynamic.xpaas
+						fmt.Printf("route.Status.Ingress[0].Host == %s\n", host[4:])
+						domain := host[4:]
+						fmt.Printf("route.Status.Ingress[0].Host == %s\n", domain)
+						Expect(webserverstests.WebServerSecureRouteTest(k8sClient, ctx, thetest, namespace, "secureroutetest", "jboss-webserver56-openjdk8-tomcat9-openshift-ubi8", "/health", domain, false)).Should(Succeed()) //tests if the created pod is accessible via the tls route created by the operator
+						Expect(webserverstests.WebServerSecureRouteTest(k8sClient, ctx, thetest, namespace, "secureroutetest", "jboss-webserver56-openjdk8-tomcat9-openshift-ubi8", "/health", domain, true)).Should(Succeed())  //tests if the created pod is accessible via the tls route created by the operator
+					} else {
+						// route.Spec.Host == nil
+						fmt.Printf("route.Spec.Host == nil WebServerSecureRouteTest skipped")
+					}
+
 					Expect(webserverstests.HPATest(k8sClient, ctx, thetest, namespace, "hpatest", "")).Should(Succeed())
 					Expect(webserverstests.PersistentLogsTest(k8sClient, ctx, thetest, namespace, "persistentlogstest", "")).Should(Succeed())
+
 					//check if servicemonitor crd exists b/c only then the feature works
 					crd := &apiextensionsv1.CustomResourceDefinition{}
 					err = k8sClient.Get(context.TODO(), client.ObjectKey{Name: "servicemonitors.monitoring.coreos.com"}, crd)
 					if err != nil {
 						fmt.Printf("servicemonitor CRD not found skipping prometheus Test")
 					} else {
-						Expect(webserverstests.PrometheusTest(k8sClient, ctx, thetest, namespace, "prometheustest")).Should(Succeed())
+						if host != "" {
+							domain := host[4:]
+							fmt.Printf("route.Spec.Host == nil PrometheusTest %s", domain)
+							Expect(webserverstests.PrometheusTest(k8sClient, ctx, thetest, namespace, "prometheustest", domain)).Should(Succeed())
+						} else {
+							fmt.Printf("route.Spec.Host == nil PrometheusTest skipped")
+						}
 					}
 				}
 			}

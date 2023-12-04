@@ -20,10 +20,10 @@ import (
 	v1 "k8s.io/api/core/v1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/util/wait"
 
 	// "github.com/operator-framework/operator-sdk/pkg/test"
+	appsv1 "github.com/openshift/api/apps/v1"
 	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	webserversv1alpha1 "github.com/web-servers/jws-operator/api/v1alpha1"
 	kbappsv1 "k8s.io/api/apps/v1"
@@ -118,11 +118,29 @@ func WebServerApplicationImageUpdateTest(clt client.Client, ctx context.Context,
 
 	err = webServerApplicationImageUpdateTest(clt, ctx, t, webServer, newImageName, testURI)
 	if err != nil {
+		t.Logf("WebServerApplicationImageUpdateTest: webServerApplicationImageUpdateTest failed")
 		return err
 	}
 
+	// Wait until the replicas are available
+	Eventually(func() bool {
+		foundDeployment := &kbappsv1.Deployment{}
+		err = clt.Get(ctx, types.NamespacedName{Name: webServer.ObjectMeta.Name, Namespace: webServer.ObjectMeta.Namespace}, foundDeployment)
+		if err != nil {
+			t.Fatalf("can't read Deployment")
+			return false
+		}
+
+		if int32(webServer.Spec.Replicas) == int32(foundDeployment.Status.AvailableReplicas) {
+			return true
+		} else {
+			return false
+		}
+	}, time.Second*420, time.Second*30).Should(BeTrue())
+
 	cookie, err := webServerRouteTest(clt, ctx, t, webServer, testURI, false, nil, false)
 	if err != nil {
+		t.Logf("WebServerApplicationImageUpdateTest: webServerRouteTest failed")
 		return err
 	}
 	_ = cookie
@@ -146,21 +164,47 @@ func WebServerApplicationImageSourcesBasicTest(clt client.Client, ctx context.Co
 	return webServerBasicTest(clt, ctx, t, webServer, "/"+testURI+"/demo", false)
 }
 
-func WebServerSecureRouteTest(clt client.Client, ctx context.Context, t *testing.T, namespace string, name string, imageStreamName string, testURI string, defaultIngressDomain string) (err error) {
+func WebServerSecureRouteTest(clt client.Client, ctx context.Context, t *testing.T, namespace string, name string, imageStreamName string, testURI string, defaultIngressDomain string, usesessionclustering bool) (err error) {
 
-	webServer := makeSecureWebserver(namespace, name, imageStreamName, namespace, 1, defaultIngressDomain)
+	webServer := makeSecureWebserver(namespace, name, imageStreamName, namespace, 1, defaultIngressDomain, usesessionclustering)
+	t.Logf("WebServerSecureRouteTest for: %s\n", webServer.Spec.RouteHostname)
+	t.Logf("WebServerSecureRouteTest for: %s\n", webServer.Spec.TLSSecret)
+	deployWebServer(clt, ctx, t, webServer)
 
 	// cleanup
 	defer func() {
 		clt.Delete(context.Background(), webServer)
 		time.Sleep(time.Second * 5)
 	}()
+	// Wait until the replicas are available (here are DeploymentConfig)
+	Eventually(func() bool {
+		foundDeployment := &appsv1.DeploymentConfig{}
+		err = clt.Get(ctx, types.NamespacedName{Name: webServer.ObjectMeta.Name, Namespace: webServer.ObjectMeta.Namespace}, foundDeployment)
+		if err != nil {
+			t.Logf("can't read DeploymentConfig")
+			return false
+		}
 
-	return webServerBasicTest(clt, ctx, t, webServer, testURI, true)
+		if int32(webServer.Spec.Replicas) == int32(foundDeployment.Status.AvailableReplicas) {
+			t.Logf("can't read right number of Replicas in DeploymentConfig (%d:%d)", int32(webServer.Spec.Replicas), int32(foundDeployment.Status.AvailableReplicas))
+			return true
+		} else {
+			return false
+		}
+	}, time.Second*420, time.Second*30).Should(BeTrue())
+
+	cookie, err := webServerRouteTest(clt, ctx, t, webServer, testURI, false, nil, true)
+	if err != nil {
+		t.Logf("WebServerSecureRouteTest: webServerRouteTest failed")
+		return err
+	}
+	_ = cookie
+
+	return err
 
 }
 
-func PrometheusTest(clt client.Client, ctx context.Context, t *testing.T, namespace string, name string) (err error) {
+func PrometheusTest(clt client.Client, ctx context.Context, t *testing.T, namespace string, name string, domain string) (err error) {
 	webServer := &webserversv1alpha1.WebServer{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
@@ -174,6 +218,11 @@ func PrometheusTest(clt client.Client, ctx context.Context, t *testing.T, namesp
 			},
 		},
 	}
+	// cleanup
+	defer func() {
+		clt.Delete(context.Background(), webServer)
+		time.Sleep(time.Second * 5)
+	}()
 
 	err = clt.Create(ctx, webServer)
 
@@ -219,101 +268,97 @@ func PrometheusTest(clt client.Client, ctx context.Context, t *testing.T, namesp
 
 	err = schemeBuilder.AddToScheme(scheme.Scheme)
 	if err != nil {
+		t.Logf("schemeBuilder.AddToScheme failed: %s\n", err)
 		return err
 	}
 
-	replicas := int32(1)
-	webPort := intstr.FromString("web")
-
-	// Create a new Prometheus object
-	prometheus := &monitoringv1.Prometheus{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: "app-monitor",
-			Labels: map[string]string{
-				"prometheus": "k8s",
-			},
-			Namespace: namespace,
-		},
-		Spec: monitoringv1.PrometheusSpec{
-			Replicas:           &replicas,
-			ServiceAccountName: "prometheus-k8s",
-			SecurityContext:    &v1.PodSecurityContext{},
-			ServiceMonitorSelector: &metav1.LabelSelector{
-				MatchLabels: map[string]string{
-					"WebServer":              "prometheustest",
-					"app.kubernetes.io/name": "prometheustest",
-					"application":            "prometheus-test",
-					"deploymentConfig":       "prometheus-test",
-				},
-			},
-			RuleSelector: &metav1.LabelSelector{},
-			Alerting: &monitoringv1.AlertingSpec{
-				Alertmanagers: []monitoringv1.AlertmanagerEndpoints{
-					{
-						Namespace: namespace,
-						Name:      "alertmanager-main",
-						Port:      webPort,
-					},
-				},
-			},
-		},
-	}
-	err = clt.Create(ctx, prometheus)
-
+	// get the token
+	s := ""
+	url := "http://localhost:9090"
+	token, err := exec.Command("oc", "whoami", "-t").Output()
 	if err != nil {
-		t.Logf("Prometheus creation failed due to: %s\n", err)
-		t.Fatal(err)
-		return err
-	}
-
-	// Execute the command
-	_, err = exec.Command("oc", "expose", "svc/prometheus-operated").Output()
-	if err != nil {
-		t.Errorf("Error: %s", err)
-		return
+		t.Logf("oc whoami -t failed Error: %s", err)
+		token, err = exec.Command("ibmcloud", "iam", "oauth-tokens").Output()
+		if err != nil {
+			t.Errorf("ibmcloud iam oauth-tokens Failed Error: %s", err)
+			return err
+		}
+		s = string(token)
+		t.Logf("token: %s\n", s)
+		stoken := strings.Split(s, " ")
+		s = stoken[4]
+		s = strings.Replace(s, "\n", "", -1)
+		t.Logf("token: *%s*\n", s)
+	} else {
+		s = string(token)
+		s = strings.Replace(s, "\n", "", -1)
+		url = "https://thanos-querier-openshift-monitoring." + domain
 	}
 
 	unixTime := time.Now().Unix()
 	var unixTimeStart int64 = unixTime
 	var unixTimeEnd int64 = unixTime + 3600
 
-	// Execute the command
-	output, err := exec.Command("oc", "get", "routes").Output()
+	cookie, err := webServerRouteTest(clt, ctx, t, webServer, "/health", false, nil, false)
 	if err != nil {
-		t.Errorf("Error: %s", err)
-		return
+		t.Logf("PrometheusTest: webServerRouteTest failed")
+		return err
 	}
-
-	hostname := ""
-	//parse the output to get the hostname
-	outputLines := strings.Split(string(output), "\n")
-	for _, line := range outputLines {
-		if strings.Contains(line, "prometheus-operated") {
-			hostname = strings.Fields(line)[1]
-			break
-		}
-	}
-
-	time.Sleep(time.Second * 120) //waiting for prometheus server to be ready
+	_ = cookie
+	time.Sleep(time.Second * 120) //waiting for some queries from healh check...
 
 	// create a http request to Prometheus server
-	req, err := http.NewRequest("GET", "http://"+hostname+"/api/v1/query_range?query=tomcat_bytesreceived_total&start="+strconv.FormatInt(unixTimeStart, 10)+"&end="+strconv.FormatInt(unixTimeEnd, 10)+"&step=14", nil)
+	req, err := http.NewRequest("GET", url+"/api/v1/query_range?query=tomcat_bytesreceived_total&start="+strconv.FormatInt(unixTimeStart, 10)+"&end="+strconv.FormatInt(unixTimeEnd, 10)+"&step=14", nil)
 	if err != nil {
-		t.Logf("Failed using curl: " + "http://" + hostname + "/api/v1/query_range?query=tomcat_bytesreceived_total&start=" + strconv.FormatInt(unixTimeStart, 10) + "&end=" + strconv.FormatInt(unixTimeEnd, 10) + "&step=14")
+		t.Logf("Failed using: " + url + "/api/v1/query_range?query=tomcat_bytesreceived_total&start=" + strconv.FormatInt(unixTimeStart, 10) + "&end=" + strconv.FormatInt(unixTimeEnd, 10) + "&step=14")
 		t.Fatal(err)
 	}
+	if strings.HasPrefix(url, "https://") {
+		req.Header.Set("Authorization", "Bearer "+s)
+		req.Header.Set("Accept", "application/json")
+	} else {
+		podname := GetThanos(clt, ctx, t)
+		t.Logf("using pod: " + podname)
+		cmd := exec.Command("oc", "port-forward", "-n", "openshift-monitoring", "pod/"+podname, "9090")
+		stdout, err := cmd.StdoutPipe()
+		cmd.Stderr = cmd.Stdout
+		err = cmd.Start()
+		if err != nil {
+			t.Errorf("oc port-forward -n openshift-monitoring pod/%s 9090 failed Error: %s", podname, err)
+		}
+		go func() {
+			err = cmd.Wait()
+			t.Errorf("oc port-forward -n openshift-monitoring pod/%s 9090 failed Error: %s", podname, err)
+		}()
+		tmp := make([]byte, 1024)
+		_, err = stdout.Read(tmp)
+		t.Logf(string(tmp))
+	}
 
-	//curl 'http://prometheus-operated-vmouriki-tests.apps.jws-qe-jkco.dynamic.xpaas/api/v1/query_range?query=tomcat_bytesreceived_total&start=1677769299.323&end=1677772899.323&step=14'
+	// curl -k \
+	//  -H "Authorization: Bearer $TOKEN" \
+	// -H 'Accept: application/json' \
+	// "https://thanos-querier-openshift-monitoring.apps.jws-qe-afll.dynamic.xpaas/api/v1/query?query=tomcat_errorcount_total"
 
 	// send the request
 	res, err := client.Do(req)
+	for i := 0; i < 60; i++ {
+		if err == nil {
+			break
+		}
+		t.Errorf("request to %s failed Error: %s", url, err)
+		time.Sleep(1000 * time.Millisecond)
+	}
 	if err != nil {
+		t.Errorf("request to %s failed Error: %s", url, err)
 		t.Fatal(err)
 	}
 
 	// check the response status code
 	if res.StatusCode != http.StatusOK {
 		t.Errorf("unexpected status code: %d", res.StatusCode)
+		t.Errorf("unexpected from: %s", url)
+		t.Errorf("unexpected token: %s", s)
 	}
 
 	// read the response body
@@ -327,18 +372,31 @@ func PrometheusTest(clt client.Client, ctx context.Context, t *testing.T, namesp
 
 	if strings.Contains(string(body), webServer.Name) && strings.Contains(string(body), "\"service\":\"prometheustest-admin\"") && strings.Contains(string(body), "tomcat_bytesreceived_total") {
 		t.Logf("Response body contains the expected message")
+		return nil
 	} else {
-		t.Logf("Failed using curl: " + "http://" + hostname + "/api/v1/query_range?query=tomcat_bytesreceived_total&start=" + strconv.FormatInt(unixTimeStart, 10) + "&end=" + strconv.FormatInt(unixTimeEnd, 10) + "&step=14")
+		t.Logf("Failed using: " + "https://" + url + "/api/v1/query_range?query=tomcat_bytesreceived_total&start=" + strconv.FormatInt(unixTimeStart, 10) + "&end=" + strconv.FormatInt(unixTimeEnd, 10) + "&step=14")
 		t.Fatal("Response body does not contain expected message")
 	}
 
-	// cleanup
-	defer func() {
-		clt.Delete(context.Background(), webServer)
-		time.Sleep(time.Second * 5)
-	}()
+	return errors.New("Response body does not contain expected message")
+}
 
-	return err
+func GetThanos(clt client.Client, ctx context.Context, t *testing.T) (thanos string) {
+	podList := &corev1.PodList{}
+	labels := map[string]string{
+		"app.kubernetes.io/name": "thanos-query",
+	}
+
+	listOpts := []client.ListOption{
+		client.InNamespace("openshift-monitoring"),
+		client.MatchingLabels(labels),
+	}
+	err := clt.List(ctx, podList, listOpts...)
+	if err != nil {
+		t.Logf("List pods failed: %s", err)
+		return ""
+	}
+	return podList.Items[0].ObjectMeta.Name
 }
 
 func PersistentLogsTest(clt client.Client, ctx context.Context, t *testing.T, namespace string, name string, testURI string) (err error) {
@@ -366,6 +424,12 @@ func PersistentLogsTest(clt client.Client, ctx context.Context, t *testing.T, na
 		},
 	}
 
+	// cleanup
+	defer func() {
+		clt.Delete(context.Background(), webServer)
+		time.Sleep(time.Second * 5)
+	}()
+
 	err = clt.Create(ctx, webServer)
 
 	if err != nil {
@@ -383,12 +447,6 @@ func PersistentLogsTest(clt client.Client, ctx context.Context, t *testing.T, na
 	}
 
 	t.Logf("Application %s is deployed ", name)
-
-	// cleanup
-	defer func() {
-		clt.Delete(context.Background(), webServer)
-		time.Sleep(time.Second * 5)
-	}()
 
 	return err
 
@@ -491,8 +549,13 @@ func HPATest(clt client.Client, ctx context.Context, t *testing.T, namespace str
 		time.Sleep(time.Second * 5)
 	}()
 
-	return autoScalingTest(clt, ctx, t, webServer, testURI, hpa)
-
+	err = autoScalingTest(clt, ctx, t, webServer, testURI, hpa)
+	if err != nil {
+		t.Logf("HorizontalPodAutoscaler autoScalingTest Failed: %s\n", err)
+		t.Fatal(err)
+		return err
+	}
+	return nil
 }
 
 func autoScalingTest(clt client.Client, ctx context.Context, t *testing.T, webServer *webserversv1alpha1.WebServer, testURI string, hpa *v2.HorizontalPodAutoscaler) (err error) {
@@ -549,9 +612,11 @@ func autoScalingTest(clt client.Client, ctx context.Context, t *testing.T, webSe
 		err = clt.Get(ctx, types.NamespacedName{Name: webServer.ObjectMeta.Name, Namespace: webServer.ObjectMeta.Namespace}, curwebServer)
 		if err != nil {
 			t.Fatalf("can't read webserver")
+			return false
 		}
 
 		if int32(curwebServer.Status.Replicas) == int32(4) {
+			t.Logf("Replicas:  (%d:4)\n", int32(curwebServer.Status.Replicas))
 			return false
 		} else {
 			return true
@@ -581,12 +646,14 @@ func autoScalingTest(clt client.Client, ctx context.Context, t *testing.T, webSe
 		err = clt.Get(ctx, types.NamespacedName{Name: webServer.ObjectMeta.Name, Namespace: webServer.ObjectMeta.Namespace}, curwebServer)
 		if err != nil {
 			t.Fatalf("can't read webserver")
+			return false
 		}
 
 		if int32(curwebServer.Status.Replicas) > int32(1) {
 			return true
 		}
 
+		t.Logf("Replicas:  (%d>1)\n", int32(curwebServer.Status.Replicas))
 		return false
 
 	}, time.Second*250, time.Millisecond*10).Should(BeTrue())
@@ -597,6 +664,7 @@ func autoScalingTest(clt client.Client, ctx context.Context, t *testing.T, webSe
 	}
 
 	if int32(curwebServer.Status.Replicas) < int32(2) {
+		t.Logf("Replicas:  (%d<2)\n", int32(curwebServer.Status.Replicas))
 		return errors.New("didn't scaled up")
 	} else {
 		return nil
@@ -857,6 +925,21 @@ func webServerApplicationImageUpdateTest(clt client.Client, ctx context.Context,
 		return err
 		/* */
 	}
+
+	// Wait until the replicas are available
+	Eventually(func() bool {
+		err = clt.Get(ctx, types.NamespacedName{Name: webServer.ObjectMeta.Name, Namespace: webServer.ObjectMeta.Namespace}, foundDeployment)
+		if err != nil {
+			t.Fatalf("can't read Deployment")
+			return false
+		}
+
+		if int32(webServer.Spec.Replicas) == int32(foundDeployment.Status.AvailableReplicas) {
+			return true
+		} else {
+			return false
+		}
+	}, time.Second*420, time.Second*30).Should(BeTrue())
 	return nil
 
 }
@@ -897,7 +980,7 @@ func updateWebServer(clt client.Client, ctx context.Context, t *testing.T, webSe
 // deployWebServer deploys a WebServer resource and waits until the pods are online
 func deployWebServer(clt client.Client, ctx context.Context, t *testing.T, webServer *webserversv1alpha1.WebServer) (err error) {
 
-	// Create the webserver
+	// Create the webserver JFC...
 	t.Logf("Create webServer\n")
 	err = clt.Create(ctx, webServer)
 	if err != nil {
@@ -1007,17 +1090,27 @@ func webServerRouteTest(clt client.Client, ctx context.Context, t *testing.T, we
 			t.Logf("WebServer.Status.Hosts is empty\n")
 			return nil, errors.New("Route is empty!")
 		}
+		t.Logf("Route:  (%s)\n", webServer.Status.Hosts)
+		t.Logf("RouteHostName:  (%s)\n", webServer.Spec.RouteHostname)
+		t.Logf("TLSSecret:  (%s)\n", webServer.Spec.TLSSecret)
+
 		t.Logf("Route:  (%s)\n", curwebServer.Status.Hosts)
 		t.Logf("RouteHostName:  (%s)\n", curwebServer.Spec.RouteHostname)
+		t.Logf("TLSSecret:  (%s)\n", curwebServer.Spec.TLSSecret)
 		if isSecure {
-			URL = "https://" + curwebServer.Spec.RouteHostname[4:] + URI
+			if len(curwebServer.Spec.RouteHostname) <= 4 {
+				URL = "https://" + curwebServer.Status.Hosts[0] + URI
+			} else {
+				// We have something like tls:hostname
+				URL = "https://" + curwebServer.Spec.RouteHostname[4:] + URI
+			}
 		} else {
 			URL = "http://" + curwebServer.Status.Hosts[0] + URI
 		}
 	}
 
 	// Wait a little to avoid 503 codes.
-	time.Sleep(20 * time.Second)
+	time.Sleep(60 * time.Second)
 
 	req, err := http.NewRequest("GET", URL, nil)
 	if err != nil {
