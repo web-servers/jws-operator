@@ -3,6 +3,8 @@ package controllers
 import (
 	"context"
 	"fmt"
+	"strconv"
+	"strings"
 	"time"
 
 	. "github.com/onsi/ginkgo"
@@ -56,6 +58,31 @@ var _ = Describe("WebServer controller", func() {
 				}, sec)
 				if err != nil {
 					thetest.Fatal(err)
+				}
+				podList := &corev1.PodList{}
+				listOpts := []client.ListOption{client.InNamespace("jws-operator-system")}
+				err = k8sClient.List(ctx, podList, listOpts...)
+				if err != nil {
+					thetest.Fatal(err)
+				}
+				if int32(len(podList.Items)) != 1 {
+					thetest.Fatal("number of jws-operator pod incorrect: " + strconv.Itoa(len(podList.Items)))
+				}
+				listOpts = []client.ListOption{client.InNamespace("openshift-operators")}
+				err = k8sClient.List(ctx, podList, listOpts...)
+				if err != nil {
+					thetest.Fatal(err)
+				}
+				if int32(len(podList.Items)) != 0 {
+					numop := 0
+					for _, pod := range podList.Items {
+						if strings.HasPrefix(pod.Name, "jws-operator-controller-manager-") {
+							numop++
+						}
+					}
+					if numop != 0 {
+						thetest.Fatal("operator pods in openshift-operators namespace: " + strconv.Itoa(numop) + "/" + strconv.Itoa(len(podList.Items)))
+					}
 				}
 
 				Expect(webserverstests.WebServerApplicationImageSourcesScriptBasicTest(k8sClient, ctx, thetest, namespace, "sourcesscriptbasictest", "quay.io/web-servers/tomcat10:latest", "https://github.com/web-servers/demo-webapp", "jakartaEE", "quay.io/"+username+"/test", "secretfortests", "quay.io/web-servers/tomcat10-buildah", randemo)).Should(Succeed())
