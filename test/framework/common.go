@@ -374,7 +374,7 @@ func PrometheusTest(clt client.Client, ctx context.Context, t *testing.T, namesp
 		t.Logf("Response body contains the expected message")
 		return nil
 	} else {
-		t.Logf("Failed using: " + "https://" + url + "/api/v1/query_range?query=tomcat_bytesreceived_total&start=" + strconv.FormatInt(unixTimeStart, 10) + "&end=" + strconv.FormatInt(unixTimeEnd, 10) + "&step=14")
+		t.Logf("Failed using: " + url + "/api/v1/query_range?query=tomcat_bytesreceived_total&start=" + strconv.FormatInt(unixTimeStart, 10) + "&end=" + strconv.FormatInt(unixTimeEnd, 10) + "&step=14")
 		t.Fatal("Response body does not contain expected message")
 	}
 
