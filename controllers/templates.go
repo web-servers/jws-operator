@@ -109,8 +109,8 @@ func (r *WebServerReconciler) generateServiceForDNS(webServer *webserversv1alpha
 	return service
 }
 
-// Script for the cluster in server.xml
-func (r *WebServerReconciler) generateConfigMapForDNS(webServer *webserversv1alpha1.WebServer) *corev1.ConfigMap {
+// Script for the cluster and tls in server.xml
+func (r *WebServerReconciler) generateConfigMapForDNSTLS(webServer *webserversv1alpha1.WebServer) *corev1.ConfigMap {
 
 	cmap := &corev1.ConfigMap{
 		ObjectMeta: r.generateObjectMeta(webServer, "webserver-"+webServer.Name),
@@ -253,13 +253,15 @@ func (r *WebServerReconciler) generateBuildPod(webServer *webserversv1alpha1.Web
 		serviceAccountName = "builder"
 		securityContext = &corev1.SecurityContext{
 			RunAsUser: &[]int64{1000}[0],
-			Capabilities: &corev1.Capabilities{
-				Add: []corev1.Capability{
-					// "CAP_SETGID", "CAP_SETUID",
-					// "SETGID", "SETUID", "SYS_ADMIN", "SYS_CHROOT",
-					"SYS_ADMIN", "SYS_CHROOT",
+			/*
+				Capabilities: &corev1.Capabilities{
+					Add: []corev1.Capability{
+						// "CAP_SETGID", "CAP_SETUID",
+						// "SETGID", "SETUID", "SYS_ADMIN", "SYS_CHROOT",
+						"SYS_ADMIN", "SYS_CHROOT",
+					},
 				},
-			},
+			*/
 		}
 	} else {
 		securityContext = &corev1.SecurityContext{
@@ -276,11 +278,14 @@ func (r *WebServerReconciler) generateBuildPod(webServer *webserversv1alpha1.Web
 			ServiceAccountName: serviceAccountName,
 			/* secret to pull the image */
 			ImagePullSecrets: r.generateimagePullSecrets(webServer),
-			SecurityContext: &corev1.PodSecurityContext{
-				SeccompProfile: &corev1.SeccompProfile{
-					Type: corev1.SeccompProfileTypeRuntimeDefault,
+			/* Problems: SeccompProfileTypeUnconfined, SeccompProfileTypeLocalhost */
+			/*
+				SecurityContext: &corev1.PodSecurityContext{
+					SeccompProfile: &corev1.SeccompProfile{
+						Type: corev1.SeccompProfileTypeRuntimeDefault,
+					},
 				},
-			},
+			*/
 			Containers: []corev1.Container{
 				{
 					Name:  "war",
@@ -753,6 +758,10 @@ func (r *WebServerReconciler) generatePodTemplate(webServer *webserversv1alpha1.
 					Name:          "admin",
 					ContainerPort: 9404,
 					Protocol:      corev1.ProtocolTCP,
+				}, {
+					Name:          "https",
+					ContainerPort: 8443,
+					Protocol:      corev1.ProtocolTCP,
 				}},
 				SecurityContext: generateSecurityContext(webServer.Spec.SecurityContext),
 				Env:             r.generateEnvVars(webServer),
@@ -867,7 +876,7 @@ func (r *WebServerReconciler) generateEnvVars(webServer *webserversv1alpha1.WebS
 			Value: "true",
 		})
 	}
-	if webServer.Spec.UseSessionClustering {
+	if strings.HasPrefix(webServer.Spec.RouteHostname, "tls") || webServer.Spec.UseSessionClustering || webServer.Spec.EnableAccessLogs {
 		// Add parameter USE_SESSION_CLUSTERING
 		env = append(env, corev1.EnvVar{
 			Name:  "ENV_FILES",
@@ -900,7 +909,7 @@ func (r *WebServerReconciler) generateVolumeMounts(webServer *webserversv1alpha1
 		})
 	}
 
-	if webServer.Spec.UseSessionClustering {
+	if strings.HasPrefix(webServer.Spec.RouteHostname, "tls") || webServer.Spec.UseSessionClustering || webServer.Spec.EnableAccessLogs {
 		volm = append(volm, corev1.VolumeMount{
 			Name:      "webserver-" + webServer.Name,
 			MountPath: "/env/my-files",
@@ -973,7 +982,7 @@ func (r *WebServerReconciler) generateVolumes(webServer *webserversv1alpha1.WebS
 		})
 	}
 
-	if webServer.Spec.UseSessionClustering {
+	if strings.HasPrefix(webServer.Spec.RouteHostname, "tls") || webServer.Spec.UseSessionClustering || webServer.Spec.EnableAccessLogs {
 		vol = append(vol, corev1.Volume{
 			Name: "webserver-" + webServer.Name,
 			VolumeSource: corev1.VolumeSource{
@@ -1164,7 +1173,7 @@ func (r *WebServerReconciler) generateCommandForServerXml(webServer *webserversv
 	connector := ""
 	if strings.HasPrefix(webServer.Spec.RouteHostname, "tls") {
 		// "/tls" is the dir in which the secret's contents are mounted to the pod
-		connector =
+		connector +=
 			"https=\"<!-- No HTTPS configuration discovered -->\"\n" +
 				"if [ -f \"/tls/server.crt\" -a -f \"/tls/server.key\" -a -f \"/tls/ca.crt\" ] ; then\n" +
 
@@ -1202,15 +1211,22 @@ func (r *WebServerReconciler) generateCommandForServerXml(webServer *webserversv
 	cmd["test.sh"] = "FILE=`find /opt -name server.xml`\n" +
 		"if [ -z \"${FILE}\" ]; then\n" +
 		"  FILE=`find /deployments -name server.xml`\n" +
-		"fi\n" +
-		"grep -q MembershipProvider ${FILE}\n" +
-		"if [ $? -ne 0 ]; then\n"
-	if r.getUseKUBEPing(webServer) {
-		cmd["test.sh"] = cmd["test.sh"] + "  sed '/cluster.html/a        <Cluster className=\"org.apache.catalina.ha.tcp.SimpleTcpCluster\" channelSendOptions=\"6\">\\n <Channel className=\"org.apache.catalina.tribes.group.GroupChannel\">\\n <Membership className=\"org.apache.catalina.tribes.membership.cloud.CloudMembershipService\" membershipProviderClassName=\"org.apache.catalina.tribes.membership.cloud.KubernetesMembershipProvider\"/>\\n </Channel>\\n </Cluster>\\n' ${FILE}> /tmp/tmp.xml; cat /tmp/tmp.xml > ${FILE}; rm /tmp/tmp.xml\n" +
-			"fi\n" + connector
+		"fi\n"
+	if webServer.Spec.UseSessionClustering {
+		cmd["test.sh"] = cmd["test.sh"] +
+			"grep -q MembershipProvider ${FILE}\n" +
+			"if [ $? -ne 0 ]; then\n"
+		if r.getUseKUBEPing(webServer) {
+			cmd["test.sh"] = cmd["test.sh"] + "  sed '/cluster.html/a        <Cluster className=\"org.apache.catalina.ha.tcp.SimpleTcpCluster\" channelSendOptions=\"6\">\\n <Channel className=\"org.apache.catalina.tribes.group.GroupChannel\">\\n <Membership className=\"org.apache.catalina.tribes.membership.cloud.CloudMembershipService\" membershipProviderClassName=\"org.apache.catalina.tribes.membership.cloud.KubernetesMembershipProvider\"/>\\n </Channel>\\n </Cluster>\\n' ${FILE}> /tmp/tmp.xml; cat /tmp/tmp.xml > ${FILE}; rm /tmp/tmp.xml\n" +
+				"fi\n"
+			cmd["test.sh"] = cmd["test.sh"] + connector
+		} else {
+			cmd["test.sh"] = cmd["test.sh"] + "  sed '/cluster.html/a        <Cluster className=\"org.apache.catalina.ha.tcp.SimpleTcpCluster\" channelSendOptions=\"6\">\\n <Channel className=\"org.apache.catalina.tribes.group.GroupChannel\">\\n <Membership className=\"org.apache.catalina.tribes.membership.cloud.CloudMembershipService\" membershipProviderClassName=\"org.apache.catalina.tribes.membership.cloud.DNSMembershipProvider\"/>\\n </Channel>\\n </Cluster>\\n' ${FILE}> /tmp/tmp.xml; cat /tmp/tmp.xml > ${FILE}; rm /tmp/tmp.xml\n" +
+				"fi\n"
+			cmd["test.sh"] = cmd["test.sh"] + connector
+		}
 	} else {
-		cmd["test.sh"] = cmd["test.sh"] + "  sed '/cluster.html/a        <Cluster className=\"org.apache.catalina.ha.tcp.SimpleTcpCluster\" channelSendOptions=\"6\">\\n <Channel className=\"org.apache.catalina.tribes.group.GroupChannel\">\\n <Membership className=\"org.apache.catalina.tribes.membership.cloud.CloudMembershipService\" membershipProviderClassName=\"org.apache.catalina.tribes.membership.cloud.DNSMembershipProvider\"/>\\n </Channel>\\n </Cluster>\\n' ${FILE}> /tmp/tmp.xml; cat /tmp/tmp.xml > ${FILE}; rm /tmp/tmp.xml\n" +
-			"fi\n" + connector
+		cmd["test.sh"] = cmd["test.sh"] + connector
 	}
 	if webServer.Spec.EnableAccessLogs {
 		cmd["test.sh"] = cmd["test.sh"] + "grep -q directory='\"/proc/self/fd\"' ${FILE}\n" +

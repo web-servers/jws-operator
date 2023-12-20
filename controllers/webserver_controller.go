@@ -167,6 +167,8 @@ func (r *WebServerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 			return reconcile.Result{}, err
 		} else if servicePrometeus == nil {
 			log.Info("Webserver: Create Prometheus Service and requeue reconciliation")
+			log.Info("Webserver resource (TLSSecret) " + webServer.Spec.TLSSecret)
+			log.Info("Webserver resource (RouteHostname) " + webServer.Spec.RouteHostname)
 			return reconcile.Result{Requeue: true}, nil
 		}
 	}
@@ -186,9 +188,13 @@ func (r *WebServerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 	routingService := &corev1.Service{}
 	if strings.HasPrefix(webServer.Spec.RouteHostname, "tls") {
 		log.Info("generating routing service with port 8443 " + "cause webServer.Spec.RouteHostname= " + webServer.Spec.RouteHostname)
+		log.Info("generating routing service with port 8443 " + "with TLSSecret= " + webServer.Spec.TLSSecret)
 		routingService = r.generateRoutingService(webServer, 8443)
+		log.Info("generating routing service with port 8443 " + "cause webServer.Spec.RouteHostname= " + webServer.Spec.RouteHostname)
+		log.Info("generating routing service with port 8443 " + "with TLSSecret= " + webServer.Spec.TLSSecret)
 	} else {
 		log.Info("generating routing service with port 8080 " + "cause webServer.Spec.RouteHostname= " + webServer.Spec.RouteHostname)
+		log.Info("generating routing service with port 8080 " + "with TLSSecret= " + webServer.Spec.TLSSecret)
 		routingService = r.generateRoutingService(webServer, 8080)
 	}
 	result, err = r.createService(ctx, webServer, routingService, routingService.Name, routingService.Namespace)
@@ -225,7 +231,7 @@ func (r *WebServerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 				return reconcile.Result{}, err
 			} else {
 				if update {
-					log.Info("Add a new Annotations")
+					log.Info("Add a new Annotations or need UPDATE")
 					return ctrl.Result{Requeue: update}, nil
 				}
 			}
@@ -241,13 +247,15 @@ func (r *WebServerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 
 		}
 
-		// Check if exists a ConfigMap for the server.xml <Cluster/> definition otherwise create it.
-		configMap := r.generateConfigMapForDNS(webServer)
+	}
+
+	// Check if exists a ConfigMap for the server.xml <Cluster/> definition otherwise create it.
+	if strings.HasPrefix(webServer.Spec.RouteHostname, "tls") || webServer.Spec.UseSessionClustering || webServer.Spec.EnableAccessLogs {
+		configMap := r.generateConfigMapForDNSTLS(webServer)
 		result, err = r.createConfigMap(ctx, webServer, configMap, configMap.Name, configMap.Namespace)
 		if err != nil || result != (ctrl.Result{}) {
 			return result, err
 		}
-
 	}
 
 	var health *webserversv1alpha1.WebServerHealthCheckSpec = &webserversv1alpha1.WebServerHealthCheckSpec{}
@@ -332,11 +340,6 @@ func (r *WebServerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 				return result, err
 			}
 
-			result, err = r.checkBuildPodPhase(buildPod)
-			if err != nil || result != (ctrl.Result{}) {
-				return result, err
-			}
-
 			// Check if we need to delete it and recreate it.
 			currentHash := r.getWebServerHash(webServer)
 			if buildPod.Labels["webserver-hash"] != currentHash {
@@ -347,6 +350,12 @@ func (r *WebServerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 				}
 				log.Info("Webserver hash changed: Delete BuildPod and requeue reconciliation")
 				return ctrl.Result{RequeueAfter: (500 * time.Millisecond)}, nil
+			}
+
+			// Is the build pod ready.
+			result, err = r.checkBuildPodPhase(buildPod)
+			if err != nil || result != (ctrl.Result{}) {
+				return result, err
 			}
 
 		}
