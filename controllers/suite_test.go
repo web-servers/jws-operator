@@ -18,9 +18,12 @@ package controllers
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
+	"strings"
 	"testing"
 	"time"
 
@@ -30,6 +33,7 @@ import (
 	. "github.com/onsi/gomega"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/clientcmd"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 	"sigs.k8s.io/controller-runtime/pkg/envtest/printer"
@@ -43,8 +47,10 @@ import (
 	webserversv1alpha1 "github.com/web-servers/jws-operator/api/v1alpha1"
 	//+kubebuilder:scaffold:imports
 
-	core "k8s.io/api/core/v1"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	"k8s.io/kubectl/pkg/util/podutils"
 )
 
 // These tests use Ginkgo (BDD-style Go testing framework). Refer to
@@ -154,6 +160,55 @@ var _ = BeforeSuite(func() {
 		Expect(err).ToNot(HaveOccurred(), "failed to run manager")
 	}()
 
+	// Test if we have all we need in case of realtest
+	if noskip {
+		clientCfg, _ := clientcmd.NewDefaultClientConfigLoadingRules().Load()
+		namespace := clientCfg.Contexts[clientCfg.CurrentContext].Namespace
+		sec := &corev1.Secret{}
+		err = k8sClient.Get(context.Background(), client.ObjectKey{
+			Namespace: namespace,
+			Name:      "secretfortests",
+		}, sec)
+		Expect(err).ToNot(HaveOccurred(), "missing secretfortests")
+
+		err = k8sClient.Get(context.Background(), client.ObjectKey{
+			Namespace: namespace,
+			Name:      "test-tls-secret",
+		}, sec)
+		Expect(err).ToNot(HaveOccurred(), "missing test-tls-secret")
+
+		podList := &corev1.PodList{}
+		listOpts := []client.ListOption{client.InNamespace("jws-operator-system")}
+		err = k8sClient.List(ctx, podList, listOpts...)
+		Expect(err).ToNot(HaveOccurred())
+		if int32(len(podList.Items)) != 1 {
+			err = errors.New("number of jws-operator pod incorrect: " + strconv.Itoa(len(podList.Items)))
+		}
+		Expect(err).ToNot(HaveOccurred())
+		pod := podList.Items[0]
+		if !podutils.IsPodReady(&pod) {
+			err = errors.New("the jws-operator pod is NOT ready")
+		}
+		Expect(err).ToNot(HaveOccurred())
+
+		listOpts = []client.ListOption{client.InNamespace("openshift-operators")}
+		err = k8sClient.List(ctx, podList, listOpts...)
+		Expect(err).ToNot(HaveOccurred())
+		if int32(len(podList.Items)) != 0 {
+			numop := 0
+			for _, pod := range podList.Items {
+				if strings.HasPrefix(pod.Name, "jws-operator-controller-manager-") {
+					numop++
+				}
+			}
+			if numop != 0 {
+				err = errors.New("operator pods in openshift-operators namespace: " + strconv.Itoa(numop) + "/" + strconv.Itoa(len(podList.Items)))
+			}
+		}
+		Expect(err).ToNot(HaveOccurred())
+
+	}
+
 }, 60)
 
 var _ = AfterSuite(func() {
@@ -166,10 +221,10 @@ var _ = AfterSuite(func() {
 	Expect(err).NotTo(HaveOccurred())
 })
 
-func SetupTest(ctx context.Context) *core.Namespace {
-	ns := &core.Namespace{}
+func SetupTest(ctx context.Context) *corev1.Namespace {
+	ns := &corev1.Namespace{}
 
-	*ns = core.Namespace{
+	*ns = corev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{Name: "test-env"},
 	}
 
