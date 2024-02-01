@@ -1,6 +1,7 @@
 package v1alpha1
 
 import (
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -24,7 +25,8 @@ type WebServerSpec struct {
 	// (Deployment method 1) Application image
 	WebImage *WebImageSpec `json:"webImage,omitempty"`
 	// (Deployment method 2) Imagestream
-	WebImageStream *WebImageStreamSpec `json:"webImageStream,omitempty"`
+	WebImageStream  *WebImageStreamSpec     `json:"webImageStream,omitempty"`
+	SecurityContext *corev1.SecurityContext `json:"securityContext,omitempty"`
 }
 
 // (Deployment method 1) Application image
