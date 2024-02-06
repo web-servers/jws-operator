@@ -579,6 +579,7 @@ func (r *WebServerReconciler) generatePodTemplate(webServer *webserversv1alpha1.
 	return corev1.PodTemplateSpec{
 		ObjectMeta: objectMeta,
 		Spec: corev1.PodSpec{
+			SecurityContext:               r.generatePodSecurityContext(webServer),
 			TerminationGracePeriodSeconds: &terminationGracePeriodSeconds,
 			Containers: []corev1.Container{{
 				Name:            webServer.Spec.ApplicationName,
@@ -595,8 +596,9 @@ func (r *WebServerReconciler) generatePodTemplate(webServer *webserversv1alpha1.
 					ContainerPort: 8080,
 					Protocol:      corev1.ProtocolTCP,
 				}},
-				Env:          r.generateEnvVars(webServer),
-				VolumeMounts: r.generateVolumeMounts(webServer),
+				Env:             r.generateEnvVars(webServer),
+				VolumeMounts:    r.generateVolumeMounts(webServer),
+				SecurityContext: r.generateSecurityContext(webServer),
 			}},
 			Volumes: r.generateVolumes(webServer),
 			// Add the imagePullSecret to imagePullSecrets
@@ -700,6 +702,29 @@ func (r *WebServerReconciler) generateEnvVars(webServer *webserversv1alpha1.WebS
 		})
 	}
 	return env
+}
+
+// Create the securityContext for the pods we are starting.
+func (r *WebServerReconciler) generatePodSecurityContext(webServer *webserversv1alpha1.WebServer) *corev1.PodSecurityContext {
+	return &corev1.PodSecurityContext{
+		RunAsNonRoot: &[]bool{true}[0],
+		SeccompProfile: &corev1.SeccompProfile{
+			Type: corev1.SeccompProfileTypeRuntimeDefault,
+		},
+	}
+}
+
+// Create the securityContext for the pods we are starting.
+func (r *WebServerReconciler) generateSecurityContext(webServer *webserversv1alpha1.WebServer) *corev1.SecurityContext {
+	return &corev1.SecurityContext{
+		RunAsNonRoot:             &[]bool{true}[0],
+		AllowPrivilegeEscalation: &[]bool{false}[0],
+		Capabilities: &corev1.Capabilities{
+			Drop: []corev1.Capability{
+				"ALL",
+			},
+		},
+	}
 }
 
 // Create the VolumeMounts
@@ -834,7 +859,6 @@ func (r *WebServerReconciler) generateVolumePodBuilder(webServer *webserversv1al
 }
 
 // create the shell script to modify server.xml
-//
 func (r *WebServerReconciler) generateCommandForServerXml(webServer *webserversv1alpha1.WebServer) map[string]string {
 	cmd := make(map[string]string)
 	if r.getUseKUBEPing(webServer) {
@@ -860,7 +884,6 @@ func (r *WebServerReconciler) generateCommandForServerXml(webServer *webserversv
 }
 
 // create the shell script to pod builder
-//
 func (r *WebServerReconciler) generateCommandForBuider(script string) map[string]string {
 	cmd := make(map[string]string)
 	cmd["build.sh"] = script

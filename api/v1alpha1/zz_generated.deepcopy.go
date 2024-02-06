@@ -22,6 +22,7 @@ limitations under the License.
 package v1alpha1
 
 import (
+	"k8s.io/api/core/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 )
 
@@ -210,6 +211,11 @@ func (in *WebServerSpec) DeepCopyInto(out *WebServerSpec) {
 	if in.WebImageStream != nil {
 		in, out := &in.WebImageStream, &out.WebImageStream
 		*out = new(WebImageStreamSpec)
+		(*in).DeepCopyInto(*out)
+	}
+	if in.SecurityContext != nil {
+		in, out := &in.SecurityContext, &out.SecurityContext
+		*out = new(v1.SecurityContext)
 		(*in).DeepCopyInto(*out)
 	}
 }
