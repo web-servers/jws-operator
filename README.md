@@ -71,6 +71,7 @@ To remove
 operator-sdk cleanup jws-operator
 ```
 **Note** Check the installModes: in bundle/manifests/jws-operator.clusterserviceversion.yaml (all AllNamespaces is openshift-operators)
+**Note** Uninstall other versions of the operator otherwise the your modifications might not be visible.
 
 ## Install the operator from sources.
 
@@ -79,6 +80,8 @@ The operator is pre-built and containerized in a docker image. By default, the d
 ```bash
 make deploy IMG=quay.io/${USER}/jws-operator
 ```
+
+**Note** Uninstall other versions of the operator otherwise the your modifications might not be visible.
 
 To check for the operator installation you can check the operator pods
 ```bash
