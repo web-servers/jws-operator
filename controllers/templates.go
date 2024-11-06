@@ -1268,7 +1268,7 @@ func (r *WebServerReconciler) generateLoggingProperties(webServer *webserversv1a
 
 		"1catalina.org.apache.juli.AsyncFileHandler.level = FINE\n" +
 		"1catalina.org.apache.juli.AsyncFileHandler.directory = /opt/tomcat_logs\n" +
-		"1catalina.org.apache.juli.AsyncFileHandler.prefix = catalina${pod_name}.\n" +
+		"1catalina.org.apache.juli.AsyncFileHandler.prefix = catalina-${pod_name}.\n" +
 		"1catalina.org.apache.juli.AsyncFileHandler.maxDays = 90"
 	return cmd
 }
