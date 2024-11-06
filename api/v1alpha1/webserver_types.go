@@ -20,6 +20,8 @@ type WebServerSpec struct {
 	// The desired number of replicas for the application
 	// +kubebuilder:validation:Minimum=0
 	Replicas int32 `json:"replicas"`
+	// Environment Variables for deployment
+	EnvironmentVariables []corev1.EnvVar `json:"environmentVariables,omitempty"`
 	// Use Session Clustering
 	UseSessionClustering bool `json:"useSessionClustering,omitempty"`
 	// Route behaviour:[tls]hostname/NONE or empty.

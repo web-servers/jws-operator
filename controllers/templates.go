@@ -890,6 +890,9 @@ func (r *WebServerReconciler) generateEnvVars(webServer *webserversv1alpha1.WebS
 			Value: "-Djava.util.logging.config.file=/opt/operator_conf/logging.properties",
 		})
 	}
+
+	env = append(env, webServer.Spec.EnvironmentVariables...)
+
 	return env
 }
 
