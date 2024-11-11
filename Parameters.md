@@ -180,18 +180,11 @@ The mavenMirrorUrl is a parameter of the SourceBuildStrategy the operator is usi
 This explains how to use a secret for a generic webhook to trigger a build.
 
 1 - Create a base64 secret string:
-Put the secret ASCII string "qwerty" here, in a file and use base64 to encode it:
-Put in secret.txt
-
-```
-qwerty
-```
-
-And run base64
+Base64 encoded string secret can be created by base64 tool. In the following example, the secret "qwerty" is used
 
 ```bash
-base64 secret.txt
-cXdlcnR5Cg==
+echo -n "qwerty" | base64
+cXdlcnR5
 ```
 2 - Create a secret.yaml like:
 
@@ -201,7 +194,7 @@ apiVersion: v1
 metadata:
   name: jws-secret
 data:
-  WebHookSecretKey: cXdlcnR5Cg==
+  WebHookSecretKey: cXdlcnR5
 ```
 3 - Create the secret:
 ```bash
@@ -215,40 +208,44 @@ genericWebhookSecret: jws-secret
 ```
 
 To test it:
+You can send a request via _curl_ to an URL which looks like:
 
-1 - get the URL:
+```
+https://<openshift_api_host:port>/apis/build.openshift.io/v1/namespaces/<namespace>/buildconfigs/<name>/webhooks/<secret>/generic
+```
+
+1 - Get the URL:
 
 ```bash
 oc describe BuildConfig | grep webhooks
 	URL:		https://api.jclere.rhmw-runtimes.net:6443/apis/build.openshift.io/v1/namespaces/jfc/buildconfigs/test/webhooks/<secret>/generic
 ```
 
-2 - Create a minimal JSON file (payload.json)
+2 - Replace "<secret>" with the secret value (here qwerty).
 
-```
-{}
-```
-
-3 - Cut the URL replacing ${secret} by its value (here jws-secret) and use the minimal JSON file.
+3 - Send a _curl_ request:
 
 ```bash
-curl -H "X-GitHub-Event: push" -H "Content-Type: application/json" -k -X POST --data-binary @payload.json https://api.jclere.rhmw-runtimes.net:6443/apis/build.openshift.io/v1/namespaces/jfc/buildconfigs/test/webhooks/jws-secret/generic
+curl -k -X POST https://api.jclere.rhmw-runtimes.net:6443/apis/build.openshift.io/v1/namespaces/jfc/buildconfigs/test/webhooks/qwerty/generic
 {"kind":"Build","apiVersion":"build.openshift.io/v1","metadata":{"name":"test-2","namespace":"jfc","selfLink":"/apis/build.openshift.io/v1/namespaces/jfc/buildconfigs/test-2/instantiate","uid":"a72dd529-edc6-4e1c-898e-7c0dbbea176e","resourceVersion":"846159","creationTimestamp":"2020-10-30T12:29:30Z","labels":{"application":"test","buildconfig":"test","openshift.io/build-config.name":"test","openshift.io/build.start-policy":"Serial"},"annotations":{"openshift.io/build-config.name":"test","openshift.io/build.number":"2"},"ownerReferences":[{"apiVersion":"build.openshift.io/v1","kind":"BuildConfig","name":"test","uid":"1f78fa3f-2f3b-421b-9f49-192184cc2280","controller":true}],"managedFields":[{"manager":"openshift-apiserver","operation":"Update","apiVersion":"build.openshift.io/v1","time":"2020-10-30T12:29:30Z","fieldsType":"FieldsV1","fieldsV1":{"f:metadata":{"f:annotations":{".":{},"f:openshift.io/build-config.name":{},"f:openshift.io/build.number":{}},"f:labels":{".":{},"f:application":{},"f:buildconfig":{},"f:openshift.io/build-config.name":{},"f:openshift.io/build.start-policy":{}},"f:ownerReferences":{".":{},"k:{\"uid\":\"1f78fa3f-2f3b-421b-9f49-192184cc2280\"}":{".":{},"f:apiVersion":{},"f:controller":{},"f:kind":{},"f:name":{},"f:uid":{}}}},"f:spec":{"f:output":{"f:to":{".":{},"f:kind":{},"f:name":{}}},"f:serviceAccount":{},"f:source":{"f:contextDir":{},"f:git":{".":{},"f:ref":{},"f:uri":{}},"f:type":{}},"f:strategy":{"f:sourceStrategy":{".":{},"f:env":{},"f:forcePull":{},"f:from":{".":{},"f:kind":{},"f:name":{}},"f:pullSecret":{".":{},"f:name":{}}},"f:type":{}},"f:triggeredBy":{}},"f:status":{"f:conditions":{".":{},"k:{\"type\":\"New\"}":{".":{},"f:lastTransitionTime":{},"f:lastUpdateTime":{},"f:status":{},"f:type":{}}},"f:config":{".":{},"f:kind":{},"f:name":{},"f:namespace":{}},"f:phase":{}}}}]},"spec":{"serviceAccount":"builder","source":{"type":"Git","git":{"uri":"https://github.com/jfclere/demo-webapp.git","ref":"master"},"contextDir":"/"},"strategy":{"type":"Source","sourceStrategy":{"from":{"kind":"DockerImage","name":"image-registry.openshift-image-registry.svc:5000/jfc/jboss-webserver54-tomcat9-openshift@sha256:75dcdf81011e113b8c8d0a40af32dc705851243baa13b68352706154174319e7"},"pullSecret":{"name":"builder-dockercfg-rvbh8"},"env":[{"name":"MAVEN_MIRROR_URL"},{"name":"ARTIFACT_DIR"}],"forcePull":true}},"output":{"to":{"kind":"ImageStreamTag","name":"test:latest"}},"resources":{},"postCommit":{},"nodeSelector":null,"triggeredBy":[{"message":"Generic WebHook","genericWebHook":{"secret":"\u003csecret\u003e"}}]},"status":{"phase":"New","config":{"kind":"BuildConfig","namespace":"jfc","name":"test"},"output":{},"conditions":[{"type":"New","status":"True","lastUpdateTime":"2020-10-30T12:29:30Z","lastTransitionTime":"2020-10-30T12:29:30Z"}]}}
 {
   "kind": "Status",
   "apiVersion": "v1",
-  "metadata": {
-
-  },
+  "metadata": {},
   "status": "Success",
-  "message": "no git information found in payload, ignoring and continuing with build",
+  "message": "invalid Content-Type on payload, ignoring payload and continuing with build",
   "code": 200
 }
 ```
 
 The build is triggered.
 
-4 - Use it in github:
+> **_NOTE_**
+> In case of __User \"system:anonymous\" cannot create resource__ error, it can be resolved by adding unauthenticated users to the system:webhook role binding or by token:
+> ``` TOKEN=`oc create token builder` ```
+> ```curl -H "Authorization: Bearer $TOKEN" -k -X POST https://api.jclere.rhmw-runtimes.net:6443/apis/build.openshift.io/v1/namespaces/jfc/buildconfigs/test/webhooks/qwerty/generic```
+
+3 - Use it in github:
 
 Go to Setting+Webhooks+Add webhook in your github project and add the URL in the Payload URL, set Content type: application/json, Disable SSL verification if needed and click Add webhook. See https://docs.openshift.com/container-platform/4.6/builds/triggering-builds-build-hooks.html for more details.
 
