@@ -528,7 +528,9 @@ func (r *WebServerReconciler) generateBuildTriggerPolicy(webServer *webserversv1
 				buildTriggerPolicies = append(buildTriggerPolicies, buildv1.BuildTriggerPolicy{
 					Type: "GitHub",
 					GitHubWebHook: &buildv1.WebHookTrigger{
-						Secret: params.GithubWebhookSecret,
+						SecretReference: &buildv1.SecretLocalReference{
+							Name: params.GithubWebhookSecret,
+						},
 					},
 				})
 			}
@@ -536,7 +538,9 @@ func (r *WebServerReconciler) generateBuildTriggerPolicy(webServer *webserversv1
 				buildTriggerPolicies = append(buildTriggerPolicies, buildv1.BuildTriggerPolicy{
 					Type: "Generic",
 					GenericWebHook: &buildv1.WebHookTrigger{
-						Secret: params.GenericWebhookSecret,
+						SecretReference: &buildv1.SecretLocalReference{
+							Name: params.GenericWebhookSecret,
+						},
 					},
 				})
 			}
