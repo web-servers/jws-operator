@@ -37,7 +37,7 @@ type WebServerSpec struct {
 	// (Deployment method 2) Imagestream
 	WebImageStream *WebImageStreamSpec `json:"webImageStream,omitempty"`
 	// Configuration of the resources used by the WebServer, ie CPU and memory, use limits and requests
-	Resources *corev1.ResourceRequirements `json:"resources,omitempty"`
+	PodResources corev1.ResourceRequirements `json:"podResources,omitempty"`
 	//If true operator will create a PVC to save the logs.
 	PersistentLogs bool `json:"persistentLogs,omitempty"`
 	//If true operator will log tomcat's access logs

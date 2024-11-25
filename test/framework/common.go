@@ -465,7 +465,7 @@ func HPATest(clt client.Client, ctx context.Context, t *testing.T, namespace str
 			WebImage: &webserversv1alpha1.WebImageSpec{
 				ApplicationImage: "quay.io/web-servers/tomcat-demo",
 			},
-			Resources: &corev1.ResourceRequirements{
+			PodResources: corev1.ResourceRequirements{
 				Limits: corev1.ResourceList{
 					corev1.ResourceCPU:    resource.MustParse("500m"),
 					corev1.ResourceMemory: resource.MustParse("2Gi"),

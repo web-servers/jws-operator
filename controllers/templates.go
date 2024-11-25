@@ -749,7 +749,7 @@ func (r *WebServerReconciler) generatePodTemplate(webServer *webserversv1alpha1.
 				ImagePullPolicy: "Always",
 				ReadinessProbe:  r.generateReadinessProbe(webServer, health),
 				LivenessProbe:   r.generateLivenessProbe(webServer, health),
-				Resources:       generateResources(webServer.Spec.Resources),
+				Resources:       webServer.Spec.PodResources,
 				Ports: []corev1.ContainerPort{{
 					Name:          "jolokia",
 					ContainerPort: 8778,
@@ -781,9 +781,7 @@ func (r *WebServerReconciler) generatePodTemplate(webServer *webserversv1alpha1.
 		template.Spec.Containers[0].Args = append(template.Spec.Containers[0].Args, "-c", "/opt/start/start.sh")
 	}
 	// if the user specified the resources directive propagate it to the container (required for HPA).
-	if webServer.Spec.Resources != nil {
-		template.Spec.Containers[0].Resources = *webServer.Spec.Resources
-	}
+	template.Spec.Containers[0].Resources = webServer.Spec.PodResources
 	return template
 }
 
@@ -1278,26 +1276,6 @@ func (r *WebServerReconciler) generateLoggingProperties(webServer *webserversv1a
 		"1catalina.org.apache.juli.AsyncFileHandler.prefix = catalina-${pod_name}.\n" +
 		"1catalina.org.apache.juli.AsyncFileHandler.maxDays = 90"
 	return cmd
-}
-
-// generateResources supplements a default ResourceRequirements and returns it.
-func generateResources(r *corev1.ResourceRequirements) corev1.ResourceRequirements {
-	rTemplate := corev1.ResourceRequirements{
-		Limits:   nil,
-		Requests: nil,
-	}
-
-	if r != nil {
-		if r.Limits != nil && len(r.Limits) > 0 {
-			rTemplate.Limits = r.Limits
-		}
-
-		if r.Requests != nil && len(r.Requests) > 0 {
-			rTemplate.Requests = r.Requests
-		}
-	}
-
-	return rTemplate
 }
 
 // generateSecurityContext supplements a default SecurityContext and returns it.
