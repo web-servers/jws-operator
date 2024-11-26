@@ -523,14 +523,44 @@ func (r *WebServerReconciler) generateBuildTriggerPolicy(webServer *webserversv1
 	sources := webServer.Spec.WebImageStream.WebSources
 	if sources != nil {
 		params := sources.WebSourcesParams
-		if params != nil {
-			if params.GithubWebhookSecret != "" {
+
+		if sources.WebhookSecrets != nil {
+			if sources.WebhookSecrets.Generic != "" {
+				buildTriggerPolicies = append(buildTriggerPolicies, buildv1.BuildTriggerPolicy{
+					Type: "Generic",
+					GenericWebHook: &buildv1.WebHookTrigger{
+						SecretReference: &buildv1.SecretLocalReference{
+							Name: sources.WebhookSecrets.Generic,
+						},
+					},
+				})
+			}
+			if sources.WebhookSecrets.Github != "" {
 				buildTriggerPolicies = append(buildTriggerPolicies, buildv1.BuildTriggerPolicy{
 					Type: "GitHub",
 					GitHubWebHook: &buildv1.WebHookTrigger{
 						SecretReference: &buildv1.SecretLocalReference{
-							Name: params.GithubWebhookSecret,
+							Name: sources.WebhookSecrets.Github,
 						},
+					},
+				})
+			}
+			if sources.WebhookSecrets.Gitlab != "" {
+				buildTriggerPolicies = append(buildTriggerPolicies, buildv1.BuildTriggerPolicy{
+					Type: "GitLab",
+					GitLabWebHook: &buildv1.WebHookTrigger{
+						SecretReference: &buildv1.SecretLocalReference{
+							Name: sources.WebhookSecrets.Gitlab,
+						},
+					},
+				})
+			}
+		} else if params != nil {
+			if params.GithubWebhookSecret != "" {
+				buildTriggerPolicies = append(buildTriggerPolicies, buildv1.BuildTriggerPolicy{
+					Type: "GitHub",
+					GitHubWebHook: &buildv1.WebHookTrigger{
+						Secret: params.GithubWebhookSecret,
 					},
 				})
 			}
@@ -538,9 +568,7 @@ func (r *WebServerReconciler) generateBuildTriggerPolicy(webServer *webserversv1
 				buildTriggerPolicies = append(buildTriggerPolicies, buildv1.BuildTriggerPolicy{
 					Type: "Generic",
 					GenericWebHook: &buildv1.WebHookTrigger{
-						SecretReference: &buildv1.SecretLocalReference{
-							Name: params.GenericWebhookSecret,
-						},
+						Secret: params.GenericWebhookSecret,
 					},
 				})
 			}

@@ -477,13 +477,28 @@ spec:
                             description: Directory where the jar/war is created
                             type: string
                           genericWebhookSecret:
-                            description: Secret for a generic web hook
+                            description: (Deprecated - Use WebhookSecrets instead)
+                              Secret string for a generic web hook
                             type: string
                           githubWebhookSecret:
-                            description: Secret for a Github web hook
+                            description: (Deprecated - Use WebhookSecrets instead)
+                              Secret string for a Github web hook
                             type: string
                           mavenMirrorUrl:
                             description: URL to a maven repository
+                            type: string
+                        type: object
+                      webhookSecrets:
+                        description: Webhook secrets configuration
+                        properties:
+                          generic:
+                            description: Secret for generic webhook
+                            type: string
+                          github:
+                            description: Secret for Github webhook
+                            type: string
+                          gitlab:
+                            description: Secret for Gitlab webhook
                             type: string
                         type: object
                     required:
