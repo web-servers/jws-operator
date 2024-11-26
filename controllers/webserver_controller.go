@@ -167,8 +167,8 @@ func (r *WebServerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 			return reconcile.Result{}, err
 		} else if servicePrometeus == nil {
 			log.Info("Webserver: Create Prometheus Service and requeue reconciliation")
-			log.Info("Webserver resource (TLSSecret) " + webServer.Spec.TLSSecret)
-			log.Info("Webserver resource (RouteHostname) " + webServer.Spec.RouteHostname)
+			log.Info("Webserver resource (TLSSecret) " + webServer.Spec.TLSConfig.TLSSecret)
+			log.Info("Webserver resource (RouteHostname) " + webServer.Spec.TLSConfig.RouteHostname)
 			return reconcile.Result{Requeue: true}, nil
 		}
 	}
@@ -186,15 +186,15 @@ func (r *WebServerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 
 	// Check if a Service for routing already exists, and if not create a new one
 	routingService := &corev1.Service{}
-	if strings.HasPrefix(webServer.Spec.RouteHostname, "tls") {
-		log.Info("generating routing service with port 8443 " + "cause webServer.Spec.RouteHostname= " + webServer.Spec.RouteHostname)
-		log.Info("generating routing service with port 8443 " + "with TLSSecret= " + webServer.Spec.TLSSecret)
+	if strings.HasPrefix(webServer.Spec.TLSConfig.RouteHostname, "tls") {
+		log.Info("generating routing service with port 8443 " + "cause webServer.Spec.RouteHostname= " + webServer.Spec.TLSConfig.RouteHostname)
+		log.Info("generating routing service with port 8443 " + "with TLSSecret= " + webServer.Spec.TLSConfig.TLSSecret)
 		routingService = r.generateRoutingService(webServer, 8443)
-		log.Info("generating routing service with port 8443 " + "cause webServer.Spec.RouteHostname= " + webServer.Spec.RouteHostname)
-		log.Info("generating routing service with port 8443 " + "with TLSSecret= " + webServer.Spec.TLSSecret)
+		log.Info("generating routing service with port 8443 " + "cause webServer.Spec.RouteHostname= " + webServer.Spec.TLSConfig.RouteHostname)
+		log.Info("generating routing service with port 8443 " + "with TLSSecret= " + webServer.Spec.TLSConfig.TLSSecret)
 	} else {
-		log.Info("generating routing service with port 8080 " + "cause webServer.Spec.RouteHostname= " + webServer.Spec.RouteHostname)
-		log.Info("generating routing service with port 8080 " + "with TLSSecret= " + webServer.Spec.TLSSecret)
+		log.Info("generating routing service with port 8080 " + "cause webServer.Spec.RouteHostname= " + webServer.Spec.TLSConfig.RouteHostname)
+		log.Info("generating routing service with port 8080 " + "with TLSSecret= " + webServer.Spec.TLSConfig.TLSSecret)
 		routingService = r.generateRoutingService(webServer, 8080)
 	}
 	result, err = r.createService(ctx, webServer, routingService, routingService.Name, routingService.Namespace)
@@ -250,7 +250,7 @@ func (r *WebServerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 	}
 
 	// Check if exists a ConfigMap for the server.xml <Cluster/> definition otherwise create it.
-	if strings.HasPrefix(webServer.Spec.RouteHostname, "tls") || webServer.Spec.UseSessionClustering || webServer.Spec.EnableAccessLogs {
+	if strings.HasPrefix(webServer.Spec.TLSConfig.RouteHostname, "tls") || webServer.Spec.UseSessionClustering || webServer.Spec.PersistentLogsConfig.AccessLogs {
 		configMap := r.generateConfigMapForDNSTLS(webServer)
 		result, err = r.createConfigMap(ctx, webServer, configMap, configMap.Name, configMap.Namespace)
 		if err != nil || result != (ctrl.Result{}) {
@@ -290,7 +290,7 @@ func (r *WebServerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		}
 	}
 
-	if webServer.Spec.PersistentLogs {
+	if webServer.Spec.PersistentLogsConfig.CatalinaLogs || webServer.Spec.PersistentLogsConfig.AccessLogs {
 		// Check if exists a ConfigMap for the LoggingProperties otherwise create it.
 		configMap := r.generateConfigMapForLoggingProperties(webServer)
 		result, err = r.createConfigMap(ctx, webServer, configMap, configMap.Name, configMap.Namespace)
@@ -565,7 +565,7 @@ func (r *WebServerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 
 	if r.isOpenShift {
 
-		if webServer.Spec.RouteHostname != "NONE" && !strings.HasPrefix(webServer.Spec.RouteHostname, "tls") {
+		if webServer.Spec.TLSConfig.RouteHostname != "NONE" && !strings.HasPrefix(webServer.Spec.TLSConfig.RouteHostname, "tls") {
 
 			// Check if a Route already exists, and if not create a new one
 			route := r.generateRoute(webServer)
@@ -585,7 +585,7 @@ func (r *WebServerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 				webServer.Status.Hosts = hosts
 				log.Info("Status.Hosts update scheduled")
 			}
-		} else if strings.HasPrefix(webServer.Spec.RouteHostname, "tls") {
+		} else if strings.HasPrefix(webServer.Spec.TLSConfig.RouteHostname, "tls") {
 			// Check if a Route already exists, and if not create a new one
 			route := r.generateSecureRoute(webServer)
 			result, err = r.createRoute(ctx, webServer, route, route.Name, route.Namespace)

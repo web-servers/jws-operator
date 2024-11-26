@@ -20,8 +20,10 @@ func makeSecureWebserver(namespace string, name string, imageStreamName string, 
 			ApplicationName:      name,
 			Replicas:             replicas,
 			UseSessionClustering: usesessionclustering,
-			RouteHostname:        "tls:" + host + defaultIngressDomain,
-			TLSSecret:            "test-tls-secret",
+			TLSConfig: webserversv1alpha1.TLSConfig{
+				RouteHostname: "tls:" + host + defaultIngressDomain,
+				TLSSecret:     "test-tls-secret",
+			},
 			WebImageStream: &webserversv1alpha1.WebImageStreamSpec{
 				ImageStreamName:      imageStreamName,
 				ImageStreamNamespace: imageStreamNamespace,

@@ -24,30 +24,18 @@ type WebServerSpec struct {
 	EnvironmentVariables []corev1.EnvVar `json:"environmentVariables,omitempty"`
 	// Use Session Clustering
 	UseSessionClustering bool `json:"useSessionClustering,omitempty"`
-	// Route behaviour:[tls]hostname/NONE or empty.
-	RouteHostname string `json:"routeHostname,omitempty"`
-	// certificateVerification for tomcat configuration: required/optional or empty.
-	CertificateVerification string `json:"certificateVerification,omitempty"`
-	// TLSSecret secret containing server.cert the server certificate, server.key the server key and optional ca.cert the CA cert of the client certificates
-	TLSSecret string `json:"tlsSecret,omitempty"`
-	// TLSPassword passphrase for the key in the client.key
-	TLSPassword string `json:"tlsPassword,omitempty"`
+	// TLS configuration
+	TLSConfig TLSConfig `json:"tlsConfig,omitempty"`
+	// Persistent logs configuration
+	PersistentLogsConfig PersistentLogs `json:"persistentLogs,omitempty"`
 	// (Deployment method 1) Application image
 	WebImage *WebImageSpec `json:"webImage,omitempty"`
 	// (Deployment method 2) Imagestream
 	WebImageStream *WebImageStreamSpec `json:"webImageStream,omitempty"`
 	// Configuration of the resources used by the WebServer, ie CPU and memory, use limits and requests
 	PodResources corev1.ResourceRequirements `json:"podResources,omitempty"`
-	//If true operator will create a PVC to save the logs.
-	PersistentLogs bool `json:"persistentLogs,omitempty"`
-	//If true operator will log tomcat's access logs
-	EnableAccessLogs bool `json:"enableAccessLogs,omitempty"`
 	// IsNotJWS boolean that specifies if the image is JWS or not.
 	IsNotJWS bool `json:"isNotJWS,omitempty"`
-	// VolumeName is the name of pv we eant to bound
-	VolumeName string `json:"volumeName,omitempty"`
-	// StorageClass name of the storage class we want to use for the bound
-	StorageClass string `json:"storageClass,omitempty"`
 	// SecurityContext defines the security capabilities required to run the application.
 	SecurityContext *corev1.SecurityContext `json:"securityContext,omitempty"`
 }
@@ -100,6 +88,29 @@ type WebImageStreamSpec struct {
 	WebSources *WebSourcesSpec `json:"webSources,omitempty"`
 	// Pod health checks information
 	WebServerHealthCheck *WebServerHealthCheckSpec `json:"webServerHealthCheck,omitempty"`
+}
+
+// TLS settings
+type TLSConfig struct {
+	// TLSSecret secret containing server.cert the server certificate, server.key the server key and optional ca.cert the CA cert of the client certificates
+	TLSSecret string `json:"tlsSecret,omitempty"`
+	// TLSPassword passphrase for the key in the client.key
+	TLSPassword string `json:"tlsPassword,omitempty"`
+	// certificateVerification for tomcat configuration: required/optional or empty.
+	CertificateVerification string `json:"certificateVerification,omitempty"`
+	// Route behaviour:[tls]hostname/NONE or empty.
+	RouteHostname string `json:"routeHostname,omitempty"`
+}
+
+type PersistentLogs struct {
+	//If true operator will log tomcat's catalina logs
+	CatalinaLogs bool `json:"catalinaLogs,omitempty"`
+	//If true operator will log tomcat's access logs
+	AccessLogs bool `json:"enableAccessLogs,omitempty"`
+	// VolumeName is the name of pv we eant to bound
+	VolumeName string `json:"volumeName,omitempty"`
+	// StorageClass name of the storage class we want to use for the bound
+	StorageClass string `json:"storageClass,omitempty"`
 }
 
 // (Optional) Source code information

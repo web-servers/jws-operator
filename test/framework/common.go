@@ -167,8 +167,8 @@ func WebServerApplicationImageSourcesBasicTest(clt client.Client, ctx context.Co
 func WebServerSecureRouteTest(clt client.Client, ctx context.Context, t *testing.T, namespace string, name string, imageStreamName string, testURI string, defaultIngressDomain string, usesessionclustering bool) (err error) {
 
 	webServer := makeSecureWebserver(namespace, name, imageStreamName, namespace, 1, defaultIngressDomain, usesessionclustering)
-	t.Logf("WebServerSecureRouteTest for: %s\n", webServer.Spec.RouteHostname)
-	t.Logf("WebServerSecureRouteTest for: %s\n", webServer.Spec.TLSSecret)
+	t.Logf("WebServerSecureRouteTest for: %s\n", webServer.Spec.TLSConfig.RouteHostname)
+	t.Logf("WebServerSecureRouteTest for: %s\n", webServer.Spec.TLSConfig.TLSSecret)
 	deployWebServer(clt, ctx, t, webServer)
 
 	// cleanup
@@ -416,11 +416,13 @@ func PersistentLogsTest(clt client.Client, ctx context.Context, t *testing.T, na
 					ServerReadinessScript: "if [ $(ls /opt/tomcat_logs |grep -c .log) != 4 ];then exit 1;fi",
 				},
 			},
-			PersistentLogs:       true,
-			EnableAccessLogs:     true,
+			PersistentLogsConfig: webserversv1alpha1.PersistentLogs{
+				CatalinaLogs: true,
+				AccessLogs:   true,
+				VolumeName:   "pv0000",
+				StorageClass: "nfs-client",
+			},
 			UseSessionClustering: true,
-			VolumeName:           "pv0000",
-			StorageClass:         "nfs-client",
 		},
 	}
 
@@ -1091,18 +1093,18 @@ func webServerRouteTest(clt client.Client, ctx context.Context, t *testing.T, we
 			return nil, errors.New("Route is empty!")
 		}
 		t.Logf("Route:  (%s)\n", webServer.Status.Hosts)
-		t.Logf("RouteHostName:  (%s)\n", webServer.Spec.RouteHostname)
-		t.Logf("TLSSecret:  (%s)\n", webServer.Spec.TLSSecret)
+		t.Logf("RouteHostName:  (%s)\n", webServer.Spec.TLSConfig.RouteHostname)
+		t.Logf("TLSSecret:  (%s)\n", webServer.Spec.TLSConfig.TLSSecret)
 
 		t.Logf("Route:  (%s)\n", curwebServer.Status.Hosts)
-		t.Logf("RouteHostName:  (%s)\n", curwebServer.Spec.RouteHostname)
-		t.Logf("TLSSecret:  (%s)\n", curwebServer.Spec.TLSSecret)
+		t.Logf("RouteHostName:  (%s)\n", curwebServer.Spec.TLSConfig.RouteHostname)
+		t.Logf("TLSSecret:  (%s)\n", curwebServer.Spec.TLSConfig.TLSSecret)
 		if isSecure {
-			if len(curwebServer.Spec.RouteHostname) <= 4 {
+			if len(curwebServer.Spec.TLSConfig.RouteHostname) <= 4 {
 				URL = "https://" + curwebServer.Status.Hosts[0] + URI
 			} else {
 				// We have something like tls:hostname
-				URL = "https://" + curwebServer.Spec.RouteHostname[4:] + URI
+				URL = "https://" + curwebServer.Spec.TLSConfig.RouteHostname[4:] + URI
 			}
 		} else {
 			URL = "http://" + curwebServer.Status.Hosts[0] + URI
