@@ -16,11 +16,41 @@ spec:
       name: webservers.web.servers.org
       version: v1alpha1
       specDescriptors:
-      - description: Pod resources 
+      - description: The base for the names of the deployed application resources
+        displayName: Application Name
+        path: applicationName
+      - description: Desired number of replicas for the application
+        displayName: Replicas
+        path: replicas
+        x-descriptors:
+          - 'urn:alm:descriptor:com.tectonic.ui:podCount'
+      - displayName: Enable Session Clustering in Tomcat
+        path: useSessionClustering
+        x-descriptors:
+          - 'urn:alm:descriptor:com.tectonic.ui:booleanSwitch'
+      - description: (Deployment method 1) Application image
+        displayName: Web Image
+        path: webImage
+      - description: (Deployment method 2) Image stream
+        displayName: Web Image Stream
+        path: webImageStream
+      - description: TLS configuration for the WebServer
+        displayName: TLS Configuration
+        path: tlsConfig
+      - description: Environment variables for the WebServer
+        displayName: Environment Variables
+        path: environmentVariables
+      - description: Persistent logs configuration
+        displayName: Persistent Logs
+        path: persistentLogs
+      - description: Configuration of the resources used by the WebServer e.g. CPU and memory.
         displayName: Pod Resources
         path: podResources
         x-descriptors:
-        - urn:alm:descriptor:com.tectonic.ui:resourceRequirements
+          - 'urn:alm:descriptor:com.tectonic.ui:resourceRequirements'
+      - description: SecurityContext defines the security capabilities required to run the application.
+        displayName: Security Context
+        path: securityContext
   description: jws-mm
   displayName: jws-mm
   icon:
