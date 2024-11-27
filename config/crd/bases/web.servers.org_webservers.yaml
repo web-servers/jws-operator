@@ -159,12 +159,7 @@ spec:
               persistentLogs:
                 description: If true operator will create a PVC to save the logs.
                 type: boolean
-              replicas:
-                description: The desired number of replicas for the application
-                format: int32
-                minimum: 0
-                type: integer
-              resources:
+              podResources:
                 description: Configuration of the resources used by the WebServer,
                   ie CPU and memory, use limits and requests
                 properties:
@@ -191,6 +186,11 @@ spec:
                       to an implementation-defined value. More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/'
                     type: object
                 type: object
+              replicas:
+                description: The desired number of replicas for the application
+                format: int32
+                minimum: 0
+                type: integer
               routeHostname:
                 description: Route behaviour:[tls]hostname/NONE or empty.
                 type: string
