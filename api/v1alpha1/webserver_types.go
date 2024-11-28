@@ -112,6 +112,8 @@ type WebSourcesSpec struct {
 	ContextDir string `json:"contextDir,omitempty"`
 	// (Optional) Sources related parameters
 	WebSourcesParams *WebSourcesParamsSpec `json:"webSourcesParams,omitempty"`
+	// Webhook secrets configuration
+	WebhookSecrets *WebhookSecrets `json:"webhookSecrets,omitempty"`
 }
 
 // (Optional) Sources related parameters
@@ -120,10 +122,19 @@ type WebSourcesParamsSpec struct {
 	MavenMirrorURL string `json:"mavenMirrorUrl,omitempty"`
 	// Directory where the jar/war is created
 	ArtifactDir string `json:"artifactDir,omitempty"`
-	// Secret for a generic web hook
+	// (Deprecated - Use WebhookSecrets instead) Secret string for a generic web hook
 	GenericWebhookSecret string `json:"genericWebhookSecret,omitempty"`
-	// Secret for a Github web hook
+	// (Deprecated - Use WebhookSecrets instead) Secret string for a Github web hook
 	GithubWebhookSecret string `json:"githubWebhookSecret,omitempty"`
+}
+
+type WebhookSecrets struct {
+	// Secret for generic webhook
+	Generic string `json:"generic,omitempty"`
+	// Secret for Github webhook
+	Github string `json:"github,omitempty"`
+	// Secret for Gitlab webhook
+	Gitlab string `json:"gitlab,omitempty"`
 }
 
 type WebServerHealthCheckSpec struct {
