@@ -51,8 +51,9 @@ spec:
       - description: SecurityContext defines the security capabilities required to run the application.
         displayName: Security Context
         path: securityContext
-  description: jws-mm
-  displayName: jws-mm
+  description: WebServer operator can manage JBoss Web Server images and Apache Tomcat
+    images.
+  displayName: WebServer
   icon:
   - base64data: ""
     mediatype: ""
@@ -359,12 +360,13 @@ spec:
   - supported: true
     type: AllNamespaces
   keywords:
-  - jws
-  - mm
+  - WebServer
+  - JBoss
+  - ApacheTomcat
   links:
   - name: Jws Operator
     url: https://jws-operator.domain
   maturity: alpha
   provider:
-    name: mm
+    name: WebServer community
   version: 0.0.1
