@@ -1,12 +1,5 @@
 # Parameters to use in CRD
 
-## replicas (mandatory all configuration)
-The number of pods of the JBoss Web Server image you want to run.
-
-```
-  replicas: 2
-```
-
 ## applicationName (mandatory all configuration)
 The name of the application, it must be unique in the namespace/project. Note that it is used to create the route to access
 to that application.
@@ -15,80 +8,18 @@ to that application.
   applicationName: test
 ```
 
+## replicas (mandatory all configuration)
+The number of pods of the JBoss Web Server image you want to run.
+
+```
+  replicas: 2
+```
+
 ## useSessionClustering (off if not filled)
 Use the DNSping or KUBEping session clustering if filled, default don't use session clustering (Note that image needs to be based on JWS images as the feature use ENV_FILES environment variable and a shell script to add the clustering in server.xml)
 
 ```
   useSessionClustering: true
-```
-## routeHostname
-Create a route or not (NONE) and tell if the route uses TLS (tls) and allow to specify a hostname.
-```
-  routeHostname: NONE
-```
-The route will NOT be created by the operator, it needs to be create by hands.
-```
-  routeHostname: tls
-```
-The operator will create a passthrough route to the tomcat.
-
-## certificateVerification
-Use the TLS connector with a client certificates. The value are required, optional or empty see Tomcat connector docs and look for certificateVerification in the connector.
-```
-  certificateVerification: required
-```
-
-## TLSSecret
-Secret to use for the server certificate (server.cert) and server key (server.key) and optional CA certificat for the client certificates (ca.cert).
-```
-  tlsSecret: tlssecret
-```
-
-## TLSPassord
-The passpharse used to protect the server key.
-```
-  tlsPassword: changeit
-```
-
-## Resources
-The configuration of the resources used by the webserver, ie CPU and memory, Use limits and requests.
-Those are used for the auto scaling.
-```
-   resources:
-     limits:
-       cpu: 500m
-     requests:
-       cpu: 200m
-```
-See Horizontal Pod Autoscaling in openshift or kubernetes for more details how to use it.
-
-## PersistentLogs
-If PersistentLogs is true catalina.out of every pod will be saved in a PersistentVolume in order to remain available after a possible pod failure.
-```
-  persistentLogs: true
-```
-
-## EnableAccessLogs
-If EnableAccessLogs is true but PersistentLogs is false access log will just get produced but not saved in a PV. Access logs of every pod will be saved in a PV in case that EnableAccessLogs and PersistentLogs are true in parallel.
-```
-  enableAccessLogs: true
-```
-
-## IsNotJWS
-This parameter is used with PersistentLogs or/and EnableAccessLogs to show the operator how to configure the container for persistent logs because JWS image needs different configuration than the ASF tomcat imag. Setting it to true means that the given image is ASF tomcat image.
-```
-  isNotJWS: true
-```
-## volumeName
-If PersistentLogs is true, volumeName is the name of PersistentVolume used to store the access_log and catalina.out
-```
-  volumeName: pv0000
-```
-
-## storageClass
-If PersistentLogs is true, storageClass is the name of storageClass of the PersistentVolume used to store the access_log and catalina.out
-```
-  storageClassvolumeName: nfs-client
 ```
 
 ## webImage (to deploy from existing images)
@@ -107,13 +38,58 @@ The secret to use to pull images for the repository, the secret must contain the
 the operator to be used like --authfile /mount_point/.dockerconfigjson to pull the image to deploy the pods.
 Note that the file might contain several user/password or token to access to the images in the ImageStream, the image builder and the images built by the operator.
 
+### webServerHealthCheck
+Describes how the operator will create the health checks for the created pods. The default behavior is to use the health valve which doesn't require any parameters.
+
+#### serverReadinessScript
+String for the pod readiness health check logic. If left empty the default health check is used (it checks http://localhost:8080/health using OpenShift internal)
+Example :
+
+```
+serverReadinessScript: /bin/bash -c " /usr/bin/curl --noproxy '*' -s 'http://localhost:8080/health' | /usr/bin/grep -i 'status.*UP'"
+```
+
+For the formats see the README.md.
+
+#### serverLivenessScript
+The script that checks if the pod is running. It's use is optional.
+
 ### webApp
 Describes how the operator will build the webapp to add to application image, if not present the application is just deployed.
 It has the sourceRepositoryUrl (Mandatory), sourceRepositoryRef, contextDir, webAppWarImage, webAppWarImagePushSecret,Name and builder.
 
-### webServerHealthCheck
-Describes how the operator will create the health check for the created pods.
+#### sourceRepositoryURL (mandatory)
+URL for the repository of the application sources
 
+#### name 
+The name of the webapp, default: ROOT.war
+
+#### webAppWarImage 
+That is the URL of images where the operator will push what he builds.
+
+#### webAppWarImagePushSecret 
+The secret to use to push images to the repository, the secret must contain the key .dockerconfigjson and will be mounted by
+the operator to be used like --authfile /mount_point/.dockerconfigjson to push the image to repository. Note that if you need a pull secret for the FROM image the webAppImagePushSecret must contain it too.
+
+#### contextDir
+Subdirectory in the source repository
+
+#### sourceRepositoryRef
+Branch in the source repository
+
+#### builder
+It describes how the webapp is build and the docker image is made and push to a docker repository.
+
+##### image (webapp.builder)
+That is the image to use to build
+```
+builder: quay.io/jfclere/tomcat10-buildah
+```
+##### imagePullSecret (webapp.builder)
+If there is an imagePullSecret, that it should also contain the secret to pull the image of the image builder if needed.
+
+##### applicationBuildScript (webapp.builder)
+That is the script to use to build and push the image, if empty a default script using maven and buildah is used.
 
 ## webImageStream (to deploy from an ImageStream, openshift only)
 The webImageStream controls how the operator will use an ImageStream that provides images to run or to build upon. The latest image in the stream is used.
@@ -138,6 +114,22 @@ imagestream.image.openshift.io/jboss-webserver56-tomcat9-openshift created
 ```
 
 Here: imageStreamNamespace: jfc
+
+### webServerHealthCheck
+Describes how the operator will create the health checks for the created pods. The default behavior is to use the health valve which doesn't require any parameters.
+
+#### serverReadinessScript
+String for the pod readiness health check logic. If left empty the default health check is used (it checks http://localhost:8080/health using OpenShift internal)
+Example :
+
+```
+serverReadinessScript: /bin/bash -c " /usr/bin/curl --noproxy '*' -s 'http://localhost:8080/health' | /usr/bin/grep -i 'status.*UP'"
+```
+
+For the formats see the README.md.
+
+#### serverLivenessScript
+The script that checks if the pod is running. It's use is optional.
 
 ### webSources
 Describes where the sources are located and how build them, if empty the latest image in ImageStream is deployed)
@@ -169,7 +161,7 @@ The sub directory where the pom.xml is located and where the `mvn install` shoul
 #### webhookSecrets 
 Secret names for triggering a build through webhook.
 
-##### Generic (webhookSecrets)
+##### generic (webhookSecrets)
 Secret name for triggering a build.
 
 1 - Create a base64 secret string:
@@ -243,10 +235,10 @@ The build is triggered.
 
 Go to Setting+Webhooks+Add webhook in your github project and add the URL in the Payload URL, set Content type: application/json, Disable SSL verification if needed and click Add webhook. See https://docs.openshift.com/container-platform/4.6/builds/triggering-builds-build-hooks.html for more details.
 
-##### Github (webhookSecrets)
+##### github (webhookSecrets)
 Secret name for triggering a build from Github.
 
-##### Gitlab (webhookSecrets)
+##### gitlab (webhookSecrets)
 Secret name for triggering a build from Gitlab.
 
 #### webSourcesParams
@@ -259,51 +251,93 @@ The contents of artifactDir is copied in the webapps directory of the image used
 ##### mavenMirrorUrl (webSourcesParams)
 The mavenMirrorUrl is a parameter of the SourceBuildStrategy the operator is using. It is the maven proxy URL that maven will use to build the webapp. It is required if the cluster doesn't have access to the Internet.
 
-##### (Deprecated) genericWebhookSecret (webSourcesParams)
+##### (Deprecated - use WebhookSecrets instead) genericWebhookSecret (webSourcesParams)
 Web hook secret string
 
-##### (Deprecated) githubWebhookSecret (webSourcesParams)
+##### (Deprecated - use WebhookSecrets instead) githubWebhookSecret (webSourcesParams)
 That is a web hook secret string specific to GitHub, it works like `genericWebhookSecret`
 
 Note that it is not possible to test the Github webhook by hands: The playload is generated by github and it is NOT empty.
 
+## tlsConfig
+TLS configuration for a webserver
 
-## webServerHealthCheck (webImage and webImageStream)
-The health check that the operator will use. The default behavior is to use the health valve which doesn't require any parameters.
-
-### serverReadinessScript
-String for the pod readiness health check logic. If left empty the default health check is used (it checks http://localhost:8080/health using OpenShift internal)
-Example :
-
+### routeHostname
+Create a route or not (NONE) and tell if the route uses TLS (tls) and allow to specify a hostname.
 ```
-serverReadinessScript: /bin/bash -c " /usr/bin/curl --noproxy '*' -s 'http://localhost:8080/health' | /usr/bin/grep -i 'status.*UP'"
+  routeHostname: NONE
+```
+The route will NOT be created by the operator, it needs to be create by hands.
+```
+  routeHostname: tls
+```
+The operator will create a passthrough route to the tomcat.
+
+### certificateVerification
+Use the TLS connector with a client certificates. The value are required, optional or empty see Tomcat connector docs and look for certificateVerification in the connector.
+```
+  certificateVerification: required
 ```
 
-For the formats see the README.md.
-
-### serverLivenessScript
-The script that checks if the pod is running. It's use is optional.
-
-### Name (webapp)
-The name of the webapp, default: ROOT.war
-
-### webAppWarImage (webapp)
-That is the URL of images where the operator will push what he builds.
-
-### webAppWarImagePushSecret (webapp)
-The secret to use to push images to the repository, the secret must contain the key .dockerconfigjson and will be mounted by
-the operator to be used like --authfile /mount_point/.dockerconfigjson to push the image to repository. Note that if you need a pull secret for the FROM image the webAppImagePushSecret must contain it too.
-
-### builder (webapp)
-It describes how the webapp is build and the docker image is made and push to a docker repository.
-
-#### image (webapp.builder)
-That is the image to use to build
+### tlsSecret
+Secret to use for the server certificate (server.cert) and server key (server.key) and optional CA certificat for the client certificates (ca.cert).
 ```
-builder: quay.io/jfclere/tomcat10-buildah
+  tlsSecret: tlssecret
 ```
-#### imagePullSecret (webapp.builder)
-If there is an imagePullSecret, that it should also contain the secret to pull the image of the image builder if needed.
 
-#### applicationBuildScript (webapp.builder)
-That is the script to use to build and push the image, if empty a default script using maven and buildah is used.
+### tlsPassord
+The passpharse used to protect the server key.
+```
+  tlsPassword: changeit
+```
+
+## environmentVariables
+Environment variables for deployment.
+
+## persistentLogs
+Persistent volume and logging configuration.
+
+### catalinaLogs
+Log file catalina.out of every pod will be saved in a PersistentVolume in order to remain available after a possible pod failure.
+```
+  catalinaLogs: true
+```
+
+### enableAccessLogs
+Log file access_log of every pod will be saved in a PersistentVolume in order to remain available after a possible pod failure.
+```
+  enableAccessLogs: true
+```
+
+### volumeName
+Name of PersistentVolume used to store the log files.
+```
+  volumeName: pv0000
+```
+
+### storageClass
+Name of storageClass of the PersistentVolume used to store the log files.
+```
+  storageClassvolumeName: nfs-client
+```
+
+## podResources
+The configuration of the resources used by the webserver, ie CPU and memory, Use limits and requests.
+Those are used for the auto scaling.
+```
+   resources:
+     limits:
+       cpu: 500m
+     requests:
+       cpu: 200m
+```
+See Horizontal Pod Autoscaling in openshift or kubernetes for more details how to use it.
+
+## securityContext
+SecurityContext defines the security capabilities required to run the application.
+
+## IsNotJWS
+This parameter is used with PersistentLogs or/and EnableAccessLogs to show the operator how to configure the container for persistent logs because JWS image needs different configuration than the ASF tomcat imag. Setting it to true means that the given image is ASF tomcat image.
+```
+  isNotJWS: true
+```

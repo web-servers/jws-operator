@@ -40,13 +40,6 @@ spec:
                 description: The base for the names of the deployed application resources
                 pattern: ^[a-z]([-a-z0-9]*[a-z0-9])?$
                 type: string
-              certificateVerification:
-                description: 'certificateVerification for tomcat configuration: required/optional
-                  or empty.'
-                type: string
-              enableAccessLogs:
-                description: If true operator will log tomcat's access logs
-                type: boolean
               environmentVariables:
                 description: Environment Variables for deployment
                 items:
@@ -157,8 +150,22 @@ spec:
                   not.
                 type: boolean
               persistentLogs:
-                description: If true operator will create a PVC to save the logs.
-                type: boolean
+                description: Persistent logs configuration
+                properties:
+                  catalinaLogs:
+                    description: If true operator will log tomcat's catalina logs
+                    type: boolean
+                  enableAccessLogs:
+                    description: If true operator will log tomcat's access logs
+                    type: boolean
+                  storageClass:
+                    description: StorageClass name of the storage class we want to
+                      use for the bound
+                    type: string
+                  volumeName:
+                    description: VolumeName is the name of pv we eant to bound
+                    type: string
+                type: object
               podResources:
                 description: Configuration of the resources used by the WebServer,
                   ie CPU and memory, use limits and requests
@@ -191,9 +198,6 @@ spec:
                 format: int32
                 minimum: 0
                 type: integer
-              routeHostname:
-                description: Route behaviour:[tls]hostname/NONE or empty.
-                type: string
               securityContext:
                 description: SecurityContext defines the security capabilities required
                   to run the application.
@@ -354,24 +358,28 @@ spec:
                         type: string
                     type: object
                 type: object
-              storageClass:
-                description: StorageClass name of the storage class we want to use
-                  for the bound
-                type: string
-              tlsPassword:
-                description: TLSPassword passphrase for the key in the client.key
-                type: string
-              tlsSecret:
-                description: TLSSecret secret containing server.cert the server certificate,
-                  server.key the server key and optional ca.cert the CA cert of the
-                  client certificates
-                type: string
+              tlsConfig:
+                description: TLS configuration
+                properties:
+                  certificateVerification:
+                    description: 'certificateVerification for tomcat configuration:
+                      required/optional or empty.'
+                    type: string
+                  routeHostname:
+                    description: Route behaviour:[tls]hostname/NONE or empty.
+                    type: string
+                  tlsPassword:
+                    description: TLSPassword passphrase for the key in the client.key
+                    type: string
+                  tlsSecret:
+                    description: TLSSecret secret containing server.cert the server
+                      certificate, server.key the server key and optional ca.cert
+                      the CA cert of the client certificates
+                    type: string
+                type: object
               useSessionClustering:
                 description: Use Session Clustering
                 type: boolean
-              volumeName:
-                description: VolumeName is the name of pv we eant to bound
-                type: string
               webImage:
                 description: (Deployment method 1) Application image
                 properties:
