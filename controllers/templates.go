@@ -1,6 +1,7 @@
 package controllers
 
 import (
+	"os"
 	"strings"
 
 	"gopkg.in/yaml.v2"
@@ -921,6 +922,26 @@ func (r *WebServerReconciler) generateEnvVars(webServer *webserversv1alpha1.WebS
 	}
 
 	env = append(env, webServer.Spec.EnvironmentVariables...)
+
+	if webServer.Spec.UseInsightsClient {
+		javaToolOptions := " -javaagent:/opt/runtimes-agent.jar=name=" + webServer.Spec.ApplicationName
+		javaToolOptions = javaToolOptions + ";is_ocp=true;token=dummy;debug=true;base_url="
+		javaToolOptions = javaToolOptions + "http://insights-proxy." + os.Getenv("OPERATOR_NAMESPACE") + ".svc.cluster.local:8080"
+		updated := false
+
+		for i := 0; i < len(env); i++ {
+			if env[i].Name == "JAVA_TOOL_OPTIONS" {
+				env[i].Value = env[i].Value + javaToolOptions
+				updated = true
+			}
+		}
+		if !updated {
+			env = append(env, corev1.EnvVar{
+				Name:  "JAVA_TOOL_OPTIONS",
+				Value: javaToolOptions,
+			})
+		}
+	}
 
 	return env
 }

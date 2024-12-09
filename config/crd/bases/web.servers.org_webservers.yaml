@@ -41,7 +41,7 @@ spec:
                 pattern: ^[a-z]([-a-z0-9]*[a-z0-9])?$
                 type: string
               environmentVariables:
-                description: Environment Variables for deployment
+                description: Environment variables for deployment
                 items:
                   description: EnvVar represents an environment variable present in
                     a Container.
@@ -377,8 +377,11 @@ spec:
                       the CA cert of the client certificates
                     type: string
                 type: object
+              useInsightsClient:
+                description: Allow Insights client
+                type: boolean
               useSessionClustering:
-                description: Use Session Clustering
+                description: Use session clustering
                 type: boolean
               webImage:
                 description: (Deployment method 1) Application image
