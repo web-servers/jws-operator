@@ -102,9 +102,7 @@ mod-vendor:
 clean:
 	rm -rf config/crd/bases
 	rm -rf config/manifests/bases
-	rm -rf bundle
 	rm -rf config/rbac/role.yaml
-	rm -rf bundle.Dockerfile
 	rm -rf api/v1alpha1/zz_generated.deepcopy.go
 
 .PHONY: clean-all
