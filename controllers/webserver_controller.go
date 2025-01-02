@@ -17,6 +17,7 @@ import (
 	imagestreamv1 "github.com/openshift/api/image/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -96,7 +97,7 @@ type WebServerReconciler struct {
 
 // +kubebuilder:rbac:groups=image.openshift.io,resources=imagestreams,verbs=create;get;list;delete;watch
 
-// +kubebuilder:rbac:groups=build.openshift.io,resources=buildconfigs,verbs=create;get;list;delete;watch
+// +kubebuilder:rbac:groups=build.openshift.io,resources=buildconfigs,verbs=create;get;list;delete;update;watch
 // +kubebuilder:rbac:groups=build.openshift.io,resources=builds,verbs=create;get;list;delete;watch
 
 // +kubebuilder:rbac:groups=apps.openshift.io,resources=deploymentconfigs,verbs=create;get;list;delete
@@ -466,10 +467,198 @@ func (r *WebServerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 				return result, err
 			}
 
+			updateBuildConfig := false
+			startNewBuild := false
+
+			if buildConfig.Spec.CommonSpec.Source.Git.URI != webServer.Spec.WebImageStream.WebSources.SourceRepositoryURL {
+				buildConfig.Spec.CommonSpec.Source.Git.URI = webServer.Spec.WebImageStream.WebSources.SourceRepositoryURL
+				updateBuildConfig = true
+				startNewBuild = true
+			}
+
+			if buildConfig.Spec.CommonSpec.Source.Git.Ref != webServer.Spec.WebImageStream.WebSources.SourceRepositoryRef {
+				buildConfig.Spec.CommonSpec.Source.Git.Ref = webServer.Spec.WebImageStream.WebSources.SourceRepositoryRef
+				updateBuildConfig = true
+				startNewBuild = true
+			}
+
+			if buildConfig.Spec.CommonSpec.Source.ContextDir != webServer.Spec.WebImageStream.WebSources.ContextDir {
+				buildConfig.Spec.CommonSpec.Source.ContextDir = webServer.Spec.WebImageStream.WebSources.ContextDir
+				updateBuildConfig = true
+				startNewBuild = true
+			}
+
+			if buildConfig.Spec.CommonSpec.Strategy.SourceStrategy != nil && buildConfig.Spec.CommonSpec.Strategy.SourceStrategy.From.Namespace != webServer.Spec.WebImageStream.ImageStreamNamespace {
+				buildConfig.Spec.CommonSpec.Strategy.SourceStrategy.From.Namespace = webServer.Spec.WebImageStream.ImageStreamNamespace
+				updateBuildConfig = true
+				startNewBuild = true
+			}
+
+			if buildConfig.Spec.CommonSpec.Strategy.SourceStrategy != nil && buildConfig.Spec.CommonSpec.Strategy.SourceStrategy.From.Name != webServer.Spec.WebImageStream.ImageStreamName+":latest" {
+				buildConfig.Spec.CommonSpec.Strategy.SourceStrategy.From.Name = webServer.Spec.WebImageStream.ImageStreamName + ":latest"
+				updateBuildConfig = true
+				startNewBuild = true
+			}
+
+			if webServer.Spec.WebImageStream.WebSources.WebhookSecrets != nil && webServer.Spec.WebImageStream.WebSources.WebhookSecrets.Generic != "" {
+				triggers := buildConfig.Spec.Triggers
+				updated := false
+
+				for i := 0; i < len(triggers); i++ {
+					if triggers[i].GenericWebHook != nil && triggers[i].GenericWebHook.SecretReference != nil && triggers[i].GenericWebHook.SecretReference.Name != webServer.Spec.WebImageStream.WebSources.WebhookSecrets.Generic {
+						triggers[i].GenericWebHook.SecretReference.Name = webServer.Spec.WebImageStream.WebSources.WebhookSecrets.Generic
+						updateBuildConfig = true
+						updated = true
+					}
+				}
+
+				if !updated {
+					buildConfig.Spec.Triggers = append(triggers, buildv1.BuildTriggerPolicy{
+						GenericWebHook: &buildv1.WebHookTrigger{
+							Secret: webServer.Spec.WebImageStream.WebSources.WebhookSecrets.Generic,
+						},
+					})
+					updateBuildConfig = true
+				}
+			} else {
+				triggers := buildConfig.Spec.Triggers
+
+				for i := 0; i < len(triggers); i++ {
+					if triggers[i].GenericWebHook != nil && triggers[i].GenericWebHook.SecretReference != nil {
+						buildConfig.Spec.Triggers = append(triggers[:i], triggers[i+1:]...)
+						updateBuildConfig = true
+					}
+				}
+
+			}
+
+			if webServer.Spec.WebImageStream.WebSources.WebhookSecrets != nil && webServer.Spec.WebImageStream.WebSources.WebhookSecrets.Github != "" {
+				triggers := buildConfig.Spec.Triggers
+				updated := false
+
+				for i := 0; i < len(triggers); i++ {
+					if triggers[i].GitHubWebHook != nil && triggers[i].GitHubWebHook.SecretReference != nil && triggers[i].GitHubWebHook.SecretReference.Name != webServer.Spec.WebImageStream.WebSources.WebhookSecrets.Github {
+						triggers[i].GitHubWebHook.SecretReference.Name = webServer.Spec.WebImageStream.WebSources.WebhookSecrets.Github
+						updateBuildConfig = true
+						updated = true
+					}
+				}
+
+				if !updated {
+					buildConfig.Spec.Triggers = append(triggers, buildv1.BuildTriggerPolicy{
+						GitHubWebHook: &buildv1.WebHookTrigger{
+							Secret: webServer.Spec.WebImageStream.WebSources.WebhookSecrets.Github,
+						},
+					})
+					updateBuildConfig = true
+				}
+			} else {
+				triggers := buildConfig.Spec.Triggers
+
+				for i := 0; i < len(triggers); i++ {
+					if triggers[i].GitHubWebHook != nil && triggers[i].GitHubWebHook.SecretReference != nil {
+						buildConfig.Spec.Triggers = append(triggers[:i], triggers[i+1:]...)
+						updateBuildConfig = true
+					}
+				}
+			}
+
+			if webServer.Spec.WebImageStream.WebSources.WebhookSecrets != nil && webServer.Spec.WebImageStream.WebSources.WebhookSecrets.Gitlab != "" {
+				triggers := buildConfig.Spec.Triggers
+				updated := false
+
+				for i := 0; i < len(triggers); i++ {
+					if triggers[i].GitLabWebHook != nil && triggers[i].GitLabWebHook.SecretReference != nil && triggers[i].GitLabWebHook.SecretReference.Name != webServer.Spec.WebImageStream.WebSources.WebhookSecrets.Gitlab {
+						triggers[i].GitLabWebHook.SecretReference.Name = webServer.Spec.WebImageStream.WebSources.WebhookSecrets.Gitlab
+						updateBuildConfig = true
+						updated = true
+					}
+				}
+
+				if !updated {
+					buildConfig.Spec.Triggers = append(triggers, buildv1.BuildTriggerPolicy{
+						GitLabWebHook: &buildv1.WebHookTrigger{
+							Secret: webServer.Spec.WebImageStream.WebSources.WebhookSecrets.Gitlab,
+						},
+					})
+					updateBuildConfig = true
+				}
+			} else {
+				triggers := buildConfig.Spec.Triggers
+
+				for i := 0; i < len(triggers); i++ {
+					if triggers[i].GitLabWebHook != nil && triggers[i].GitLabWebHook.SecretReference != nil {
+						buildConfig.Spec.Triggers = append(triggers[:i], triggers[i+1:]...)
+						updateBuildConfig = true
+					}
+				}
+			}
+
+			if startNewBuild {
+				buildVersion := buildConfig.Status.LastVersion + 1
+				buildConfig.Status.LastVersion = buildVersion
+			}
+
+			if updateBuildConfig {
+				log.Info("Update Build Config")
+				err = r.Update(ctx, buildConfig)
+				if err != nil {
+					log.Error(err, "Failed to update BuildConfig.", "BuildConfig.Namespace", buildConfig.Namespace, "BuildConfig.Name", buildConfig.Name)
+					if errors.IsConflict(err) {
+						log.V(1).Info(err.Error())
+					} else {
+						return ctrl.Result{}, err
+					}
+				}
+			}
+
 			// Check if a Build has been created by the BuildConfig
+			log.Info("Checking build version - " + strconv.FormatInt(buildConfig.Status.LastVersion, 10))
+			buildVersion := strconv.FormatInt(buildConfig.Status.LastVersion, 10)
+
 			build := &buildv1.Build{}
-			err = r.Get(ctx, types.NamespacedName{Name: webServer.Spec.ApplicationName + "-" + strconv.FormatInt(buildConfig.Status.LastVersion, 10), Namespace: webServer.Namespace}, build)
-			if err != nil && !errors.IsNotFound(err) {
+			err = r.Get(ctx, types.NamespacedName{Name: webServer.Spec.ApplicationName + "-" + buildVersion, Namespace: webServer.Namespace}, build)
+
+			if err != nil && errors.IsNotFound(err) {
+				log.Info("Creating new build")
+
+				build := &buildv1.Build{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      buildConfig.Name + "-" + buildVersion,
+						Namespace: buildConfig.Namespace,
+						Labels: map[string]string{
+							"buildconfig":                     buildConfig.Name,
+							"openshift.io/build-config.name":  buildConfig.Name,
+							"openshift.io/build.start-policy": "Serial",
+						},
+						Annotations: map[string]string{
+							"openshift.io/build-config.name": buildConfig.Name,
+							"openshift.io/build.number":      buildVersion,
+							"openshift.io/build.pod-name":    buildConfig.Name + "-" + buildVersion + "-build",
+						},
+					},
+					Spec: buildv1.BuildSpec{
+						CommonSpec: buildConfig.Spec.CommonSpec, // Copy the common spec from the BuildConfig
+					},
+				}
+
+				err = ctrl.SetControllerReference(webServer, build, r.Scheme)
+				if err != nil {
+					log.Error(err, "Failed to set owner reference")
+					return reconcile.Result{}, err
+				}
+
+				err = r.Client.Create(ctx, build)
+				if err != nil {
+					if errors.IsAlreadyExists(err) {
+						// Build already exists, do nothing
+						return reconcile.Result{}, nil
+					}
+
+					log.Error(err, "Failed to create build")
+					return reconcile.Result{}, err
+				}
+			} else if err != nil && !errors.IsNotFound(err) {
 				log.Info("Failed to get the Build")
 				return ctrl.Result{}, err
 			}
@@ -487,6 +676,14 @@ func (r *WebServerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 				log.Info("Application build canceled")
 				return ctrl.Result{}, nil
 
+			}
+		} else {
+			buildConfig := &buildv1.BuildConfig{}
+
+			err = r.Get(ctx, types.NamespacedName{Name: webServer.Spec.ApplicationName, Namespace: webServer.Namespace}, buildConfig)
+
+			if err == nil {
+				r.Delete(ctx, buildConfig)
 			}
 		}
 
