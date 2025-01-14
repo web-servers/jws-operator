@@ -2,7 +2,21 @@ apiVersion: operators.coreos.com/v1alpha1
 kind: ClusterServiceVersion
 metadata:
   annotations:
-    alm-examples: '[]'
+    alm-examples: |-
+      [
+        {
+          "apiVersion": "web.servers.org/v1alpha1",
+          "kind": "WebServer",
+          "metadata": {
+            "name": "webserver-example"
+          },
+          "spec": {
+            "applicationName": "webapp",
+            "replicas": 1,
+            "useInsightsClient": true
+          }
+        }
+      ]
     capabilities: Basic Install
     operators.operatorframework.io/builder: operator-sdk-v1.25.3
     operators.operatorframework.io/project_layout: go.kubebuilder.io/v3
@@ -24,8 +38,14 @@ spec:
         path: replicas
         x-descriptors:
           - 'urn:alm:descriptor:com.tectonic.ui:podCount'
-      - displayName: Enable Session Clustering in Tomcat
+      - description: Use session clustering
+        displayName: Enable Session Clustering in Tomcat
         path: useSessionClustering
+        x-descriptors:
+          - 'urn:alm:descriptor:com.tectonic.ui:booleanSwitch'
+      - description: Use Insights client
+        displayName: Enable Red Hat Insights 
+        path: useInsightsClient
         x-descriptors:
           - 'urn:alm:descriptor:com.tectonic.ui:booleanSwitch'
       - description: (Deployment method 1) Application image
@@ -60,6 +80,26 @@ spec:
   install:
     spec:
       clusterPermissions:
+      - rules:
+        - apiGroups:
+          - ""
+          resourceNames:
+          - pull-secret
+          resources:
+          - secrets
+          verbs:
+          - get
+          - list
+          - watch
+        - apiGroups:
+          - config.openshift.io
+          resources:
+          - clusterversions
+          verbs:
+          - get
+          - list
+          - watch
+        serviceAccountName: jws-operator-insights
       - rules:
         - apiGroups:
           - apps
@@ -288,6 +328,13 @@ spec:
                 - --leader-elect
                 command:
                 - /manager
+                env:
+                  - name: OPERATOR_NAMESPACE
+                    valueFrom:
+                      fieldRef:
+                        fieldPath: metadata.namespace
+                  - name: INSIGHTS_ENABLED
+                    value: "true"
                 image: quay.io/mmadzin/jws-operator:latest
                 livenessProbe:
                   httpGet:
@@ -315,7 +362,149 @@ spec:
                 runAsNonRoot: true
               serviceAccountName: jws-operator-controller-manager
               terminationGracePeriodSeconds: 10
+      - label:
+          app.kubernetes.io/name: jws-operator-insights
+          control-plane: controller-manager
+        name: jws-operator-insights
+        spec:
+          replicas: 1
+          selector:
+            matchLabels:
+              app.kubernetes.io/name: jws-operator-insights
+              control-plane: controller-manager
+          strategy: {}
+          template:
+            metadata:
+              annotations:
+                kubectl.kubernetes.io/default-container: insights
+              labels:
+                app.kubernetes.io/name: jws-operator-insights
+                control-plane: controller-manager
+            spec:
+              containers:
+                - args:
+                    - --health-probe-bind-address=:8081
+                    - --metrics-bind-address=0
+                    - --leader-elect
+                  env:
+                    - name: RELATED_IMAGE_INSIGHTS_PROXY
+                      value: registry.redhat.io/3scale-amp2/apicast-gateway-rhel8:3scale2.15
+                    - name: INSIGHTS_BACKEND_DOMAIN
+                      value: console.redhat.com
+                    - name: USER_AGENT_PREFIX
+                      value: jws-operator/0.0.1-dev
+                    - name: WATCH_NAMESPACE
+                      valueFrom:
+                        fieldRef:
+                          fieldPath: metadata.annotations['olm.targetNamespaces']
+                    - name: OPERATOR_NAME
+                      value: jws-operator-insights
+                    - name: OPERATOR_NAMESPACE
+                      valueFrom:
+                        fieldRef:
+                          fieldPath: metadata.namespace
+                    - name: INSIGHTS_ENABLED
+                      value: "true"
+                  image: registry.redhat.io/insights-runtimes-tech-preview/runtimes-inventory-rhel8-operator:latest
+                  livenessProbe:
+                    httpGet:
+                      path: /healthz
+                      port: 8081
+                    initialDelaySeconds: 15
+                    periodSeconds: 20
+                  name: insights
+                  readinessProbe:
+                    httpGet:
+                      path: /readyz
+                      port: 8081
+                    initialDelaySeconds: 5
+                    periodSeconds: 10
+                  resources:
+                    limits:
+                      cpu: "1"
+                      memory: 256Mi
+                    requests:
+                      cpu: 100m
+                      memory: 64Mi
+                  securityContext:
+                    allowPrivilegeEscalation: false
+                    capabilities:
+                      drop:
+                        - ALL
+              securityContext:
+                runAsNonRoot: true
+                seccompProfile:
+                  type: RuntimeDefault
+              serviceAccountName: jws-operator-insights
+              terminationGracePeriodSeconds: 10
       permissions:
+      - rules:
+          - apiGroups:
+              - ""
+            resources:
+              - configmaps
+            verbs:
+              - get
+              - list
+              - watch
+              - create
+              - update
+              - patch
+              - delete
+          - apiGroups:
+              - coordination.k8s.io
+            resources:
+              - leases
+            verbs:
+              - get
+              - list
+              - watch
+              - create
+              - update
+              - patch
+              - delete
+          - apiGroups:
+              - ""
+            resources:
+              - events
+            verbs:
+              - create
+              - patch
+          - apiGroups:
+              - ""
+            resources:
+              - configmaps
+            verbs:
+              - create
+              - delete
+              - get
+              - list
+              - update
+              - watch
+          - apiGroups:
+              - ""
+            resources:
+              - configmaps/finalizers
+              - secrets
+              - services
+            verbs:
+              - create
+              - get
+              - list
+              - update
+              - watch
+          - apiGroups:
+              - apps
+            resources:
+              - deployments
+              - deployments/finalizers
+            verbs:
+              - create
+              - get
+              - list
+              - update
+              - watch
+        serviceAccountName: jws-operator-insights
       - rules:
         - apiGroups:
           - ""
@@ -369,4 +558,7 @@ spec:
   maturity: alpha
   provider:
     name: WebServer community
+  relatedImages:
+  - image: registry.redhat.io/3scale-amp2/apicast-gateway-rhel8:3scale2.15
+    name: insights-proxy
   version: 0.0.1

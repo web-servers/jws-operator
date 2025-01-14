@@ -22,6 +22,13 @@ Use the DNSping or KUBEping session clustering if filled, default don't use sess
   useSessionClustering: true
 ```
 
+## useInsightsClient (to enable Red Hat Insights) - Tech Preview
+If enabled, environment variables are set to load Insights client and creates connection with runtimes inventory operator (provided by Red Hat). It requires JBoss Web Server 6.1 image or newer.
+
+```
+  useInsightsClient: true
+```
+
 ## webImage (to deploy from existing images)
 The webImage controls how to deploy pods from existing images.
 It has the applicationImage (Mandatory), webApp (might be empty) and webServerHealthCheck (a default is used when empty)

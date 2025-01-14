@@ -20,9 +20,9 @@ type WebServerSpec struct {
 	// The desired number of replicas for the application
 	// +kubebuilder:validation:Minimum=0
 	Replicas int32 `json:"replicas"`
-	// Environment Variables for deployment
+	// Environment variables for deployment
 	EnvironmentVariables []corev1.EnvVar `json:"environmentVariables,omitempty"`
-	// Use Session Clustering
+	// Use session clustering
 	UseSessionClustering bool `json:"useSessionClustering,omitempty"`
 	// TLS configuration
 	TLSConfig TLSConfig `json:"tlsConfig,omitempty"`
@@ -32,6 +32,8 @@ type WebServerSpec struct {
 	WebImage *WebImageSpec `json:"webImage,omitempty"`
 	// (Deployment method 2) Imagestream
 	WebImageStream *WebImageStreamSpec `json:"webImageStream,omitempty"`
+	// Allow Insights client
+	UseInsightsClient bool `json:"useInsightsClient,omitempty"`
 	// Configuration of the resources used by the WebServer, ie CPU and memory, use limits and requests
 	PodResources corev1.ResourceRequirements `json:"podResources,omitempty"`
 	// IsNotJWS boolean that specifies if the image is JWS or not.
