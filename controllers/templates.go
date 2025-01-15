@@ -10,7 +10,6 @@ import (
 
 	webserversv1alpha1 "github.com/web-servers/jws-operator/api/v1alpha1"
 
-	appsv1 "github.com/openshift/api/apps/v1"
 	buildv1 "github.com/openshift/api/build/v1"
 	imagev1 "github.com/openshift/api/image/v1"
 	routev1 "github.com/openshift/api/route/v1"
@@ -331,14 +330,30 @@ func (r *WebServerReconciler) generateBuildPod(webServer *webserversv1alpha1.Web
 func (r *WebServerReconciler) generateDeployment(webServer *webserversv1alpha1.WebServer) *kbappsv1.Deployment {
 
 	replicas := int32(webServer.Spec.Replicas)
-	applicationimage := webServer.Spec.WebImage.ApplicationImage
+	applicationImage := ""
 	objectMeta := r.generateObjectMeta(webServer, webServer.Spec.ApplicationName)
 	objectMeta.Labels = r.generateLabelsForWeb(webServer)
-	// With a builder we use the WebAppWarImage (webServer.Spec.WebImage.WebApp.WebAppWarImage)
-	if webServer.Spec.WebImage.WebApp != nil {
-		applicationimage = webServer.Spec.WebImage.WebApp.WebAppWarImage
+
+	if webServer.Spec.WebImage != nil {
+		applicationImage = webServer.Spec.WebImage.ApplicationImage
+
+		// With a builder we use the WebAppWarImage (webServer.Spec.WebImage.WebApp.WebAppWarImage)
+		if webServer.Spec.WebImage.WebApp != nil {
+			applicationImage = webServer.Spec.WebImage.WebApp.WebAppWarImage
+		}
+	} else {
+		applicationImage = "image-registry.openshift-image-registry.svc:5000/" + webServer.Namespace + "/" + webServer.Spec.ApplicationName
+
+		objectMeta.Annotations = map[string]string{
+			"image.openshift.io/triggers": "[{\"from\": {" +
+				"\"kind\":\"ImageStreamTag\"," +
+				"\"name\":\"" + webServer.Spec.ApplicationName + ":latest\"" +
+				"}," +
+				"\"fieldPath\":\"spec.template.spec.containers[?(@.name==\\\"" + webServer.Spec.ApplicationName + "\\\")].image\"}]",
+		}
 	}
-	podTemplateSpec := r.generatePodTemplate(webServer, applicationimage)
+
+	podTemplateSpec := r.generatePodTemplate(webServer, applicationImage)
 	deployment := &kbappsv1.Deployment{
 		ObjectMeta: objectMeta,
 		Spec: kbappsv1.DeploymentSpec{
@@ -359,15 +374,29 @@ func (r *WebServerReconciler) generateDeployment(webServer *webserversv1alpha1.W
 func (r *WebServerReconciler) generateUpdatedDeployment(webServer *webserversv1alpha1.WebServer, deployment *kbappsv1.Deployment) {
 
 	replicas := int32(webServer.Spec.Replicas)
-	applicationimage := webServer.Spec.WebImage.ApplicationImage
+	applicationImage := ""
 	objectMeta := r.generateObjectMeta(webServer, webServer.Spec.ApplicationName)
 	objectMeta.Labels = r.generateLabelsForWeb(webServer)
-	// With a builder we use the WebAppWarImage (webServer.Spec.WebImage.WebApp.WebAppWarImage)
-	if webServer.Spec.WebImage.WebApp != nil {
-		applicationimage = webServer.Spec.WebImage.WebApp.WebAppWarImage
+
+	if webServer.Spec.WebImage != nil && webServer.Spec.WebImage.ApplicationImage != "" {
+		applicationImage = webServer.Spec.WebImage.ApplicationImage
+	} else if webServer.Spec.WebImage.WebApp != nil {
+		// With a builder we use the WebAppWarImage (webServer.Spec.WebImage.WebApp.WebAppWarImage)
+		applicationImage = webServer.Spec.WebImage.WebApp.WebAppWarImage
+	} else {
+		applicationImage = "image-registry.openshift-image-registry.svc:5000/" + webServer.Namespace + "/" + webServer.Spec.ApplicationName
+
+		objectMeta.Annotations = map[string]string{
+			"image.openshift.io/triggers": "[{\"from\": {" +
+				"\"kind\":\"ImageStreamTag\"," +
+				"\"name\":\"" + webServer.Spec.ApplicationName + ":latest\"" +
+				"}," +
+				"\"fieldPath\":\"spec.template.spec.containers[?(@.name==\\\"" + webServer.Spec.ApplicationName + "\\\")].image\"}]",
+		}
 	}
+
 	log.Info("generateUpdatedDeployment")
-	podTemplateSpec := r.generatePodTemplate(webServer, applicationimage)
+	podTemplateSpec := r.generatePodTemplate(webServer, applicationImage)
 	deployment.ObjectMeta = objectMeta
 	spec := kbappsv1.DeploymentSpec{
 		Strategy: kbappsv1.DeploymentStrategy{
@@ -576,82 +605,6 @@ func (r *WebServerReconciler) generateBuildTriggerPolicy(webServer *webserversv1
 		}
 	}
 	return buildTriggerPolicies
-}
-
-// DeploymentConfig is the OpenShift "extension" of Deployment
-func (r *WebServerReconciler) generateDeploymentConfig(webServer *webserversv1alpha1.WebServer, imageStreamName string, imageStreamNamespace string) *appsv1.DeploymentConfig {
-
-	replicas := int32(1)
-	podTemplateSpec := r.generatePodTemplate(webServer, webServer.Spec.ApplicationName)
-	objectMeta := r.generateObjectMeta(webServer, webServer.Spec.ApplicationName)
-	objectMeta.Labels = r.generateLabelsForWeb(webServer)
-	deploymentConfig := &appsv1.DeploymentConfig{
-		ObjectMeta: objectMeta,
-		Spec: appsv1.DeploymentConfigSpec{
-			Strategy: appsv1.DeploymentStrategy{
-				Type: appsv1.DeploymentStrategyTypeRecreate,
-			},
-			Triggers: []appsv1.DeploymentTriggerPolicy{{
-				Type: appsv1.DeploymentTriggerOnImageChange,
-				ImageChangeParams: &appsv1.DeploymentTriggerImageChangeParams{
-					Automatic:      true,
-					ContainerNames: []string{webServer.Spec.ApplicationName},
-					From: corev1.ObjectReference{
-						Kind:      "ImageStreamTag",
-						Name:      imageStreamName + ":latest",
-						Namespace: imageStreamNamespace,
-					},
-				},
-			},
-				{
-					Type: appsv1.DeploymentTriggerOnConfigChange,
-				}},
-			Replicas: replicas,
-			// Why not a metav1.LabelSelector like in Deployment? ask OpenShift!!!
-			Selector: r.generateLabelsForWeb(webServer),
-			Template: &podTemplateSpec,
-		},
-	}
-
-	controllerutil.SetControllerReference(webServer, deploymentConfig, r.Scheme)
-	return deploymentConfig
-}
-
-// DeploymentConfig is the OpenShift "extension" of Deployment
-func (r *WebServerReconciler) generateUpdatedDeploymentConfig(webServer *webserversv1alpha1.WebServer, imageStreamName string, imageStreamNamespace string, deploymentConfig *appsv1.DeploymentConfig) {
-
-	replicas := int32(1)
-	podTemplateSpec := r.generatePodTemplate(webServer, webServer.Spec.ApplicationName)
-	// objectMeta := r.generateObjectMeta(webServer, webServer.Spec.ApplicationName)
-	// objectMeta.Labels = r.generateLabelsForWeb(webServer)
-	deploymentConfig.ObjectMeta.Labels = r.generateLabelsForWeb(webServer)
-	spec := appsv1.DeploymentConfigSpec{
-		Strategy: appsv1.DeploymentStrategy{
-			Type: appsv1.DeploymentStrategyTypeRecreate,
-		},
-		Triggers: []appsv1.DeploymentTriggerPolicy{{
-			Type: appsv1.DeploymentTriggerOnImageChange,
-			ImageChangeParams: &appsv1.DeploymentTriggerImageChangeParams{
-				Automatic:      true,
-				ContainerNames: []string{webServer.Spec.ApplicationName},
-				From: corev1.ObjectReference{
-					Kind:      "ImageStreamTag",
-					Name:      imageStreamName + ":latest",
-					Namespace: imageStreamNamespace,
-				},
-			},
-		},
-			{
-				Type: appsv1.DeploymentTriggerOnConfigChange,
-			}},
-		Replicas: replicas,
-		// Why not a metav1.LabelSelector like in Deployment? ask OpenShift!!!
-		Selector: r.generateLabelsForWeb(webServer),
-		Template: &podTemplateSpec,
-	}
-	deploymentConfig.Spec = spec
-
-	controllerutil.SetControllerReference(webServer, deploymentConfig, r.Scheme)
 }
 
 func (r *WebServerReconciler) generateRoute(webServer *webserversv1alpha1.WebServer) *routev1.Route {
