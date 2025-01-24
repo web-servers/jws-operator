@@ -327,7 +327,17 @@ func (r *WebServerReconciler) generateBuildPod(webServer *webserversv1alpha1.Web
 	return pod
 }
 
-func (r *WebServerReconciler) generateDeployment(webServer *webserversv1alpha1.WebServer) *kbappsv1.Deployment {
+func (r *WebServerReconciler) generateAnnotationsDeployment(webServer *webserversv1alpha1.WebServer) map[string]string {
+	ann := make(map[string]string)
+	ann["image.openshift.io/triggers"] = "[{\"from\": {" +
+		"\"kind\":\"ImageStreamTag\"," +
+		"\"name\":\"" + webServer.Spec.ApplicationName + ":latest\"" +
+		"}," +
+		"\"fieldPath\":\"spec.template.spec.containers[?(@.name==\\\"" + webServer.Spec.ApplicationName + "\\\")].image\"}]"
+	return ann
+}
+
+func (r *WebServerReconciler) generateDeployment(webServer *webserversv1alpha1.WebServer, dockerImageRepository string) *kbappsv1.Deployment {
 
 	replicas := int32(webServer.Spec.Replicas)
 	applicationImage := ""
@@ -342,15 +352,9 @@ func (r *WebServerReconciler) generateDeployment(webServer *webserversv1alpha1.W
 			applicationImage = webServer.Spec.WebImage.WebApp.WebAppWarImage
 		}
 	} else {
-		applicationImage = "image-registry.openshift-image-registry.svc:5000/" + webServer.Namespace + "/" + webServer.Spec.ApplicationName
+		applicationImage = dockerImageRepository
 
-		objectMeta.Annotations = map[string]string{
-			"image.openshift.io/triggers": "[{\"from\": {" +
-				"\"kind\":\"ImageStreamTag\"," +
-				"\"name\":\"" + webServer.Spec.ApplicationName + ":latest\"" +
-				"}," +
-				"\"fieldPath\":\"spec.template.spec.containers[?(@.name==\\\"" + webServer.Spec.ApplicationName + "\\\")].image\"}]",
-		}
+		objectMeta.Annotations = r.generateAnnotationsDeployment(webServer)
 	}
 
 	podTemplateSpec := r.generatePodTemplate(webServer, applicationImage)
@@ -371,7 +375,7 @@ func (r *WebServerReconciler) generateDeployment(webServer *webserversv1alpha1.W
 	controllerutil.SetControllerReference(webServer, deployment, r.Scheme)
 	return deployment
 }
-func (r *WebServerReconciler) generateUpdatedDeployment(webServer *webserversv1alpha1.WebServer, deployment *kbappsv1.Deployment) {
+func (r *WebServerReconciler) generateUpdatedDeployment(webServer *webserversv1alpha1.WebServer, deployment *kbappsv1.Deployment, dockerImageRepository string) {
 
 	replicas := int32(webServer.Spec.Replicas)
 	applicationImage := ""
@@ -384,15 +388,9 @@ func (r *WebServerReconciler) generateUpdatedDeployment(webServer *webserversv1a
 		// With a builder we use the WebAppWarImage (webServer.Spec.WebImage.WebApp.WebAppWarImage)
 		applicationImage = webServer.Spec.WebImage.WebApp.WebAppWarImage
 	} else {
-		applicationImage = "image-registry.openshift-image-registry.svc:5000/" + webServer.Namespace + "/" + webServer.Spec.ApplicationName
+		applicationImage = dockerImageRepository
 
-		objectMeta.Annotations = map[string]string{
-			"image.openshift.io/triggers": "[{\"from\": {" +
-				"\"kind\":\"ImageStreamTag\"," +
-				"\"name\":\"" + webServer.Spec.ApplicationName + ":latest\"" +
-				"}," +
-				"\"fieldPath\":\"spec.template.spec.containers[?(@.name==\\\"" + webServer.Spec.ApplicationName + "\\\")].image\"}]",
-		}
+		objectMeta.Annotations = r.generateAnnotationsDeployment(webServer)
 	}
 
 	log.Info("generateUpdatedDeployment")
