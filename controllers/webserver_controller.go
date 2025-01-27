@@ -362,7 +362,7 @@ func (r *WebServerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		}
 
 		// Check if a Deployment already exists, and if not create a new one
-		deployment := r.generateDeployment(webServer)
+		deployment := r.generateDeployment(webServer, "")
 		log.Info("WebServe createDeployment: " + deployment.Name + " in " + deployment.Namespace + " using: " + deployment.Spec.Template.Spec.Containers[0].Image)
 		result, err = r.createDeployment(ctx, webServer, deployment, deployment.Name, deployment.Namespace)
 		if err != nil || result != (ctrl.Result{}) {
@@ -380,7 +380,7 @@ func (r *WebServerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		} else {
 			if deployment.ObjectMeta.Labels["webserver-hash"] != currentHash {
 				// Just Update and requeue
-				r.generateUpdatedDeployment(webServer, deployment)
+				r.generateUpdatedDeployment(webServer, deployment, "")
 				deployment.ObjectMeta.Labels["webserver-hash"] = currentHash
 				err = r.Client.Update(ctx, deployment)
 				if err != nil {
@@ -459,6 +459,8 @@ func (r *WebServerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 				log.Error(err, "Namespace/ImageStream doesn't exist.")
 				return ctrl.Result{}, nil
 			}
+			dockerImageRepository := is.Status.DockerImageRepository
+			log.Info("Using " + dockerImageRepository + " as applicationImage")
 
 			// Check if a BuildConfig already exists, and if not create a new one
 			buildConfig := r.generateBuildConfig(webServer)
@@ -706,9 +708,11 @@ func (r *WebServerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 			log.Error(err, "Namespace/ImageStream doesn't exist.")
 			return ctrl.Result{}, nil
 		}
+		dockerImageRepository := is.Status.DockerImageRepository
+		log.Info("Using " + dockerImageRepository + " as applicationImage")
 
 		// Check if a Deployment already exists and if not, create a new one
-		deployment := r.generateDeployment(webServer)
+		deployment := r.generateDeployment(webServer, dockerImageRepository)
 		result, err = r.createDeployment(ctx, webServer, deployment, deployment.Name, deployment.Namespace)
 		if err != nil || result != (ctrl.Result{}) {
 			return result, err
@@ -722,7 +726,7 @@ func (r *WebServerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		} else {
 			if deployment.Labels["webserver-hash"] != currentHash {
 				// Just Update and requeue
-				r.generateUpdatedDeployment(webServer, deployment)
+				r.generateUpdatedDeployment(webServer, deployment, dockerImageRepository)
 				deployment.ObjectMeta.Labels["webserver-hash"] = currentHash
 				err = r.Client.Update(ctx, deployment)
 				if err != nil {
