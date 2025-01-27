@@ -361,8 +361,14 @@ func (r *WebServerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 
 		}
 
+		applicationImage := webServer.Spec.WebImage.ApplicationImage
+
+		if webServer.Spec.WebImage.WebApp != nil {
+			applicationImage = webServer.Spec.WebImage.WebApp.WebAppWarImage
+		}
+
 		// Check if a Deployment already exists, and if not create a new one
-		deployment := r.generateDeployment(webServer, "")
+		deployment := r.generateDeployment(webServer, applicationImage)
 		log.Info("WebServe createDeployment: " + deployment.Name + " in " + deployment.Namespace + " using: " + deployment.Spec.Template.Spec.Containers[0].Image)
 		result, err = r.createDeployment(ctx, webServer, deployment, deployment.Name, deployment.Namespace)
 		if err != nil || result != (ctrl.Result{}) {
@@ -380,7 +386,7 @@ func (r *WebServerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		} else {
 			if deployment.ObjectMeta.Labels["webserver-hash"] != currentHash {
 				// Just Update and requeue
-				r.generateUpdatedDeployment(webServer, deployment, "")
+				r.generateUpdatedDeployment(webServer, deployment, applicationImage)
 				deployment.ObjectMeta.Labels["webserver-hash"] = currentHash
 				err = r.Client.Update(ctx, deployment)
 				if err != nil {

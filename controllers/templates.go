@@ -337,23 +337,13 @@ func (r *WebServerReconciler) generateAnnotationsDeployment(webServer *webserver
 	return ann
 }
 
-func (r *WebServerReconciler) generateDeployment(webServer *webserversv1alpha1.WebServer, dockerImageRepository string) *kbappsv1.Deployment {
+func (r *WebServerReconciler) generateDeployment(webServer *webserversv1alpha1.WebServer, applicationImage string) *kbappsv1.Deployment {
 
 	replicas := int32(webServer.Spec.Replicas)
-	applicationImage := ""
 	objectMeta := r.generateObjectMeta(webServer, webServer.Spec.ApplicationName)
 	objectMeta.Labels = r.generateLabelsForWeb(webServer)
 
-	if webServer.Spec.WebImage != nil {
-		applicationImage = webServer.Spec.WebImage.ApplicationImage
-
-		// With a builder we use the WebAppWarImage (webServer.Spec.WebImage.WebApp.WebAppWarImage)
-		if webServer.Spec.WebImage.WebApp != nil {
-			applicationImage = webServer.Spec.WebImage.WebApp.WebAppWarImage
-		}
-	} else {
-		applicationImage = dockerImageRepository
-
+	if webServer.Spec.WebImage == nil {
 		objectMeta.Annotations = r.generateAnnotationsDeployment(webServer)
 	}
 
@@ -375,21 +365,13 @@ func (r *WebServerReconciler) generateDeployment(webServer *webserversv1alpha1.W
 	controllerutil.SetControllerReference(webServer, deployment, r.Scheme)
 	return deployment
 }
-func (r *WebServerReconciler) generateUpdatedDeployment(webServer *webserversv1alpha1.WebServer, deployment *kbappsv1.Deployment, dockerImageRepository string) {
+func (r *WebServerReconciler) generateUpdatedDeployment(webServer *webserversv1alpha1.WebServer, deployment *kbappsv1.Deployment, applicationImage string) {
 
 	replicas := int32(webServer.Spec.Replicas)
-	applicationImage := ""
 	objectMeta := r.generateObjectMeta(webServer, webServer.Spec.ApplicationName)
 	objectMeta.Labels = r.generateLabelsForWeb(webServer)
 
-	if webServer.Spec.WebImage != nil && webServer.Spec.WebImage.ApplicationImage != "" {
-		applicationImage = webServer.Spec.WebImage.ApplicationImage
-	} else if webServer.Spec.WebImage.WebApp != nil {
-		// With a builder we use the WebAppWarImage (webServer.Spec.WebImage.WebApp.WebAppWarImage)
-		applicationImage = webServer.Spec.WebImage.WebApp.WebAppWarImage
-	} else {
-		applicationImage = dockerImageRepository
-
+	if webServer.Spec.WebImage == nil {
 		objectMeta.Annotations = r.generateAnnotationsDeployment(webServer)
 	}
 
