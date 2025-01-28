@@ -602,6 +602,98 @@ func (r *WebServerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 				}
 			}
 
+			if webServer.Spec.WebImageStream.WebSources.WebSourcesParams != nil {
+				artifactDir := webServer.Spec.WebImageStream.WebSources.WebSourcesParams.ArtifactDir
+
+				if artifactDir != "" {
+					env := buildConfig.Spec.CommonSpec.Strategy.SourceStrategy.Env
+					found := false
+
+					for i := 0; i < len(env); i++ {
+						if env[i].Name == "ARTIFACT_DIR" {
+							found = true
+
+							if env[i].Value != artifactDir {
+								env[i].Value = artifactDir
+								updateBuildConfig = true
+								startNewBuild = true
+							}
+
+							break
+						}
+					}
+
+					if !found {
+						buildConfig.Spec.CommonSpec.Strategy.SourceStrategy.Env = append(env, corev1.EnvVar{
+							Name:  "ARTIFACT_DIR",
+							Value: artifactDir,
+						})
+
+						updateBuildConfig = true
+						startNewBuild = true
+					}
+				} else {
+					env := buildConfig.Spec.CommonSpec.Strategy.SourceStrategy.Env
+
+					for i := 0; i < len(env); i++ {
+						if env[i].Name == "ARTIFACT_DIR" {
+							buildConfig.Spec.CommonSpec.Strategy.SourceStrategy.Env = append(env[:i], env[i+1:]...)
+							updateBuildConfig = true
+							startNewBuild = true
+							break
+						}
+					}
+				}
+
+				mavenUrl := webServer.Spec.WebImageStream.WebSources.WebSourcesParams.MavenMirrorURL
+
+				if mavenUrl != "" {
+					env := buildConfig.Spec.CommonSpec.Strategy.SourceStrategy.Env
+					found := false
+
+					for i := 0; i < len(env); i++ {
+						if env[i].Name == "MAVEN_MIRROR_URL" {
+							found = true
+
+							if env[i].Value != mavenUrl {
+								env[i].Value = mavenUrl
+								updateBuildConfig = true
+								startNewBuild = true
+							}
+
+							break
+						}
+					}
+
+					if !found {
+						buildConfig.Spec.CommonSpec.Strategy.SourceStrategy.Env = append(env, corev1.EnvVar{
+							Name:  "MAVEN_MIRROR_URL",
+							Value: mavenUrl,
+						})
+
+						updateBuildConfig = true
+						startNewBuild = true
+					}
+				} else {
+					env := buildConfig.Spec.CommonSpec.Strategy.SourceStrategy.Env
+
+					for i := 0; i < len(env); i++ {
+						if env[i].Name == "MAVEN_MIRROR_URL" {
+							buildConfig.Spec.CommonSpec.Strategy.SourceStrategy.Env = append(env[:i], env[i+1:]...)
+							updateBuildConfig = true
+							startNewBuild = true
+							break
+						}
+					}
+				}
+			} else {
+				if len(buildConfig.Spec.CommonSpec.Strategy.SourceStrategy.Env) != 0 {
+					buildConfig.Spec.CommonSpec.Strategy.SourceStrategy.Env = []corev1.EnvVar{}
+					updateBuildConfig = true
+					startNewBuild = true
+				}
+			}
+
 			if startNewBuild {
 				buildVersion := buildConfig.Status.LastVersion + 1
 				buildConfig.Status.LastVersion = buildVersion
