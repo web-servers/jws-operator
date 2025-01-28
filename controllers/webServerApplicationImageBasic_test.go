@@ -40,13 +40,13 @@ var _ = Describe("WebServer controller", func() {
 
 			if noskip {
 
-				Expect(webserverstests.WebServerApplicationImageSourcesScriptBasicTest(k8sClient, ctx, thetest, namespace, "sourcesscriptbasictest", "quay.io/web-servers/tomcat10:latest", "https://github.com/web-servers/demo-webapp", "jakartaEE", "quay.io/"+username+"/test", "secretfortests", "quay.io/web-servers/tomcat10-buildah", randemo)).Should(Succeed())
+				Expect(webserverstests.WebServerApplicationImageSourcesScriptBasicTest(k8sClient, ctx, thetest, namespace, "sourcesscriptbasictest", "quay.io/web-servers/tomcat10:latest", "https://github.com/web-servers/demo-webapp", "main", "quay.io/"+username+"/test", "secretfortests", "quay.io/web-servers/tomcat10-buildah", randemo)).Should(Succeed())
 				Expect(webserverstests.WebServerApplicationImageBasicTest(k8sClient, ctx, thetest, namespace, "rhregistrybasictest", "registry.redhat.io/jboss-webserver-5/jws56-openjdk11-openshift-rhel8", "/health")).Should(Succeed())
 				Expect(webserverstests.WebServerApplicationImageBasicTest(k8sClient, ctx, thetest, namespace, "basictest", "quay.io/web-servers/tomcat10:latest", "/health")).Should(Succeed())
 				Expect(webserverstests.WebServerApplicationImageScaleTest(k8sClient, ctx, thetest, namespace, "scaletest", "quay.io/web-servers/tomcat10:latest", "/health")).Should(Succeed())
 				Expect(webserverstests.WebServerApplicationImageUpdateTest(k8sClient, ctx, thetest, namespace, "updatetest", "quay.io/web-servers/tomcat10:latest", "quay.io/web-servers/tomcat10update:latest", "/health")).Should(Succeed())
-				Expect(webserverstests.WebServerApplicationImageSourcesBasicTest(k8sClient, ctx, thetest, namespace, "sourcesbasictest", "quay.io/web-servers/tomcat10:latest", "https://github.com/web-servers/demo-webapp", "jakartaEE", "quay.io/"+username+"/test", "secretfortests", "quay.io/web-servers/tomcat10-buildah", randemo)).Should(Succeed())
-				Expect(webserverstests.WebServerApplicationImageSourcesScaleTest(k8sClient, ctx, thetest, namespace, "sourcesscaletest", "quay.io/web-servers/tomcat10:latest", "https://github.com/web-servers/demo-webapp", "jakartaEE", "quay.io/"+username+"/test", "secretfortests", "quay.io/web-servers/tomcat10-buildah", randemo)).Should(Succeed())
+				Expect(webserverstests.WebServerApplicationImageSourcesBasicTest(k8sClient, ctx, thetest, namespace, "sourcesbasictest", "quay.io/web-servers/tomcat10:latest", "https://github.com/web-servers/demo-webapp", "main", "quay.io/"+username+"/test", "secretfortests", "quay.io/web-servers/tomcat10-buildah", randemo)).Should(Succeed())
+				Expect(webserverstests.WebServerApplicationImageSourcesScaleTest(k8sClient, ctx, thetest, namespace, "sourcesscaletest", "quay.io/web-servers/tomcat10:latest", "https://github.com/web-servers/demo-webapp", "main", "quay.io/"+username+"/test", "secretfortests", "quay.io/web-servers/tomcat10-buildah", randemo)).Should(Succeed())
 				isopenshift := webserverstests.WebServerHaveRoutes(k8sClient, ctx, thetest)
 				if isopenshift {
 

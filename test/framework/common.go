@@ -23,7 +23,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 
 	// "github.com/operator-framework/operator-sdk/pkg/test"
-	appsv1 "github.com/openshift/api/apps/v1"
 	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	webserversv1alpha1 "github.com/web-servers/jws-operator/api/v1alpha1"
 	kbappsv1 "k8s.io/api/apps/v1"
@@ -176,17 +175,17 @@ func WebServerSecureRouteTest(clt client.Client, ctx context.Context, t *testing
 		clt.Delete(context.Background(), webServer)
 		time.Sleep(time.Second * 5)
 	}()
-	// Wait until the replicas are available (here are DeploymentConfig)
+	// Wait until the replicas are available (here are Deployment)
 	Eventually(func() bool {
-		foundDeployment := &appsv1.DeploymentConfig{}
+		foundDeployment := &kbappsv1.Deployment{}
 		err = clt.Get(ctx, types.NamespacedName{Name: webServer.ObjectMeta.Name, Namespace: webServer.ObjectMeta.Namespace}, foundDeployment)
 		if err != nil {
-			t.Logf("can't read DeploymentConfig")
+			t.Logf("can't read Deployment")
 			return false
 		}
 
 		if int32(webServer.Spec.Replicas) == int32(foundDeployment.Status.AvailableReplicas) {
-			t.Logf("can't read right number of Replicas in DeploymentConfig (%d:%d)", int32(webServer.Spec.Replicas), int32(foundDeployment.Status.AvailableReplicas))
+			t.Logf("can't read right number of Replicas in Deployment (%d:%d)", int32(webServer.Spec.Replicas), int32(foundDeployment.Status.AvailableReplicas))
 			return true
 		} else {
 			return false
