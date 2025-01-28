@@ -10,7 +10,6 @@ import (
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	appsv1 "github.com/openshift/api/apps/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	corev1 "k8s.io/api/core/v1"
@@ -216,7 +215,7 @@ var _ = Describe("WebServer controller", func() {
 				}, time.Second*10, time.Millisecond*250).Should(BeTrue())
 				fmt.Printf("new WebServer Name: %s Namespace: %s\n", createdWebserver.ObjectMeta.Name, createdWebserver.ObjectMeta.Namespace)
 
-				deployment := &appsv1.DeploymentConfig{}
+				deployment = &kbappsv1.Deployment{}
 				deploymentookupKey := types.NamespacedName{Name: name, Namespace: namespace}
 				Eventually(func() bool {
 					err := k8sClient.Get(ctx, deploymentookupKey, deployment)
@@ -258,7 +257,7 @@ var _ = Describe("WebServer controller", func() {
 				fmt.Printf("new WebServer Name: %s Namespace: %s\n", createdWebserver.ObjectMeta.Name, createdWebserver.ObjectMeta.Namespace)
 
 				// Verify deployment template selector label.
-				deployment = &appsv1.DeploymentConfig{}
+				deployment = &kbappsv1.Deployment{}
 				deploymentookupKey = types.NamespacedName{Name: name, Namespace: namespace}
 				Eventually(func() bool {
 					err := k8sClient.Get(ctx, deploymentookupKey, deployment)
