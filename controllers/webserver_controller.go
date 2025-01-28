@@ -361,8 +361,14 @@ func (r *WebServerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 
 		}
 
+		applicationImage := webServer.Spec.WebImage.ApplicationImage
+
+		if webServer.Spec.WebImage.WebApp != nil {
+			applicationImage = webServer.Spec.WebImage.WebApp.WebAppWarImage
+		}
+
 		// Check if a Deployment already exists, and if not create a new one
-		deployment := r.generateDeployment(webServer)
+		deployment := r.generateDeployment(webServer, applicationImage)
 		log.Info("WebServe createDeployment: " + deployment.Name + " in " + deployment.Namespace + " using: " + deployment.Spec.Template.Spec.Containers[0].Image)
 		result, err = r.createDeployment(ctx, webServer, deployment, deployment.Name, deployment.Namespace)
 		if err != nil || result != (ctrl.Result{}) {
@@ -380,7 +386,7 @@ func (r *WebServerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		} else {
 			if deployment.ObjectMeta.Labels["webserver-hash"] != currentHash {
 				// Just Update and requeue
-				r.generateUpdatedDeployment(webServer, deployment)
+				r.generateUpdatedDeployment(webServer, deployment, applicationImage)
 				deployment.ObjectMeta.Labels["webserver-hash"] = currentHash
 				err = r.Client.Update(ctx, deployment)
 				if err != nil {
@@ -459,6 +465,8 @@ func (r *WebServerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 				log.Error(err, "Namespace/ImageStream doesn't exist.")
 				return ctrl.Result{}, nil
 			}
+			dockerImageRepository := is.Status.DockerImageRepository
+			log.Info("Using " + dockerImageRepository + " as applicationImage")
 
 			// Check if a BuildConfig already exists, and if not create a new one
 			buildConfig := r.generateBuildConfig(webServer)
@@ -675,7 +683,15 @@ func (r *WebServerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 			case buildv1.BuildPhaseCancelled:
 				log.Info("Application build canceled")
 				return ctrl.Result{}, nil
-
+			case buildv1.BuildPhaseRunning:
+				log.Info("Waiting for build to be completed: requeue reconciliation")
+				return ctrl.Result{Requeue: true}, nil
+			case buildv1.BuildPhasePending:
+				log.Info("Waiting for build to be completed: requeue reconciliation")
+				return ctrl.Result{Requeue: true}, nil
+			case buildv1.BuildPhaseNew:
+				log.Info("Waiting for build to be completed: requeue reconciliation")
+				return ctrl.Result{Requeue: true}, nil
 			}
 		} else {
 			buildConfig := &buildv1.BuildConfig{}
@@ -698,56 +714,53 @@ func (r *WebServerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 			log.Error(err, "Namespace/ImageStream doesn't exist.")
 			return ctrl.Result{}, nil
 		}
+		dockerImageRepository := is.Status.DockerImageRepository
+		log.Info("Using " + dockerImageRepository + " as applicationImage")
 
-		// Check if a DeploymentConfig already exists and if not, create a new one
-		deploymentConfig := r.generateDeploymentConfig(webServer, imageStreamName, imageStreamNamespace)
-		result, err = r.createDeploymentConfig(ctx, webServer, deploymentConfig, deploymentConfig.Name, deploymentConfig.Namespace)
+		// Check if a Deployment already exists and if not, create a new one
+		deployment := r.generateDeployment(webServer, dockerImageRepository)
+		result, err = r.createDeployment(ctx, webServer, deployment, deployment.Name, deployment.Namespace)
 		if err != nil || result != (ctrl.Result{}) {
 			return result, err
 		}
 
 		// Check if we need to delete it and recreate it.
 		currentHash := r.getWebServerHash(webServer)
-		if deploymentConfig.Labels["webserver-hash"] == "" {
-			deploymentConfig.ObjectMeta.Labels["webserver-hash"] = currentHash
+		if deployment.Labels["webserver-hash"] == "" {
+			deployment.ObjectMeta.Labels["webserver-hash"] = currentHash
 			updateDeployment = true
 		} else {
-			if deploymentConfig.Labels["webserver-hash"] != currentHash {
+			if deployment.Labels["webserver-hash"] != currentHash {
 				// Just Update and requeue
-				r.generateUpdatedDeploymentConfig(webServer, imageStreamName, imageStreamNamespace, deploymentConfig)
-				deploymentConfig.ObjectMeta.Labels["webserver-hash"] = currentHash
-				err = r.Client.Update(ctx, deploymentConfig)
+				r.generateUpdatedDeployment(webServer, deployment, dockerImageRepository)
+				deployment.ObjectMeta.Labels["webserver-hash"] = currentHash
+				err = r.Client.Update(ctx, deployment)
 				if err != nil {
-					log.Error(err, "Failed to update DeploymentConfig.", "Deployment.Namespace", deploymentConfig.Namespace, "Deployment.Name", deploymentConfig.Name)
+					log.Error(err, "Failed to update Deployment.", "Deployment.Namespace", deployment.Namespace, "Deployment.Name", deployment.Name)
 					if errors.IsConflict(err) {
 						log.V(1).Info(err.Error())
 					} else {
 						return ctrl.Result{}, nil
 					}
 				}
-				log.Info("Webserver hash changed: Update DeploymentConfig and requeue reconciliation")
+				log.Info("Webserver hash changed: Update Deployment and requeue reconciliation")
 				return ctrl.Result{RequeueAfter: (500 * time.Millisecond)}, nil
 			}
 		}
 
-		if int(deploymentConfig.Status.LatestVersion) == 0 {
-			log.Info("The DeploymentConfig has not finished deploying the pods yet")
-			return ctrl.Result{RequeueAfter: (500 * time.Millisecond)}, nil
-		}
-
 		// Handle Scaling
-		foundReplicas = deploymentConfig.Spec.Replicas
+		foundReplicas = *deployment.Spec.Replicas
 		replicas := webServer.Spec.Replicas
 		if foundReplicas != replicas {
-			log.Info("DeploymentConfig replicas number does not match the WebServer specification. DeploymentConfig update scheduled")
-			deploymentConfig.Spec.Replicas = replicas
+			log.Info("Deployment replicas number does not match the WebServer specification. Deployment update scheduled")
+			deployment.Spec.Replicas = &replicas
 			updateDeployment = true
 		}
 
 		if updateDeployment {
-			err = r.Update(ctx, deploymentConfig)
+			err = r.Update(ctx, deployment)
 			if err != nil {
-				log.Info("Failed to update DeploymentConfig." + "DeploymentConfig.Namespace" + deploymentConfig.Namespace + "DeploymentConfig.Name" + deploymentConfig.Name)
+				log.Info("Failed to update Deployment." + "Deployment.Namespace" + deployment.Namespace + "Deployment.Name" + deployment.Name)
 				if errors.IsConflict(err) {
 					log.V(1).Info(err.Error())
 				} else {
