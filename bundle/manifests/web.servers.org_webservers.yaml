@@ -143,10 +143,6 @@ spec:
                   - name
                   type: object
                 type: array
-              isNotJWS:
-                description: IsNotJWS boolean that specifies if the image is JWS or
-                  not.
-                type: boolean
               persistentLogs:
                 description: Persistent logs configuration
                 properties:
