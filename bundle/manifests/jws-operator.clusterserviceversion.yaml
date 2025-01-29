@@ -13,7 +13,7 @@ metadata:
           "spec": {
             "applicationName": "webapp",
             "replicas": 1,
-            "useInsightsClient": true
+            "useInsightsClient": false
           }
         }
       ]
@@ -43,7 +43,7 @@ spec:
         path: useSessionClustering
         x-descriptors:
           - 'urn:alm:descriptor:com.tectonic.ui:booleanSwitch'
-      - description: Use Insights client
+      - description: Use Insights client (works only with JWS 6.1+ images)
         displayName: Enable Red Hat Insights 
         path: useInsightsClient
         x-descriptors:
