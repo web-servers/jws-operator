@@ -510,17 +510,20 @@ func (r *WebServerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 
 			if webServer.Spec.WebImageStream.WebSources.WebhookSecrets != nil && webServer.Spec.WebImageStream.WebSources.WebhookSecrets.Generic != "" {
 				triggers := buildConfig.Spec.Triggers
-				updated := false
+				found := false
 
 				for i := 0; i < len(triggers); i++ {
-					if triggers[i].GenericWebHook != nil && triggers[i].GenericWebHook.SecretReference != nil && triggers[i].GenericWebHook.SecretReference.Name != webServer.Spec.WebImageStream.WebSources.WebhookSecrets.Generic {
-						triggers[i].GenericWebHook.SecretReference.Name = webServer.Spec.WebImageStream.WebSources.WebhookSecrets.Generic
-						updateBuildConfig = true
-						updated = true
+					if triggers[i].GenericWebHook != nil && triggers[i].GenericWebHook.SecretReference != nil {
+						found = true
+
+						if triggers[i].GenericWebHook.SecretReference.Name != webServer.Spec.WebImageStream.WebSources.WebhookSecrets.Generic {
+							triggers[i].GenericWebHook.SecretReference.Name = webServer.Spec.WebImageStream.WebSources.WebhookSecrets.Generic
+							updateBuildConfig = true
+						}
 					}
 				}
 
-				if !updated {
+				if !found {
 					buildConfig.Spec.Triggers = append(triggers, buildv1.BuildTriggerPolicy{
 						GenericWebHook: &buildv1.WebHookTrigger{
 							Secret: webServer.Spec.WebImageStream.WebSources.WebhookSecrets.Generic,
@@ -542,17 +545,19 @@ func (r *WebServerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 
 			if webServer.Spec.WebImageStream.WebSources.WebhookSecrets != nil && webServer.Spec.WebImageStream.WebSources.WebhookSecrets.Github != "" {
 				triggers := buildConfig.Spec.Triggers
-				updated := false
+				found := false
 
 				for i := 0; i < len(triggers); i++ {
-					if triggers[i].GitHubWebHook != nil && triggers[i].GitHubWebHook.SecretReference != nil && triggers[i].GitHubWebHook.SecretReference.Name != webServer.Spec.WebImageStream.WebSources.WebhookSecrets.Github {
-						triggers[i].GitHubWebHook.SecretReference.Name = webServer.Spec.WebImageStream.WebSources.WebhookSecrets.Github
-						updateBuildConfig = true
-						updated = true
+					if triggers[i].GitHubWebHook != nil && triggers[i].GitHubWebHook.SecretReference != nil {
+						found = true
+						if triggers[i].GitHubWebHook.SecretReference.Name != webServer.Spec.WebImageStream.WebSources.WebhookSecrets.Github {
+							triggers[i].GitHubWebHook.SecretReference.Name = webServer.Spec.WebImageStream.WebSources.WebhookSecrets.Github
+							updateBuildConfig = true
+						}
 					}
 				}
 
-				if !updated {
+				if !found {
 					buildConfig.Spec.Triggers = append(triggers, buildv1.BuildTriggerPolicy{
 						GitHubWebHook: &buildv1.WebHookTrigger{
 							Secret: webServer.Spec.WebImageStream.WebSources.WebhookSecrets.Github,
@@ -573,17 +578,20 @@ func (r *WebServerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 
 			if webServer.Spec.WebImageStream.WebSources.WebhookSecrets != nil && webServer.Spec.WebImageStream.WebSources.WebhookSecrets.Gitlab != "" {
 				triggers := buildConfig.Spec.Triggers
-				updated := false
+				found := false
 
 				for i := 0; i < len(triggers); i++ {
-					if triggers[i].GitLabWebHook != nil && triggers[i].GitLabWebHook.SecretReference != nil && triggers[i].GitLabWebHook.SecretReference.Name != webServer.Spec.WebImageStream.WebSources.WebhookSecrets.Gitlab {
-						triggers[i].GitLabWebHook.SecretReference.Name = webServer.Spec.WebImageStream.WebSources.WebhookSecrets.Gitlab
-						updateBuildConfig = true
-						updated = true
+					if triggers[i].GitLabWebHook != nil && triggers[i].GitLabWebHook.SecretReference != nil {
+						found = true
+
+						if triggers[i].GitLabWebHook.SecretReference.Name != webServer.Spec.WebImageStream.WebSources.WebhookSecrets.Gitlab {
+							triggers[i].GitLabWebHook.SecretReference.Name = webServer.Spec.WebImageStream.WebSources.WebhookSecrets.Gitlab
+							updateBuildConfig = true
+						}
 					}
 				}
 
-				if !updated {
+				if !found {
 					buildConfig.Spec.Triggers = append(triggers, buildv1.BuildTriggerPolicy{
 						GitLabWebHook: &buildv1.WebHookTrigger{
 							Secret: webServer.Spec.WebImageStream.WebSources.WebhookSecrets.Gitlab,
