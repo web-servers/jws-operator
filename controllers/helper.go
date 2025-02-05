@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"sort"
 	"strings"
@@ -552,6 +553,8 @@ func (r *WebServerReconciler) getWebServerHash(webServer *webserversv1alpha1.Web
 	h.Write([]byte("ApplicationName:" + webServer.Spec.ApplicationName))
 	// No need to recreate h.Write([]byte("Replicas:" + fmt.Sprint(webServer.Spec.Replicas)))
 	h.Write([]byte("UseSessionClustering:" + fmt.Sprint(webServer.Spec.UseSessionClustering)))
+	h.Write([]byte("UseInsightsClient:" + fmt.Sprint(webServer.Spec.UseInsightsClient)))
+	h.Write([]byte("IsNotJWS:" + fmt.Sprint(webServer.Spec.IsNotJWS)))
 
 	/* add the labels */
 	if webServer.ObjectMeta.Labels != nil {
@@ -632,6 +635,42 @@ func (r *WebServerReconciler) getWebServerHash(webServer *webserversv1alpha1.Web
 			}
 		}
 	}
+
+	data, err := json.Marshal(webServer.Spec.EnvironmentVariables)
+	if err != nil {
+		log.Error(err, "WebServer hash sum calculation failed - EnvironmentVariables")
+		return ""
+	}
+	h.Write(data)
+
+	data, err = json.Marshal(webServer.Spec.TLSConfig)
+	if err != nil {
+		log.Error(err, "WebServer hash sum calculation failed - TLSConfig")
+		return ""
+	}
+	h.Write(data)
+
+	data, err = json.Marshal(webServer.Spec.PersistentLogsConfig)
+	if err != nil {
+		log.Error(err, "WebServer hash sum calculation failed - PersistentLogsConfig")
+		return ""
+	}
+	h.Write(data)
+
+	data, err = json.Marshal(webServer.Spec.PodResources)
+	if err != nil {
+		log.Error(err, "WebServer hash sum calculation failed - PodResources")
+		return ""
+	}
+	h.Write(data)
+
+	data, err = json.Marshal(webServer.Spec.SecurityContext)
+	if err != nil {
+		log.Error(err, "WebServer hash sum calculation failed - SecurityContext")
+		return ""
+	}
+	h.Write(data)
+
 	/* rules for labels: '(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])?')"} */
 	enc := base64.NewEncoding("qwertyuiopasdfghjklzxcvbnmQWERTYUIOPASDFGHJKLZXCVBNM_.0123456789")
 	enc = enc.WithPadding(base64.NoPadding)
