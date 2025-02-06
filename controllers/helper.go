@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"sort"
 	"strings"
@@ -552,6 +553,8 @@ func (r *WebServerReconciler) getWebServerHash(webServer *webserversv1alpha1.Web
 	h.Write([]byte("ApplicationName:" + webServer.Spec.ApplicationName))
 	// No need to recreate h.Write([]byte("Replicas:" + fmt.Sprint(webServer.Spec.Replicas)))
 	h.Write([]byte("UseSessionClustering:" + fmt.Sprint(webServer.Spec.UseSessionClustering)))
+	h.Write([]byte("UseInsightsClient:" + fmt.Sprint(webServer.Spec.UseInsightsClient)))
+	h.Write([]byte("IsNotJWS:" + fmt.Sprint(webServer.Spec.IsNotJWS)))
 
 	/* add the labels */
 	if webServer.ObjectMeta.Labels != nil {
@@ -569,69 +572,49 @@ func (r *WebServerReconciler) getWebServerHash(webServer *webserversv1alpha1.Web
 		}
 
 	}
-	if webServer.Spec.WebImage != nil {
-		/* Same for WebImage */
-		h.Write([]byte("ApplicationImage:" + webServer.Spec.WebImage.ApplicationImage))
-		if webServer.Spec.WebImage.ImagePullSecret != "" {
-			h.Write([]byte("ImagePullSecret:" + webServer.Spec.WebImage.ImagePullSecret))
-		}
-		if webServer.Spec.WebImage.WebApp != nil {
-			/* Same for WebApp */
-			if webServer.Spec.WebImage.WebApp.Name != "" {
-				h.Write([]byte("Name:" + webServer.Spec.WebImage.WebApp.Name))
-			}
-			h.Write([]byte("SourceRepositoryURL:" + webServer.Spec.WebImage.WebApp.SourceRepositoryURL))
-			if webServer.Spec.WebImage.WebApp.SourceRepositoryRef != "" {
-				h.Write([]byte("SourceRepositoryRef:" + webServer.Spec.WebImage.WebApp.SourceRepositoryRef))
-			}
-			if webServer.Spec.WebImage.WebApp.SourceRepositoryContextDir != "" {
-				h.Write([]byte("SourceRepositoryContextDir:" + webServer.Spec.WebImage.WebApp.SourceRepositoryContextDir))
-			}
-			h.Write([]byte("WebAppWarImage:" + webServer.Spec.WebImage.WebApp.WebAppWarImage))
-			h.Write([]byte("WebAppWarImagePushSecret:" + webServer.Spec.WebImage.WebApp.WebAppWarImagePushSecret))
-			if webServer.Spec.WebImage.WebApp.Builder != nil {
-				/* Same for Builder */
-				h.Write([]byte("Image:" + webServer.Spec.WebImage.WebApp.Builder.Image))
-				h.Write([]byte("ApplicationBuildScript:" + webServer.Spec.WebImage.WebApp.Builder.ApplicationBuildScript))
-			}
-		}
-		if webServer.Spec.WebImage.WebServerHealthCheck != nil {
-			/* Same for WebServerHealthCheck */
-			h.Write([]byte("ServerReadinessScript:" + webServer.Spec.WebImage.WebServerHealthCheck.ServerReadinessScript))
-			if webServer.Spec.WebImage.WebServerHealthCheck.ServerLivenessScript != "" {
-				h.Write([]byte("ServerLivenessScript:" + webServer.Spec.WebImage.WebServerHealthCheck.ServerLivenessScript))
-			}
 
-		}
+	data, err := json.Marshal(webServer.Spec.WebImage)
+	if err != nil {
+		log.Error(err, "WebServer hash sum calculation failed - WebImage")
+		return ""
 	}
-	if webServer.Spec.WebImageStream != nil {
-		/* Same for WebImageStream */
-		h.Write([]byte("ImageStreamName:" + webServer.Spec.WebImageStream.ImageStreamName))
-		h.Write([]byte("ImageStreamNamespace:" + webServer.Spec.WebImageStream.ImageStreamNamespace))
-		if webServer.Spec.WebImageStream.WebSources != nil {
-			h.Write([]byte("SourceRepositoryURL:" + webServer.Spec.WebImageStream.WebSources.SourceRepositoryURL))
-			if webServer.Spec.WebImageStream.WebSources.SourceRepositoryRef != "" {
-				h.Write([]byte("SourceRepositoryRef:" + webServer.Spec.WebImageStream.WebSources.SourceRepositoryRef))
-			}
-			if webServer.Spec.WebImageStream.WebSources.ContextDir != "" {
-				h.Write([]byte("SourceRepositoryContextDir:" + webServer.Spec.WebImageStream.WebSources.ContextDir))
-			}
-			if webServer.Spec.WebImageStream.WebSources.WebSourcesParams != nil {
-				if webServer.Spec.WebImageStream.WebSources.WebSourcesParams.MavenMirrorURL != "" {
-					h.Write([]byte("MavenMirrorURL:" + webServer.Spec.WebImageStream.WebSources.WebSourcesParams.MavenMirrorURL))
-				}
-				if webServer.Spec.WebImageStream.WebSources.WebSourcesParams.ArtifactDir != "" {
-					h.Write([]byte("ArtifactDir:" + webServer.Spec.WebImageStream.WebSources.WebSourcesParams.ArtifactDir))
-				}
-				if webServer.Spec.WebImageStream.WebSources.WebSourcesParams.GenericWebhookSecret != "" {
-					h.Write([]byte("GenericWebhookSecret:" + webServer.Spec.WebImageStream.WebSources.WebSourcesParams.GenericWebhookSecret))
-				}
-				if webServer.Spec.WebImageStream.WebSources.WebSourcesParams.GithubWebhookSecret != "" {
-					h.Write([]byte("GithubWebhookSecret:" + webServer.Spec.WebImageStream.WebSources.WebSourcesParams.GithubWebhookSecret))
-				}
-			}
-		}
+	h.Write(data)
+
+	data, err = json.Marshal(webServer.Spec.EnvironmentVariables)
+	if err != nil {
+		log.Error(err, "WebServer hash sum calculation failed - EnvironmentVariables")
+		return ""
 	}
+	h.Write(data)
+
+	data, err = json.Marshal(webServer.Spec.TLSConfig)
+	if err != nil {
+		log.Error(err, "WebServer hash sum calculation failed - TLSConfig")
+		return ""
+	}
+	h.Write(data)
+
+	data, err = json.Marshal(webServer.Spec.PersistentLogsConfig)
+	if err != nil {
+		log.Error(err, "WebServer hash sum calculation failed - PersistentLogsConfig")
+		return ""
+	}
+	h.Write(data)
+
+	data, err = json.Marshal(webServer.Spec.PodResources)
+	if err != nil {
+		log.Error(err, "WebServer hash sum calculation failed - PodResources")
+		return ""
+	}
+	h.Write(data)
+
+	data, err = json.Marshal(webServer.Spec.SecurityContext)
+	if err != nil {
+		log.Error(err, "WebServer hash sum calculation failed - SecurityContext")
+		return ""
+	}
+	h.Write(data)
+
 	/* rules for labels: '(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])?')"} */
 	enc := base64.NewEncoding("qwertyuiopasdfghjklzxcvbnmQWERTYUIOPASDFGHJKLZXCVBNM_.0123456789")
 	enc = enc.WithPadding(base64.NoPadding)
