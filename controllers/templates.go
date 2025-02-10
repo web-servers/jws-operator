@@ -597,6 +597,7 @@ func (r *WebServerReconciler) generateRoute(webServer *webserversv1alpha1.WebSer
 		route = &routev1.Route{
 			ObjectMeta: objectMeta,
 			Spec: routev1.RouteSpec{
+				Subdomain: webServer.Spec.ApplicationName + "." + webServer.Namespace,
 				To: routev1.RouteTargetReference{
 					Name: webServer.Spec.ApplicationName,
 				},
