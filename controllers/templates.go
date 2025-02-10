@@ -857,8 +857,16 @@ func (r *WebServerReconciler) generateEnvVars(webServer *webserversv1alpha1.WebS
 	env = append(env, webServer.Spec.EnvironmentVariables...)
 
 	if webServer.Spec.UseInsightsClient {
+		insightsDebug := "false"
+
+		for i := 0; i < len(env); i++ {
+			if env[i].Name == "INSIGHTS_DEBUG" {
+				insightsDebug = env[i].Value
+			}
+		}
+
 		javaToolOptions := " -javaagent:/opt/runtimes-agent.jar=name=" + webServer.Spec.ApplicationName
-		javaToolOptions = javaToolOptions + ";is_ocp=true;token=dummy;debug=true;base_url="
+		javaToolOptions = javaToolOptions + ";is_ocp=true;token=dummy;debug=" + insightsDebug + ";base_url="
 		javaToolOptions = javaToolOptions + "http://insights-proxy." + os.Getenv("OPERATOR_NAMESPACE") + ".svc.cluster.local:8080"
 		updated := false
 
