@@ -23,7 +23,7 @@ Use the DNSping or KUBEping session clustering if filled, default don't use sess
 ```
 
 ## useInsightsClient (to enable Red Hat Insights) - Tech Preview
-If enabled, environment variables are set to load Insights client and creates connection with runtimes inventory operator (provided by Red Hat). It requires JBoss Web Server 6.1 image or newer.
+If enabled, a connection to runtimes inventory operator (provided by Red Hat) is created. It requires JBoss Web Server 6.1+ image. Insights client debug log can be turned on by setting INSIGHTS_DEBUG environment variable to true.
 
 ```
   useInsightsClient: true
