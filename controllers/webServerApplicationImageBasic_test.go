@@ -62,8 +62,8 @@ var _ = Describe("WebServer controller", func() {
 
 					Expect(webserverstests.WebServerImageStreamBasicTest(k8sClient, ctx, thetest, namespace, "imagestreambasictest", "jboss-webserver56-openjdk8-tomcat9-openshift-ubi8", "/health")).Should(Succeed())
 					Expect(webserverstests.WebServerImageStreamScaleTest(k8sClient, ctx, thetest, namespace, "imagestreamscaletest", "jboss-webserver56-openjdk8-tomcat9-openshift-ubi8", "/health")).Should(Succeed())
-					Expect(webserverstests.WebServerImageStreamSourcesBasicTest(k8sClient, ctx, thetest, namespace, "imagestreamsourcesbasictest", "jboss-webserver56-openjdk8-tomcat9-openshift-ubi8", "https://github.com/jfclere/demo-webapp", "", "/demo-1.0/demo")).Should(Succeed())
-					Expect(webserverstests.WebServerImageStreamSourcesScaleTest(k8sClient, ctx, thetest, namespace, "imagestreamsourcesscaletest", "jboss-webserver56-openjdk8-tomcat9-openshift-ubi8", "https://github.com/jfclere/demo-webapp", "", "/demo-1.0/demo")).Should(Succeed())
+					Expect(webserverstests.WebServerImageStreamSourcesBasicTest(k8sClient, ctx, thetest, namespace, "imagestreamsourcesbasictest", "jboss-webserver56-openjdk8-tomcat9-openshift-ubi8", "https://github.com/web-servers/demo-webapp", "", "/demo-1.0/demo")).Should(Succeed())
+					Expect(webserverstests.WebServerImageStreamSourcesScaleTest(k8sClient, ctx, thetest, namespace, "imagestreamsourcesscaletest", "jboss-webserver56-openjdk8-tomcat9-openshift-ubi8", "https://github.com/web-servers/demo-webapp", "", "/demo-1.0/demo")).Should(Succeed())
 					//procedure to find defaultIngressDomain
 					service := &corev1.Service{
 						ObjectMeta: metav1.ObjectMeta{
