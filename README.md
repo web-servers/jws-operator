@@ -283,7 +283,7 @@ You also need to be able to push to:
 ```
 quay.io/${USER}/test
 ```
-When on openshift the jboss-webserver56-openjdk8-tomcat9-ubi8-image-stream ImageStream is used by the tests, to create it
+When on openshift the 'jboss-webserver56-openjdk8-tomcat9-ubi8' ImageStream is used by the tests, to create it
 ```
 oc secrets link default secretfortests --for=pull
 oc create -f xpaas-streams/jws56-tomcat9-image-stream.json
