@@ -10,7 +10,7 @@ spec:
     spec:
       containers:
       - name: kube-rbac-proxy
-        image: quay.io/brancz/kube-rbac-proxy:v0.19.0
+        image: registry.redhat.io/rhacm2/kube-rbac-proxy-rhel8:v2.9 
         args:
         - "--secure-listen-address=0.0.0.0:8443"
         - "--upstream=http://127.0.0.1:8080/"
