@@ -53,3 +53,8 @@ make bundle
 make bundle-build bundle-push BUNDLE_IMG=quay.io/mmadzin/jws-operator-bundle:new-sdk
 ###
 
+
+
+
+go clean --modcache
+go clean --cache
