@@ -265,6 +265,8 @@ If you are using a openjdk:8-jre-alpine based image and /test is your health URL
 Note that HealthCheckValve requires tomcat 9.0.38+ or 10.0.0-M8 to work as expected and it was introducted in 9.0.15.
 
 ## Testing
+Before starting the tests make sure the operator is deployed using ```make deploy``` and its pods are started.
+
 To run a test with a real cluster you need a real cluster (kubernetes or openshift). A secret is needed to run a bunch of tests.
 You can create the secret using something like:
 ```
@@ -283,7 +285,7 @@ You also need to be able to push to:
 ```
 quay.io/${USER}/test
 ```
-When on openshift the jboss-webserver56-openjdk8-tomcat9-ubi8-image-stream ImageStream is used by the tests, to create it
+When on openshift the 'jboss-webserver56-openjdk8-tomcat9-ubi8' ImageStream is used by the tests, to create it
 ```
 oc secrets link default secretfortests --for=pull
 oc create -f xpaas-streams/jws56-tomcat9-image-stream.json
