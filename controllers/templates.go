@@ -42,7 +42,7 @@ func (r *WebServerReconciler) generateRoutingService(webServer *webserversv1alph
 			// Don't forget to check generateLabelsForWeb before changing this...
 			// there are more Labels but we only use those for the Route.
 			Selector: map[string]string{
-				"deploymentConfig": webServer.Spec.ApplicationName,
+				"deployment": webServer.Spec.ApplicationName,
 				"WebServer":        webServer.Name,
 			},
 		},
@@ -672,7 +672,7 @@ func (r *WebServerReconciler) generateLoadBalancer(webServer *webserversv1alpha1
 			// Don't forget to check generateLabelsForWeb before changing this...
 			// there are more Labels but we only use those for the Route.
 			Selector: map[string]string{
-				"deploymentConfig": webServer.Spec.ApplicationName,
+				"deployment": webServer.Spec.ApplicationName,
 				"WebServer":        webServer.Name,
 			},
 			Type: "LoadBalancer",
