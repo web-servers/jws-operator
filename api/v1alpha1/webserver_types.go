@@ -172,7 +172,7 @@ type WebServerStatus struct {
 	// Read-only.
 	ScalingdownPods int32 `json:"scalingdownPods"`
 	// selector for pods, used by HorizontalPodAutoscaler
-	Selector string `json:"selector"`
+	Selector string `json:"selector,omitempty"`
 }
 
 const (
