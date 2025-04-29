@@ -72,6 +72,78 @@ var name string
 var namespace string
 
 // WebServerApplicationImageBasicTest tests the deployment of an application image operator
+func WebServerEnvVariablesTest(clt client.Client, ctx context.Context, t *testing.T, namespace string, name string, image string, testURI string) (err error) {
+
+	webServer := makeApplicationImageWebServer(namespace, name, image, 1)
+	webServer.Spec.UseInsightsClient = false
+	webServer.Spec.EnvironmentVariables = []corev1.EnvVar{
+		{
+			Name:  "MY_ENV",
+			Value: "xyz",
+		},
+	}
+
+	if strings.HasPrefix(image, "registry.redhat.io") {
+		// We need a pull secret for the image.
+		webServer.Spec.WebImage.ImagePullSecret = "secretfortests"
+	}
+
+	// cleanup
+	defer func() {
+		clt.Delete(context.Background(), webServer)
+		time.Sleep(time.Second * 5)
+	}()
+
+	err = deployWebServer(clt, ctx, t, webServer)
+	if err != nil {
+		return err
+	}
+
+	_, err = webServerRouteTest(clt, ctx, t, webServer, testURI, false, nil, false)
+
+	if err != nil {
+		return err
+	}
+
+	curwebServer := &webserversv1alpha1.WebServer{}
+	err = clt.Get(ctx, types.NamespacedName{Name: webServer.ObjectMeta.Name, Namespace: webServer.ObjectMeta.Namespace}, curwebServer)
+
+	if err != nil {
+		t.Logf("WebServer.Status.Pods error!!!")
+		return err
+	}
+
+	if len(curwebServer.Status.Pods) == 0 {
+		t.Logf("WebServer.Status.Pods is empty.")
+		return err
+	}
+
+	podName := curwebServer.Status.Pods[0].Name
+
+	pod := &corev1.Pod{}
+	err = clt.Get(ctx, types.NamespacedName{Name: podName, Namespace: webServer.ObjectMeta.Namespace}, pod)
+
+	if err != nil {
+		t.Logf("Not able to get pod: %s", podName)
+		return err
+	}
+
+	if len(pod.Spec.Containers) == 0 || len(pod.Spec.Containers[0].Env) == 0 {
+		return errors.New("Not able to get pod's environment variables")
+	}
+
+	env := pod.Spec.Containers[0].Env
+
+	for i := 0; i < len(env); i++ {
+		if env[i].Name == "MY_ENV" && env[i].Value == "xyz" {
+			return nil
+		}
+	}
+
+	return errors.New("Environment variable was not found")
+}
+
+// WebServerApplicationImageBasicTest tests the deployment of an application image operator
 func WebServerInsightsAppImgBasicTest(clt client.Client, ctx context.Context, t *testing.T, namespace string, name string, image string, testURI string) (err error) {
 
 	webServer := makeApplicationImageWebServer(namespace, name, image, 1)
