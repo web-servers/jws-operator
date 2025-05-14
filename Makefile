@@ -5,6 +5,9 @@
 # - use environment variables to overwrite this value (e.g export VERSION=0.0.2)
 VERSION ?= 0.0.1
 
+# For the target onetest, TEST is the "single" test you want to run defaut run all the tests
+TEST ?= ""
+
 # CHANNELS define the bundle channels used in the bundle.
 # Add a new line here if you would like to change its default config. (E.g CHANNELS = "candidate,fast,stable")
 # To re-generate a bundle for other specific channels without changing the standard setup, you can:
@@ -91,7 +94,11 @@ test: manifests generate fmt vet envtest ## Run tests.
 	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) -p path)" go test ./... -coverprofile cover.out
 
 realtest: test
-	REALCLUSTER="YES" KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) -p path)" go test -timeout 60m ./... -coverprofile cover.out
+       REALCLUSTER="YES" KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) -p path)" go test -timeout 60m ./... -coverprofile cover.out
+
+onetest:
+	# go test ./controllers/ -ginkgo.focus  "Basic test"
+	REALCLUSTER="YES" KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) -p path)" go test ./controllers -ginkgo.focus $(TEST) -timeout 60m ./... -coverprofile cover.out
 
 .PHONY: mod-vendor
 mod-vendor:
