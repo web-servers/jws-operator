@@ -1,4 +1,4 @@
 ## Append samples of your project ##
 resources:
-- webservers_v1alpha1_webserver.yaml
+- v1alpha1_webserver.yaml
 # +kubebuilder:scaffold:manifestskustomizesamples

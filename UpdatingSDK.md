@@ -6,28 +6,13 @@ operator-sdk create api --version v1alpha1 --kind WebServer --resource --control
 Add into PROJECT
 "group: webservers"
 
-(Optional) Update comment into greoupversion_info.go
-Package v1alpha1 contains API Schema definitions for the webservers v1alpha1 API group
-
-Update config/samples/kustomization.yaml according github repo
-Rename samples config/samples/v1alpha1_webserver.yaml -> config/samples/webservers_v1alpha1_webserver.yaml
-
-Updated golang image in Docker file to 1.23 version
+Remove "_v1alpha1_webserver.yaml" from config/samples/kustomization.yaml
 
 Login to quay.io
 podman login quay.io
 
 Set IMG env variable:
 export IMG=quay.io/${USER}/jws-operator:new-sdk
-
-### Checkpoint (Optional)
-Try to build image:
-make manifests docker-build docker-push
-
-Try to create bundle
-make bundle
-make bundle-build bundle-push BUNDLE_IMG=quay.io/mmadzin/jws-operator-bundle:new-sdk
-###
 
 Original versions of following files were copied
 api/v1alpha1/webserver_types.go -> api/v1alpha1/webserver_types.go
@@ -43,8 +28,6 @@ TODO
 update templates.go connected to k8s.io/apimachinery/pkg/api/resource
 
 ### Checkpoint (Optional)
-Try to build image:
-rm -rf bundle
 go mod tidy
 make manifests docker-build docker-push
 

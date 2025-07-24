@@ -476,9 +476,9 @@ func (r *WebServerReconciler) getPodList(ctx context.Context, webServer *webserv
 // NOTE: that is ONLY for application pods! (not for the builder or any helpers
 func (r *WebServerReconciler) generateLabelsForWeb(webServer *webserversv1alpha1.WebServer) map[string]string {
 	labels := map[string]string{
-		"deploymentConfig": webServer.Spec.ApplicationName,
-		"WebServer":        webServer.Name,
-		"application":      webServer.Spec.ApplicationName,
+		"deployment":  webServer.Spec.ApplicationName,
+		"WebServer":   webServer.Name,
+		"application": webServer.Spec.ApplicationName,
 		// app.kubernetes.io/name is used for HPA selector like in wildfly
 		"app.kubernetes.io/name": webServer.Name,
 	}
@@ -499,9 +499,9 @@ func (r *WebServerReconciler) generateLabelsForWeb(webServer *webserversv1alpha1
 // the other labels might change and that is NOT allowed when updating a Deployment
 func (r *WebServerReconciler) generateSelectorLabelsForWeb(webServer *webserversv1alpha1.WebServer) map[string]string {
 	labels := map[string]string{
-		"deploymentConfig": webServer.Spec.ApplicationName,
-		"WebServer":        webServer.Name,
-		"application":      webServer.Spec.ApplicationName,
+		"deployment":  webServer.Spec.ApplicationName,
+		"WebServer":   webServer.Name,
+		"application": webServer.Spec.ApplicationName,
 		// app.kubernetes.io/name is used for HPA selector like in wildfly
 		"app.kubernetes.io/name": webServer.Name,
 	}
