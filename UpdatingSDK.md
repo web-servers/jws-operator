@@ -1,5 +1,12 @@
+Create folder
 mkdir jws-operator
 cd jws-operator
+
+Clean the cache
+go clean --modcache
+go clean --cache
+
+Create operator
 operator-sdk init --domain web.servers.org --repo github.com/web-servers/jws-operator
 operator-sdk create api --version v1alpha1 --kind WebServer --resource --controller
 
@@ -27,17 +34,17 @@ update package in helper.go, service.go, servicemonitor.go, templates.go, webser
 TODO
 update templates.go connected to k8s.io/apimachinery/pkg/api/resource
 
-### Checkpoint (Optional)
+Build the operator
 go mod tidy
 make manifests docker-build docker-push
 
 Try to create bundle
 make bundle
+
+Update bundle files:
+- bundle/manifests/jws-operator.clusterserviceversion.yaml
+- config/manifests/bases/jws-operator.clusterserviceversion.yaml
+
+Build the bundle
 make bundle-build bundle-push BUNDLE_IMG=quay.io/mmadzin/jws-operator-bundle:new-sdk
-###
 
-
-
-
-go clean --modcache
-go clean --cache
