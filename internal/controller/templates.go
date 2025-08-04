@@ -5,7 +5,7 @@ import (
 	"strings"
 
 	"gopkg.in/yaml.v2"
-//	"k8s.io/apimachinery/pkg/api/resource"
+	//	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/util/intstr"
 
 	webserversv1alpha1 "github.com/web-servers/jws-operator/api/v1alpha1"
@@ -43,7 +43,7 @@ func (r *WebServerReconciler) generateRoutingService(webServer *webserversv1alph
 			// there are more Labels but we only use those for the Route.
 			Selector: map[string]string{
 				"deployment": webServer.Spec.ApplicationName,
-				"WebServer":        webServer.Name,
+				"WebServer":  webServer.Name,
 			},
 		},
 	}
@@ -200,11 +200,11 @@ func (r *WebServerReconciler) generatePersistentVolumeClaimForLogging(webServer 
 		ObjectMeta: r.generateObjectMeta(webServer, "volume-pvc-"+webServer.Name),
 		Spec: corev1.PersistentVolumeClaimSpec{
 			AccessModes: []corev1.PersistentVolumeAccessMode{corev1.ReadWriteMany}, //works only if you remove "default" from StorageClass
-//			Resources: corev1.ResourceRequirements{
-//				Requests: corev1.ResourceList{
-//					corev1.ResourceName(corev1.ResourceStorage): resource.MustParse("1Gi"),
-//				},
-//			},
+			//			Resources: corev1.ResourceRequirements{
+			//				Requests: corev1.ResourceList{
+			//					corev1.ResourceName(corev1.ResourceStorage): resource.MustParse("1Gi"),
+			//				},
+			//			},
 		},
 	}
 
@@ -673,7 +673,7 @@ func (r *WebServerReconciler) generateLoadBalancer(webServer *webserversv1alpha1
 			// there are more Labels but we only use those for the Route.
 			Selector: map[string]string{
 				"deployment": webServer.Spec.ApplicationName,
-				"WebServer":        webServer.Name,
+				"WebServer":  webServer.Name,
 			},
 			Type: "LoadBalancer",
 		},

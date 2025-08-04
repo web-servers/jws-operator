@@ -21,14 +21,17 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"k8s.io/apimachinery/pkg/api/errors"
+	//	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	webserversorgv1alpha1 "github.com/web-servers/jws-operator/api/v1alpha1"
 )
+
+var c client.Client
 
 var _ = Describe("WebServer Controller", func() {
 	Context("When reconciling a resource", func() {
@@ -38,34 +41,26 @@ var _ = Describe("WebServer Controller", func() {
 
 		typeNamespacedName := types.NamespacedName{
 			Name:      resourceName,
-			Namespace: "default", // TODO(user):Modify as needed
+			Namespace: "mm-test", // TODO(user):Modify as needed
 		}
-		webserver := &webserversorgv1alpha1.WebServer{}
+		webserver := &webserversorgv1alpha1.WebServer{
+			TypeMeta: metav1.TypeMeta{
+				Kind:       "WebServer",
+				APIVersion: "web.servers.org/v1alpha1",
+			},
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "xyz",
+				Namespace: "mm-test",
+			},
+			Spec: webserversorgv1alpha1.WebServerSpec{
+				Replicas:        3,
+				ApplicationName: "abc",
+				WebImage: &webserversorgv1alpha1.WebImageSpec{
+					ApplicationImage: "quay.io/web-servers/tomcat10:latest",
+				},
+			},
+		}
 
-		BeforeEach(func() {
-			By("creating the custom resource for the Kind WebServer")
-			err := k8sClient.Get(ctx, typeNamespacedName, webserver)
-			if err != nil && errors.IsNotFound(err) {
-				resource := &webserversorgv1alpha1.WebServer{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      resourceName,
-						Namespace: "default",
-					},
-					// TODO(user): Specify other spec details if needed.
-				}
-				Expect(k8sClient.Create(ctx, resource)).To(Succeed())
-			}
-		})
-
-		AfterEach(func() {
-			// TODO(user): Cleanup logic after each test, like removing the resource instance.
-			resource := &webserversorgv1alpha1.WebServer{}
-			err := k8sClient.Get(ctx, typeNamespacedName, resource)
-			Expect(err).NotTo(HaveOccurred())
-
-			By("Cleanup the specific resource instance WebServer")
-			Expect(k8sClient.Delete(ctx, resource)).To(Succeed())
-		})
 		It("should successfully reconcile the resource", func() {
 			By("Reconciling the created resource")
 			controllerReconciler := &WebServerReconciler{
@@ -73,7 +68,11 @@ var _ = Describe("WebServer Controller", func() {
 				Scheme: k8sClient.Scheme(),
 			}
 
-			_, err := controllerReconciler.Reconcile(ctx, reconcile.Request{
+			err := c.Create(ctx, webserver)
+
+			Expect(err).NotTo(HaveOccurred())
+
+			_, err = controllerReconciler.Reconcile(ctx, reconcile.Request{
 				NamespacedName: typeNamespacedName,
 			})
 			Expect(err).NotTo(HaveOccurred())
