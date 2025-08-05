@@ -324,4 +324,4 @@ This may be tricky depending on how we decide to handle Tomcat updates. We may n
 
 **Adding Full Support for Kubernetes Clusters**
 
-The Operator supports some Openshift specific resources such as DeploymentConfigs, Routes, and ImageStreams. Those are not available on Kubernetes cluster. Building from source in Kubernetes requires an additional image builder image, like the BuildConfig the builder needs to use a Docker repository to push what it is building. See https://github.com/web-servers/image-builder-jws for the builder.
+The Operator supports some Openshift specific resources such as Routes, and ImageStreams. Those are not available on Kubernetes cluster. Building from source in Kubernetes requires an additional image builder image, like the BuildConfig the builder needs to use a Docker repository to push what it is building. See https://github.com/web-servers/image-builder-jws for the builder.

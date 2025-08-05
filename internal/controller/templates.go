@@ -683,7 +683,7 @@ func (r *WebServerReconciler) generateLoadBalancer(webServer *webserversv1alpha1
 	return service
 }
 
-// Note that the pod template are common to Deployment (kubernetes) and DeploymentConfig (openshift)
+// Note that the pod template are common to Deployment
 // be careful: the imagePullSecret uses ImagePullSecret not webAppWarImagePushSecret
 func (r *WebServerReconciler) generatePodTemplate(webServer *webserversv1alpha1.WebServer, image string) corev1.PodTemplateSpec {
 	objectMeta := r.generateObjectMeta(webServer, webServer.Spec.ApplicationName)

@@ -11,10 +11,10 @@ import (
 
 	webserversv1alpha1 "github.com/web-servers/jws-operator/api/v1alpha1"
 
-	appsv1 "github.com/openshift/api/apps/v1"
 	buildv1 "github.com/openshift/api/build/v1"
-
 	imagestreamv1 "github.com/openshift/api/image/v1"
+
+	kbappsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -54,7 +54,7 @@ func (r *WebServerReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	if r.isOpenShift {
 		return ctrl.NewControllerManagedBy(mgr).
 			For(&webserversv1alpha1.WebServer{}).
-			Owns(&appsv1.DeploymentConfig{}).
+			Owns(&kbappsv1.Deployment{}).
 			Complete(r)
 	} else {
 		return ctrl.NewControllerManagedBy(mgr).
@@ -91,16 +91,12 @@ type WebServerReconciler struct {
 // +kubebuilder:rbac:groups="apps",resources=deployments,verbs=create;get;list;delete;watch;update;patch
 // +kubebuilder:rbac:groups="apps",resources=deployments/finalizers,verbs=update
 
-// +kubebuilder:rbac:groups="apps.openshift.io",resources=deploymentconfigs,verbs=create;get;list;delete;update;watch
-
 // +kubebuilder:rbac:groups=monitoring.coreos.com,resources=servicemonitors,verbs=create;get;
 
 // +kubebuilder:rbac:groups=image.openshift.io,resources=imagestreams,verbs=create;get;list;delete;watch
 
 // +kubebuilder:rbac:groups=build.openshift.io,resources=buildconfigs,verbs=create;get;list;delete;update;watch
 // +kubebuilder:rbac:groups=build.openshift.io,resources=builds,verbs=create;get;list;delete;watch
-
-// +kubebuilder:rbac:groups=apps.openshift.io,resources=deploymentconfigs,verbs=create;get;list;delete
 
 // +kubebuilder:rbac:groups=route.openshift.io,resources=routes,verbs=create;get;list;delete;watch
 // +kubebuilder:rbac:groups=route.openshift.io,resources=routes/custom-host,verbs=create;get;

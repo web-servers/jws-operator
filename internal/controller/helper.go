@@ -12,7 +12,6 @@ import (
 
 	webserversv1alpha1 "github.com/web-servers/jws-operator/api/v1alpha1"
 
-	appsv1 "github.com/openshift/api/apps/v1"
 	buildv1 "github.com/openshift/api/build/v1"
 	imagev1 "github.com/openshift/api/image/v1"
 	routev1 "github.com/openshift/api/route/v1"
@@ -386,29 +385,6 @@ func (r *WebServerReconciler) createBuildConfig(ctx context.Context, webServer *
 		return ctrl.Result{Requeue: true}, nil
 	} else if err != nil {
 		log.Error(err, "Failed to get BuildConfig: "+resourceName)
-		return reconcile.Result{}, err
-	}
-	return reconcile.Result{}, err
-}
-
-func (r *WebServerReconciler) createDeploymentConfig(ctx context.Context, webServer *webserversv1alpha1.WebServer, resource *appsv1.DeploymentConfig, resourceName string, resourceNamespace string) (ctrl.Result, error) {
-	err := r.Client.Get(ctx, client.ObjectKey{
-		Namespace: resourceNamespace,
-		Name:      resourceName,
-	}, resource)
-	if err != nil && errors.IsNotFound(err) {
-		// Create a new resource
-		log.Info("Creating a new DeploymentConfig: " + resourceName + " Namespace: " + resourceNamespace)
-		resource.ObjectMeta.Labels["webserver-hash"] = r.getWebServerHash(webServer)
-		err = r.Client.Create(ctx, resource)
-		if err != nil && !errors.IsAlreadyExists(err) {
-			log.Error(err, "Failed to create a new DeploymentConfig: "+resourceName+" Namespace: "+resourceNamespace)
-			return reconcile.Result{}, err
-		}
-		// Resource created successfully - return and requeue
-		return ctrl.Result{Requeue: true}, nil
-	} else if err != nil {
-		log.Error(err, "Failed to get DeploymentConfig: "+resourceName)
 		return reconcile.Result{}, err
 	}
 	return reconcile.Result{}, err

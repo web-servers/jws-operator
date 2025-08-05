@@ -1306,7 +1306,7 @@ func isOperatorLocal() bool {
 func generateLabelsForWebServer(webServer *webserversv1alpha1.WebServer) map[string]string {
 	labels := map[string]string{
 		"deployment": webServer.Spec.ApplicationName,
-		"WebServer":        webServer.Name,
+		"WebServer":  webServer.Name,
 	}
 	// labels["app.kubernetes.io/name"] = webServer.Name
 	// labels["app.kubernetes.io/managed-by"] = os.Getenv("LABEL_APP_MANAGED_BY")

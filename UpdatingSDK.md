@@ -48,3 +48,9 @@ Update bundle files:
 Build the bundle
 make bundle-build bundle-push BUNDLE_IMG=quay.io/mmadzin/jws-operator-bundle:new-sdk
 
+
+Troubleshooting
+1. If you see problems with kind e.g. ERROR webserver_controller Failed to get Route: jws-app {"error": "no kind is registered for the type v1.Route in scheme \"pkg/runtime/scheme.go:110\""}
+
+Solution:
+You need to add non native kubernates schema. In main.go check init function.
