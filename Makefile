@@ -144,6 +144,14 @@ test-e2e: setup-test-e2e install deploy generate fmt vet ## Run the e2e tests. E
 cleanup-test-e2e: ## Tear down the Kind cluster used for e2e tests
 	@$(KIND) delete cluster --name $(KIND_CLUSTER)
 
+.PHONY: test-e2e-real
+test-e2e-real: setup-namespace install deploy generate fmt vet
+	go test ./test/e2e/ -v -ginkgo.v
+
+.PHONY: setup-namespace
+setup-namespace:
+	$(KUBECTL) create namespace $(NAMESPACE_FOR_TESTING) || true
+
 .PHONY: lint
 lint: golangci-lint ## Run golangci-lint linter
 	$(GOLANGCI_LINT) run

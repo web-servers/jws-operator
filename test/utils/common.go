@@ -1305,7 +1305,7 @@ func isOperatorLocal() bool {
 //	of objects belonging to the particular WebServer instance
 func generateLabelsForWebServer(webServer *webserversv1alpha1.WebServer) map[string]string {
 	labels := map[string]string{
-		"deploymentConfig": webServer.Spec.ApplicationName,
+		"deployment": webServer.Spec.ApplicationName,
 		"WebServer":        webServer.Name,
 	}
 	// labels["app.kubernetes.io/name"] = webServer.Name

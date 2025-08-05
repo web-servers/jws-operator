@@ -27,6 +27,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 
 	webserversv1alpha1 "github.com/web-servers/jws-operator/api/v1alpha1"
+	webserverstests "github.com/web-servers/jws-operator/test/utils"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -75,6 +76,14 @@ var _ = Describe("WebServer controller", Ordered, func() {
 				return true
 			}, time.Second*10, time.Millisecond*250).Should(BeTrue())
 			fmt.Printf("new WebServer Name: %s Namespace: %s\n", createdWebserver.ObjectMeta.Name, createdWebserver.ObjectMeta.Namespace)
+
+			Eventually(func() bool {
+				err := webserverstests.WaitUntilReady(k8sClient, ctx, thetest, createdWebserver)
+				if err != nil {
+					return false
+				}
+				return true
+			}, timeout, retryInterval).Should(BeTrue())
 		})
 	})
 })
