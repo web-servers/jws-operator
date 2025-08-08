@@ -137,9 +137,9 @@ func WebServerApplicationImageUpdateTest(clt client.Client, ctx context.Context,
 		}
 	}, time.Second*420, time.Second*30).Should(BeTrue())
 
-	cookie, err := webServerRouteTest(clt, ctx, t, webServer, testURI, false, nil, false)
+	cookie, err := WebServerRouteTest(clt, ctx, t, webServer, testURI, false, nil, false)
 	if err != nil {
-		t.Logf("WebServerApplicationImageUpdateTest: webServerRouteTest failed")
+		t.Logf("WebServerApplicationImageUpdateTest: WebServerRouteTest failed")
 		return err
 	}
 	_ = cookie
@@ -192,9 +192,9 @@ func WebServerSecureRouteTest(clt client.Client, ctx context.Context, t *testing
 		}
 	}, time.Second*420, time.Second*30).Should(BeTrue())
 
-	cookie, err := webServerRouteTest(clt, ctx, t, webServer, testURI, false, nil, true)
+	cookie, err := WebServerRouteTest(clt, ctx, t, webServer, testURI, false, nil, true)
 	if err != nil {
-		t.Logf("WebServerSecureRouteTest: webServerRouteTest failed")
+		t.Logf("WebServerSecureRouteTest: WebServerRouteTest failed")
 		return err
 	}
 	_ = cookie
@@ -298,9 +298,9 @@ func PrometheusTest(clt client.Client, ctx context.Context, t *testing.T, namesp
 	var unixTimeStart int64 = unixTime
 	var unixTimeEnd int64 = unixTime + 3600
 
-	cookie, err := webServerRouteTest(clt, ctx, t, webServer, "/health", false, nil, false)
+	cookie, err := WebServerRouteTest(clt, ctx, t, webServer, "/health", false, nil, false)
 	if err != nil {
-		t.Logf("PrometheusTest: webServerRouteTest failed")
+		t.Logf("PrometheusTest: WebServerRouteTest failed")
 		return err
 	}
 	_ = cookie
@@ -847,7 +847,7 @@ func webServerBasicTest(clt client.Client, ctx context.Context, t *testing.T, we
 		return err
 	}
 
-	cookie, err := webServerRouteTest(clt, ctx, t, webServer, testURI, false, nil, isSecure)
+	cookie, err := WebServerRouteTest(clt, ctx, t, webServer, testURI, false, nil, isSecure)
 
 	_ = cookie //to overcome "var declared but not used" problem
 
@@ -864,18 +864,18 @@ func webServerScaleTest(clt client.Client, ctx context.Context, t *testing.T, we
 	}
 
 	// scale up test.
-	webServerScale(clt, ctx, t, webServer, testURI, 4)
+	WebServerScale(clt, ctx, t, webServer, testURI, 4)
 
-	cookie, err := webServerRouteTest(clt, ctx, t, webServer, testURI, false, nil, false)
+	cookie, err := WebServerRouteTest(clt, ctx, t, webServer, testURI, false, nil, false)
 	if err != nil {
 		return err
 	}
 	_ = cookie
 
 	// scale down test.
-	webServerScale(clt, ctx, t, webServer, testURI, 1)
+	WebServerScale(clt, ctx, t, webServer, testURI, 1)
 
-	cookie, err = webServerRouteTest(clt, ctx, t, webServer, testURI, false, nil, false)
+	cookie, err = WebServerRouteTest(clt, ctx, t, webServer, testURI, false, nil, false)
 	if err != nil {
 		return err
 	}
@@ -883,8 +883,8 @@ func webServerScaleTest(clt client.Client, ctx context.Context, t *testing.T, we
 	return nil
 }
 
-// webServerScale changes the replica number of the WebServer resource
-func webServerScale(clt client.Client, ctx context.Context, t *testing.T, webServer *webserversv1alpha1.WebServer, testURI string, newReplicasValue int32) {
+// WebServerScale changes the replica number of the WebServer resource
+func WebServerScale(clt client.Client, ctx context.Context, t *testing.T, webServer *webserversv1alpha1.WebServer, testURI string, newReplicasValue int32) {
 
 	err := clt.Get(ctx, types.NamespacedName{Name: webServer.ObjectMeta.Name, Namespace: webServer.ObjectMeta.Namespace}, webServer)
 	if err != nil {
@@ -904,7 +904,7 @@ func webServerApplicationImageUpdateTest(clt client.Client, ctx context.Context,
 
 	deployWebServer(clt, ctx, t, webServer)
 
-	cookie, err := webServerRouteTest(clt, ctx, t, webServer, testURI, false, nil, false)
+	cookie, err := WebServerRouteTest(clt, ctx, t, webServer, testURI, false, nil, false)
 	if err != nil {
 		return err
 	}
@@ -1045,8 +1045,8 @@ func waitUntilReady(clt client.Client, ctx context.Context, t *testing.T, webSer
 	return nil
 }
 
-// webServerRouteTest tests the Route created for the operator pods
-func webServerRouteTest(clt client.Client, ctx context.Context, t *testing.T, webServer *webserversv1alpha1.WebServer, URI string, sticky bool, oldCookie *http.Cookie, isSecure bool) (sessionCookie *http.Cookie, err error) {
+// WebServerRouteTest tests the Route created for the operator pods
+func WebServerRouteTest(clt client.Client, ctx context.Context, t *testing.T, webServer *webserversv1alpha1.WebServer, URI string, sticky bool, oldCookie *http.Cookie, isSecure bool) (sessionCookie *http.Cookie, err error) {
 
 	curwebServer := &webserversv1alpha1.WebServer{}
 	err = clt.Get(ctx, types.NamespacedName{Name: webServer.ObjectMeta.Name, Namespace: webServer.ObjectMeta.Namespace}, curwebServer)
