@@ -47,6 +47,9 @@ var _ = Describe("WebServer controller", Ordered, func() {
 	imageStreamName := "jboss-webserver57-openjdk11-tomcat9-openshift-ubi8"
 	imageStreamNamespace := namespace
 
+	routeName := "def"
+	serviceName := "def"
+
 	webserver := &webserversv1alpha1.WebServer{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "WebServer",
@@ -73,7 +76,7 @@ var _ = Describe("WebServer controller", Ordered, func() {
 
 	service := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "def",
+			Name:      serviceName,
 			Namespace: namespace,
 		},
 		Spec: corev1.ServiceSpec{
@@ -87,7 +90,7 @@ var _ = Describe("WebServer controller", Ordered, func() {
 
 	route := &routev1.Route{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "def",
+			Name:      routeName,
 			Namespace: namespace,
 		},
 		Spec: routev1.RouteSpec{
@@ -146,13 +149,29 @@ var _ = Describe("WebServer controller", Ordered, func() {
 	})
 
 	AfterAll(func() {
-		k8sClient.Delete(context.Background(), webserver)
+		k8sClient.Delete(ctx, webserver)
 		webserverLookupKey := types.NamespacedName{Name: name, Namespace: namespace}
 
 		Eventually(func() bool {
 			err := k8sClient.Get(ctx, webserverLookupKey, &webserversv1alpha1.WebServer{})
 			return apierrors.IsNotFound(err)
 		}, "2m", "5s").Should(BeTrue(), "the webserver should be deleted")
+
+		k8sClient.Delete(ctx, route)
+		routeLookupKey := types.NamespacedName{Name: routeName, Namespace: namespace}
+
+		Eventually(func() bool {
+			err := k8sClient.Get(ctx, routeLookupKey, &routev1.Route{})
+			return apierrors.IsNotFound(err)
+		}, "2m", "5s").Should(BeTrue(), "the route should be deleted")
+
+		k8sClient.Delete(ctx, service)
+		serviceLookupKey := types.NamespacedName{Name: serviceName, Namespace: namespace}
+
+		Eventually(func() bool {
+			err := k8sClient.Get(ctx, serviceLookupKey, &corev1.Service{})
+			return apierrors.IsNotFound(err)
+		}, "2m", "5s").Should(BeTrue(), "the service should be deleted")
 	})
 
 	Context("ImageStreamSourceTest", func() {

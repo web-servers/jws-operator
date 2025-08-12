@@ -719,9 +719,9 @@ STORAGE_DRIVER=vfs buildah push --authfile /auth/.dockerconfigjson ${webAppWarIm
 	if err != nil {
 		return err
 	}
-	err = webServerTestFor(clt, ctx, t, webServer, "/"+testURI+"/index.html", "my html is ugly")
+	err = WebServerTestFor(clt, ctx, t, webServer, "/"+testURI+"/index.html", "my html is ugly")
 	if err != nil {
-		t.Logf("WebServerApplicationImageSourcesScriptBasicTest application %s webServerTestFor FAILED\n", name)
+		t.Logf("WebServerApplicationImageSourcesScriptBasicTest application %s WebServerTestFor FAILED\n", name)
 		return err
 	}
 
@@ -761,7 +761,7 @@ STORAGE_DRIVER=vfs buildah push --authfile /auth/.dockerconfigjson ${webAppWarIm
 	}
 	t.Logf("WebServerApplicationImageSourcesScriptBasicTest application %s updated\n", name)
 
-	return webServerTestFor(clt, ctx, t, webServer, "/"+testURI+"/index.html", "my html is _VERY_ ugly")
+	return WebServerTestFor(clt, ctx, t, webServer, "/"+testURI+"/index.html", "my html is _VERY_ ugly")
 
 }
 
@@ -1337,8 +1337,8 @@ func WebServerHaveRoutes(clt client.Client, ctx context.Context, t *testing.T) b
 	return true
 }
 
-// webServerTestFor tests the pod for a content in the URI
-func webServerTestFor(clt client.Client, ctx context.Context, t *testing.T, webServer *webserversv1alpha1.WebServer, URI string, content string) (err error) {
+// WebServerTestFor tests the pod for a content in the URI
+func WebServerTestFor(clt client.Client, ctx context.Context, t *testing.T, webServer *webserversv1alpha1.WebServer, URI string, content string) (err error) {
 
 	curwebServer := &webserversv1alpha1.WebServer{}
 	err = clt.Get(ctx, types.NamespacedName{Name: webServer.ObjectMeta.Name, Namespace: webServer.ObjectMeta.Namespace}, curwebServer)
