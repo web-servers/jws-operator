@@ -108,7 +108,7 @@ var _ = Describe("WebServer controller", Ordered, func() {
 
 		foundService := &corev1.Service{}
 		Eventually(func() bool {
-			err := k8sClient.Get(ctx, types.NamespacedName{Name: appName, Namespace: namespace}, foundService)
+			err := k8sClient.Get(ctx, types.NamespacedName{Name: serviceName, Namespace: namespace}, foundService)
 			if err != nil {
 				return false
 			}
@@ -120,7 +120,7 @@ var _ = Describe("WebServer controller", Ordered, func() {
 
 		foundRoute := &routev1.Route{}
 		Eventually(func() bool {
-			err := k8sClient.Get(ctx, types.NamespacedName{Name: appName, Namespace: namespace}, foundRoute)
+			err := k8sClient.Get(ctx, types.NamespacedName{Name: routeName, Namespace: namespace}, foundRoute)
 			if err != nil {
 				return false
 			}
