@@ -17,24 +17,20 @@ import (
 	. "github.com/onsi/gomega"
 	v2 "k8s.io/api/autoscaling/v2"
 	corev1 "k8s.io/api/core/v1"
-	v1 "k8s.io/api/core/v1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 
 	// "github.com/operator-framework/operator-sdk/pkg/test"
+	routev1 "github.com/openshift/api/route/v1"
 	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	webserversv1alpha1 "github.com/web-servers/jws-operator/api/v1alpha1"
-	kbappsv1 "k8s.io/api/apps/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/api/resource"
 
 	// metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/kubectl/pkg/util/podutils"
 
 	// podv1 "k8s.io/kubernetes/pkg/api/v1/pod"
-	routev1 "github.com/openshift/api/route/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes/scheme"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -70,138 +66,6 @@ var (
 
 var name string
 var namespace string
-
-// WebServerApplicationImageBasicTest tests the deployment of an application image operator
-func WebServerApplicationImageBasicTest(clt client.Client, ctx context.Context, t *testing.T, namespace string, name string, image string, testURI string) (err error) {
-
-	webServer := makeApplicationImageWebServer(namespace, name, image, 1)
-	if strings.HasPrefix(image, "registry.redhat.io") {
-		// We need a pull secret for the image.
-		webServer.Spec.WebImage.ImagePullSecret = "secretfortests"
-	}
-
-	// cleanup
-	defer func() {
-		clt.Delete(context.Background(), webServer)
-		time.Sleep(time.Second * 5)
-	}()
-
-	return webServerBasicTest(clt, ctx, t, webServer, testURI, false)
-
-}
-
-// WebServerApplicationImageScaleTest tests the scaling of an application image operator
-func WebServerApplicationImageScaleTest(clt client.Client, ctx context.Context, t *testing.T, namespace string, name string, image string, testURI string) (err error) {
-
-	webServer := makeApplicationImageWebServer(namespace, name, image, 1)
-
-	// cleanup
-	defer func() {
-		clt.Delete(context.Background(), webServer)
-		time.Sleep(time.Second * 5)
-	}()
-
-	return webServerScaleTest(clt, ctx, t, webServer, testURI)
-}
-
-// WebServerApplicationImageUpdateTest test the application image update feature of an application image operator
-func WebServerApplicationImageUpdateTest(clt client.Client, ctx context.Context, t *testing.T, namespace string, name string, image string, newImageName string, testURI string) (err error) {
-
-	webServer := makeApplicationImageWebServer(namespace, name, image, 1)
-
-	// cleanup
-	defer func() {
-		clt.Delete(context.Background(), webServer)
-		time.Sleep(time.Second * 5)
-	}()
-
-	err = webServerApplicationImageUpdateTest(clt, ctx, t, webServer, newImageName, testURI)
-	if err != nil {
-		t.Logf("WebServerApplicationImageUpdateTest: webServerApplicationImageUpdateTest failed")
-		return err
-	}
-
-	// Wait until the replicas are available
-	Eventually(func() bool {
-		foundDeployment := &kbappsv1.Deployment{}
-		err = clt.Get(ctx, types.NamespacedName{Name: webServer.ObjectMeta.Name, Namespace: webServer.ObjectMeta.Namespace}, foundDeployment)
-		if err != nil {
-			t.Fatalf("can't read Deployment")
-			return false
-		}
-
-		if int32(webServer.Spec.Replicas) == int32(foundDeployment.Status.AvailableReplicas) {
-			return true
-		} else {
-			return false
-		}
-	}, time.Second*420, time.Second*30).Should(BeTrue())
-
-	cookie, err := WebServerRouteTest(clt, ctx, t, webServer, testURI, false, nil, false)
-	if err != nil {
-		t.Logf("WebServerApplicationImageUpdateTest: WebServerRouteTest failed")
-		return err
-	}
-	_ = cookie
-
-	return err
-}
-
-// WebServerApplicationImageSourcesBasicTest tests the deployment of an application image with sources
-// we use testURI.war instead of ROOT.war and the servlet is /demo there
-func WebServerApplicationImageSourcesBasicTest(clt client.Client, ctx context.Context, t *testing.T, namespace string, name string, image string, sourceRepositoryURL string, sourceRepositoryRef string, pushedimage string, pushsecret string, imagebuilder string, testURI string) (err error) {
-
-	warname := testURI + ".war"
-	webServer := makeApplicationImageSourcesWebServer(namespace, name, image, sourceRepositoryURL, sourceRepositoryRef, pushedimage, pushsecret, warname, imagebuilder, 1)
-
-	// cleanup
-	defer func() {
-		clt.Delete(context.Background(), webServer)
-		time.Sleep(time.Second * 5)
-	}()
-
-	return webServerBasicTest(clt, ctx, t, webServer, "/"+testURI+"/demo", false)
-}
-
-func WebServerSecureRouteTest(clt client.Client, ctx context.Context, t *testing.T, namespace string, name string, imageStreamName string, testURI string, defaultIngressDomain string, usesessionclustering bool) (err error) {
-
-	webServer := makeSecureWebserver(namespace, name, imageStreamName, namespace, 1, defaultIngressDomain, usesessionclustering)
-	t.Logf("WebServerSecureRouteTest for: %s\n", webServer.Spec.TLSConfig.RouteHostname)
-	t.Logf("WebServerSecureRouteTest for: %s\n", webServer.Spec.TLSConfig.TLSSecret)
-	deployWebServer(clt, ctx, t, webServer)
-
-	// cleanup
-	defer func() {
-		clt.Delete(context.Background(), webServer)
-		time.Sleep(time.Second * 5)
-	}()
-	// Wait until the replicas are available (here are Deployment)
-	Eventually(func() bool {
-		foundDeployment := &kbappsv1.Deployment{}
-		err = clt.Get(ctx, types.NamespacedName{Name: webServer.ObjectMeta.Name, Namespace: webServer.ObjectMeta.Namespace}, foundDeployment)
-		if err != nil {
-			t.Logf("can't read Deployment")
-			return false
-		}
-
-		if int32(webServer.Spec.Replicas) == int32(foundDeployment.Status.AvailableReplicas) {
-			t.Logf("can't read right number of Replicas in Deployment (%d:%d)", int32(webServer.Spec.Replicas), int32(foundDeployment.Status.AvailableReplicas))
-			return true
-		} else {
-			return false
-		}
-	}, time.Second*420, time.Second*30).Should(BeTrue())
-
-	cookie, err := WebServerRouteTest(clt, ctx, t, webServer, testURI, false, nil, true)
-	if err != nil {
-		t.Logf("WebServerSecureRouteTest: WebServerRouteTest failed")
-		return err
-	}
-	_ = cookie
-
-	return err
-
-}
 
 func PrometheusTest(clt client.Client, ctx context.Context, t *testing.T, namespace string, webServer *webserversv1alpha1.WebServer, testURI string, domain string) (err error) {
 
@@ -362,167 +226,6 @@ func GetThanos(clt client.Client, ctx context.Context, t *testing.T) (thanos str
 	return podList.Items[0].ObjectMeta.Name
 }
 
-func PersistentLogsTest(clt client.Client, ctx context.Context, t *testing.T, namespace string, name string, testURI string) (err error) {
-
-	webServer := &webserversv1alpha1.WebServer{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
-			Namespace: namespace,
-		},
-		Spec: webserversv1alpha1.WebServerSpec{
-			ApplicationName: "persistentlogs-test",
-			Replicas:        int32(2),
-			WebImage: &webserversv1alpha1.WebImageSpec{
-				ApplicationImage: "registry.redhat.io/jboss-webserver-5/webserver54-openjdk8-tomcat9-openshift-rhel8",
-				ImagePullSecret:  "secretfortests",
-				WebServerHealthCheck: &webserversv1alpha1.WebServerHealthCheckSpec{
-					ServerReadinessScript: "if [ $(ls /opt/tomcat_logs |grep -c .log) != 4 ];then exit 1;fi",
-				},
-			},
-			PersistentLogsConfig: webserversv1alpha1.PersistentLogs{
-				CatalinaLogs: true,
-				AccessLogs:   true,
-				VolumeName:   "pv0000",
-				StorageClass: "nfs-client",
-			},
-			UseSessionClustering: true,
-		},
-	}
-
-	// cleanup
-	defer func() {
-		clt.Delete(context.Background(), webServer)
-		time.Sleep(time.Second * 5)
-	}()
-
-	err = clt.Create(ctx, webServer)
-
-	if err != nil {
-		t.Logf("Webserver creation failed due to: %s\n", err)
-		t.Fatal(err)
-		return err
-	}
-
-	err = waitUntilReady(clt, ctx, t, webServer)
-
-	if err != nil {
-		t.Logf("Failed to deploy the application due to: %s\n", err)
-		t.Fatal(err)
-		return err
-	}
-
-	t.Logf("Application %s is deployed ", name)
-
-	return err
-
-}
-
-func HPATest(clt client.Client, ctx context.Context, t *testing.T, namespace string, name string, testURI string) (err error) {
-
-	webServer := &webserversv1alpha1.WebServer{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
-			Namespace: namespace,
-		},
-		Spec: webserversv1alpha1.WebServerSpec{
-			ApplicationName: "hpa-test",
-			Replicas:        int32(4),
-			WebImage: &webserversv1alpha1.WebImageSpec{
-				ApplicationImage: "quay.io/web-servers/tomcat-demo",
-			},
-			PodResources: corev1.ResourceRequirements{
-				Limits: corev1.ResourceList{
-					corev1.ResourceCPU:    resource.MustParse("500m"),
-					corev1.ResourceMemory: resource.MustParse("2Gi"),
-				},
-				Requests: corev1.ResourceList{
-					corev1.ResourceCPU:    resource.MustParse("100m"),
-					corev1.ResourceMemory: resource.MustParse("1Gi"),
-				},
-			},
-		},
-	}
-
-	err = clt.Create(ctx, webServer)
-
-	if err != nil {
-		t.Logf("Webserver creation failed due to: %s\n", err)
-		t.Fatal(err)
-		return err
-	}
-
-	err = waitUntilReady(clt, ctx, t, webServer)
-
-	if err != nil {
-		t.Logf("Failed to deploy the application due to: %s\n", err)
-		t.Fatal(err)
-		return err
-	}
-
-	t.Logf("Application %s is deployed ", name)
-
-	hpa := &v2.HorizontalPodAutoscaler{
-		TypeMeta: metav1.TypeMeta{
-			Kind:       "HorizontalPodAutoscaler",
-			APIVersion: "autoscaling/v2",
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "hpatest-hpa",
-			Namespace: namespace,
-		},
-		Spec: v2.HorizontalPodAutoscalerSpec{
-			ScaleTargetRef: v2.CrossVersionObjectReference{
-				APIVersion: "web.servers.org/v1alpha1",
-				Kind:       "WebServer",
-				Name:       name,
-			},
-			MinReplicas: nil,
-			MaxReplicas: 5,
-		},
-	}
-
-	var percentage = int32(4)
-	metric := &v2.MetricSpec{
-		Type: v2.ResourceMetricSourceType,
-		Resource: &v2.ResourceMetricSource{
-			Name: v1.ResourceCPU,
-			Target: v2.MetricTarget{
-				Type:               v2.UtilizationMetricType,
-				AverageUtilization: &percentage,
-			},
-		},
-	}
-	metrics := make([]v2.MetricSpec, 0, 4)
-
-	metrics = append(metrics, *metric)
-
-	hpa.Spec.Metrics = metrics
-
-	err = clt.Create(ctx, hpa)
-
-	if err != nil {
-		t.Logf("HorizontalPodAutoscaler creation failed due to: %s\n", err)
-		t.Fatal(err)
-		return err
-	}
-
-	// cleanup
-	defer func() {
-		clt.Delete(context.Background(), hpa)
-		time.Sleep(time.Second * 5)
-		clt.Delete(context.Background(), webServer)
-		time.Sleep(time.Second * 5)
-	}()
-
-	err = AutoScalingTest(clt, ctx, t, webServer, testURI, hpa)
-	if err != nil {
-		t.Logf("HorizontalPodAutoscaler AutoScalingTest Failed: %s\n", err)
-		t.Fatal(err)
-		return err
-	}
-	return nil
-}
-
 func AutoScalingTest(clt client.Client, ctx context.Context, t *testing.T, webServer *webserversv1alpha1.WebServer, testURI string, hpa *v2.HorizontalPodAutoscaler) (err error) {
 
 	curwebServer := &webserversv1alpha1.WebServer{}
@@ -644,209 +347,6 @@ func getRequest(URL string) (interface{}, error) {
 	return stdout, err
 }
 
-// WebServerApplicationImageSourcesScriptBasicTest tests the deployment of an application image with sources
-// we use testURI.war instead of ROOT.war and the servlet is /demo there
-func WebServerApplicationImageSourcesScriptBasicTest(clt client.Client, ctx context.Context, t *testing.T, namespace string, name string, image string, sourceRepositoryURL string, sourceRepositoryRef string, pushedimage string, pushsecret string, imagebuilder string, testURI string) (err error) {
-
-	warname := testURI + ".war"
-	webServer := makeApplicationImageSourcesWebServer(namespace, name, image, sourceRepositoryURL, sourceRepositoryRef, pushedimage, pushsecret, warname, imagebuilder, 1)
-	// Add the custom script
-	webServer.Spec.WebImage.WebApp.Builder.ApplicationBuildScript = `#!/bin/sh
-cd tmp
-echo "my html is ugly" > index.html
-mkdir WEB-INF
-echo "<web-app>" > WEB-INF/web.xml
-echo "   <servlet>" >> WEB-INF/web.xml
-echo "        <servlet-name>default</servlet-name>" >> WEB-INF/web.xml
-echo "        <servlet-class>org.apache.catalina.servlets.DefaultServlet</servlet-class>" >> WEB-INF/web.xml
-echo "    </servlet>" >> WEB-INF/web.xml
-echo "   <servlet-mapping>" >> WEB-INF/web.xml
-echo "        <servlet-name>default</servlet-name>" >> WEB-INF/web.xml
-echo "        <url-pattern>/</url-pattern>" >> WEB-INF/web.xml
-echo "    </servlet-mapping>" >> WEB-INF/web.xml
-echo "</web-app>" >> WEB-INF/web.xml
-jar cvf ROOT.war index.html WEB-INF/web.xml
-mkdir /tmp/deployments
-cp ROOT.war /tmp/deployments/${webAppWarFileName}
-HOME=/tmp
-STORAGE_DRIVER=vfs buildah bud -f /Dockerfile.JWS -t ${webAppWarImage} --authfile /auth/.dockerconfigjson --build-arg webAppSourceImage=${webAppSourceImage}
-STORAGE_DRIVER=vfs buildah push --authfile /auth/.dockerconfigjson ${webAppWarImage}
-`
-
-	// cleanup
-	defer func() {
-		clt.Delete(context.Background(), webServer)
-		time.Sleep(time.Second * 5)
-	}()
-
-	err = webServerBasicTest(clt, ctx, t, webServer, "/"+testURI+"/index.html", false)
-	if err != nil {
-		return err
-	}
-	err = WebServerTestFor(clt, ctx, t, webServer, "/"+testURI+"/index.html", "my html is ugly")
-	if err != nil {
-		t.Logf("WebServerApplicationImageSourcesScriptBasicTest application %s WebServerTestFor FAILED\n", name)
-		return err
-	}
-
-	// Get the current webserver
-	err = clt.Get(ctx, types.NamespacedName{Name: webServer.ObjectMeta.Name, Namespace: webServer.ObjectMeta.Namespace}, webServer)
-	if err != nil {
-		t.Logf("WebServerApplicationImageSourcesScriptBasicTest application %s get failed: %s\n", name, err)
-		return err
-	}
-
-	// Change the custom script
-	webServer.Spec.WebImage.WebApp.Builder.ApplicationBuildScript = `#!/bin/sh
-cd tmp
-echo "my html is _VERY_ ugly" > index.html
-mkdir WEB-INF
-echo "<web-app>" > WEB-INF/web.xml
-echo "   <servlet>" >> WEB-INF/web.xml
-echo "        <servlet-name>default</servlet-name>" >> WEB-INF/web.xml
-echo "        <servlet-class>org.apache.catalina.servlets.DefaultServlet</servlet-class>" >> WEB-INF/web.xml
-echo "    </servlet>" >> WEB-INF/web.xml
-echo "   <servlet-mapping>" >> WEB-INF/web.xml
-echo "        <servlet-name>default</servlet-name>" >> WEB-INF/web.xml
-echo "        <url-pattern>/</url-pattern>" >> WEB-INF/web.xml
-echo "    </servlet-mapping>" >> WEB-INF/web.xml
-echo "</web-app>" >> WEB-INF/web.xml
-jar cvf ROOT.war index.html WEB-INF/web.xml
-mkdir /tmp/deployments
-cp ROOT.war /tmp/deployments/${webAppWarFileName}
-HOME=/tmp
-STORAGE_DRIVER=vfs buildah bud -f /Dockerfile.JWS -t ${webAppWarImage} --authfile /auth/.dockerconfigjson --build-arg webAppSourceImage=${webAppSourceImage}
-STORAGE_DRIVER=vfs buildah push --authfile /auth/.dockerconfigjson ${webAppWarImage}
-`
-	err = clt.Update(context.Background(), webServer)
-	if err != nil {
-		t.Logf("WebServerApplicationImageSourcesScriptBasicTest application %s update failed: %s\n", name, err)
-		return err
-	}
-	t.Logf("WebServerApplicationImageSourcesScriptBasicTest application %s updated\n", name)
-
-	return WebServerTestFor(clt, ctx, t, webServer, "/"+testURI+"/index.html", "my html is _VERY_ ugly")
-
-}
-
-// WebServerApplicationImageSourcesBasicTest tests the scaling of an application image with sources
-// we use testURI.war instead of ROOT.war and the servlet is /demo there
-func WebServerApplicationImageSourcesScaleTest(clt client.Client, ctx context.Context, t *testing.T, namespace string, name string, image string, sourceRepositoryURL string, sourceRepositoryRef string, pushedimage string, pushsecret string, imagebuilder string, testURI string) (err error) {
-
-	warname := testURI + ".war"
-	webServer := makeApplicationImageSourcesWebServer(namespace, name, image, sourceRepositoryURL, sourceRepositoryRef, pushedimage, pushsecret, warname, imagebuilder, 1)
-
-	// cleanup
-	defer func() {
-		clt.Delete(context.Background(), webServer)
-		time.Sleep(time.Second * 5)
-	}()
-
-	return webServerScaleTest(clt, ctx, t, webServer, "/"+testURI+"/demo")
-}
-
-// WebServerImageStreamBasicTest tests the deployment of an Image Stream operator
-func WebServerImageStreamBasicTest(clt client.Client, ctx context.Context, t *testing.T, namespace string, name string, imageStreamName string, testURI string) (err error) {
-
-	webServer := makeImageStreamWebServer(namespace, name, imageStreamName, namespace, 1)
-	t.Logf("WebServerImageStreamBasicTest application %s number of replicas to %d\n", name, webServer.Spec.Replicas)
-	t.Logf("WebServerImageStreamBasicTest application %s imagestream %s\n", name, webServer.Spec.WebImageStream.ImageStreamName)
-
-	// cleanup
-	defer func() {
-		clt.Delete(context.Background(), webServer)
-		time.Sleep(time.Second * 5)
-	}()
-
-	return webServerBasicTest(clt, ctx, t, webServer, testURI, false)
-}
-
-// WebServerImageStreamScaleTest tests the scaling of an Image Stream operator
-func WebServerImageStreamScaleTest(clt client.Client, ctx context.Context, t *testing.T, namespace string, name string, imageStreamName string, testURI string) (err error) {
-
-	webServer := makeImageStreamWebServer(namespace, name, imageStreamName, namespace, 1)
-
-	// cleanup
-	defer func() {
-		clt.Delete(context.Background(), webServer)
-		time.Sleep(time.Second * 5)
-	}()
-
-	return webServerScaleTest(clt, ctx, t, webServer, testURI)
-}
-
-// WebServerImageStreamSourcesBasicTest tests the deployment of an Image Stream operator with sources
-func WebServerImageStreamSourcesBasicTest(clt client.Client, ctx context.Context, t *testing.T, namespace string, name string, imageStreamName string, sourceRepositoryURL string, sourceRepositoryRef string, testURI string) (err error) {
-
-	webServer := makeImageStreamSourcesWebServer(namespace, name, imageStreamName, namespace, sourceRepositoryURL, sourceRepositoryRef, 1)
-
-	// cleanup
-	defer func() {
-		clt.Delete(context.Background(), webServer)
-		time.Sleep(time.Second * 5)
-	}()
-
-	return webServerBasicTest(clt, ctx, t, webServer, testURI, false)
-}
-
-// WebServerImageStreamSourcesScaleTest tests the scaling of an Image Stream operator with sources
-func WebServerImageStreamSourcesScaleTest(clt client.Client, ctx context.Context, t *testing.T, namespace string, name string, imageStreamName string, sourceRepositoryURL string, sourceRepositoryRef string, testURI string) (err error) {
-
-	webServer := makeImageStreamSourcesWebServer(namespace, name, imageStreamName, namespace, sourceRepositoryURL, sourceRepositoryRef, 1)
-
-	// cleanup
-	defer func() {
-		clt.Delete(context.Background(), webServer)
-		time.Sleep(time.Second * 5)
-	}()
-
-	return webServerScaleTest(clt, ctx, t, webServer, testURI)
-}
-
-// webServerBasicTest tests if the deployed pods of the operator are working
-func webServerBasicTest(clt client.Client, ctx context.Context, t *testing.T, webServer *webserversv1alpha1.WebServer, testURI string, isSecure bool) (err error) {
-
-	err = deployWebServer(clt, ctx, t, webServer)
-	if err != nil {
-		return err
-	}
-
-	cookie, err := WebServerRouteTest(clt, ctx, t, webServer, testURI, false, nil, isSecure)
-
-	_ = cookie //to overcome "var declared but not used" problem
-
-	return err
-
-}
-
-// webServerScaleTest tests if the deployed pods of the operator are working properly after scaling
-func webServerScaleTest(clt client.Client, ctx context.Context, t *testing.T, webServer *webserversv1alpha1.WebServer, testURI string) (err error) {
-
-	err = deployWebServer(clt, ctx, t, webServer)
-	if err != nil {
-		return err
-	}
-
-	// scale up test.
-	WebServerScale(clt, ctx, t, webServer, testURI, 4)
-
-	cookie, err := WebServerRouteTest(clt, ctx, t, webServer, testURI, false, nil, false)
-	if err != nil {
-		return err
-	}
-	_ = cookie
-
-	// scale down test.
-	WebServerScale(clt, ctx, t, webServer, testURI, 1)
-
-	cookie, err = WebServerRouteTest(clt, ctx, t, webServer, testURI, false, nil, false)
-	if err != nil {
-		return err
-	}
-	_ = cookie
-	return nil
-}
-
 // WebServerScale changes the replica number of the WebServer resource
 func WebServerScale(clt client.Client, ctx context.Context, t *testing.T, webServer *webserversv1alpha1.WebServer, testURI string, newReplicasValue int32) {
 
@@ -863,70 +363,6 @@ func WebServerScale(clt client.Client, ctx context.Context, t *testing.T, webSer
 
 }
 
-// webServerApplicationImageUpdateTest tests if the deployed pods of the operator are working properly after an application image update
-func webServerApplicationImageUpdateTest(clt client.Client, ctx context.Context, t *testing.T, webServer *webserversv1alpha1.WebServer, newImageName string, testURI string) (err error) {
-
-	deployWebServer(clt, ctx, t, webServer)
-
-	cookie, err := WebServerRouteTest(clt, ctx, t, webServer, testURI, false, nil, false)
-	if err != nil {
-		return err
-	}
-	_ = cookie
-
-	webServerApplicationImageUpdate(clt, ctx, t, webServer, newImageName, testURI)
-
-	foundDeployment := &kbappsv1.Deployment{}
-	err = clt.Get(ctx, types.NamespacedName{Name: webServer.ObjectMeta.Name, Namespace: webServer.ObjectMeta.Namespace}, foundDeployment)
-	if err != nil {
-		t.Errorf("Failed to get Deployment\n")
-		return err
-	}
-
-	foundImage := foundDeployment.Spec.Template.Spec.Containers[0].Image
-	if foundImage != newImageName {
-		/* TODO: The test needs to be more cleaver here... */
-		t.Errorf("Found %s as application image; wanted %s", foundImage, newImageName)
-		return err
-		/* */
-	}
-
-	// Wait until the replicas are available
-	Eventually(func() bool {
-		err = clt.Get(ctx, types.NamespacedName{Name: webServer.ObjectMeta.Name, Namespace: webServer.ObjectMeta.Namespace}, foundDeployment)
-		if err != nil {
-			t.Fatalf("can't read Deployment")
-			return false
-		}
-
-		if int32(webServer.Spec.Replicas) == int32(foundDeployment.Status.AvailableReplicas) {
-			return true
-		} else {
-			return false
-		}
-	}, time.Second*420, time.Second*30).Should(BeTrue())
-	return nil
-
-}
-
-// webServerApplicationImageUpdate changes the application image of the WebServer resource
-func webServerApplicationImageUpdate(clt client.Client, ctx context.Context, t *testing.T, webServer *webserversv1alpha1.WebServer, newImageName string, testURI string) {
-
-	// WebServer resource needs to be refreshed before being updated
-	// to avoid "the object has been modified" errors
-	err := clt.Get(ctx, types.NamespacedName{Name: webServer.ObjectMeta.Name, Namespace: webServer.ObjectMeta.Namespace}, webServer)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	webServer.Spec.WebImage.ApplicationImage = newImageName
-
-	updateWebServer(clt, ctx, t, webServer, name, namespace)
-
-	t.Logf("Updated application image of WebServer %s to %s\n", name, newImageName)
-
-}
-
 // updateWebServer updates the WebServer resource and waits until the new deployment is ready
 func updateWebServer(clt client.Client, ctx context.Context, t *testing.T, webServer *webserversv1alpha1.WebServer, name string, namespace string) {
 
@@ -939,27 +375,6 @@ func updateWebServer(clt client.Client, ctx context.Context, t *testing.T, webSe
 
 	// Waits until the pods are deployed
 	waitUntilReady(clt, ctx, t, webServer)
-
-}
-
-// deployWebServer deploys a WebServer resource and waits until the pods are online
-func deployWebServer(clt client.Client, ctx context.Context, t *testing.T, webServer *webserversv1alpha1.WebServer) (err error) {
-
-	// Create the webserver JFC...
-	t.Logf("Create webServer\n")
-	err = clt.Create(ctx, webServer)
-	if err != nil {
-		t.Logf("Create webServer failed\n")
-		t.Fatal(err)
-		return err
-	}
-
-	// Wait for it to be ready
-	err = waitUntilReady(clt, ctx, t, webServer)
-
-	t.Logf("Application %s is deployed ", name)
-
-	return err
 
 }
 
@@ -1251,19 +666,6 @@ func arePodsReady(podList *corev1.PodList, replicas int32) bool {
 	return true
 }
 
-// isOperatorLocal returns true if the LOCAL_OPERATOR env var is set to true.
-func isOperatorLocal() bool {
-	val, ok := os.LookupEnv("LOCAL_OPERATOR")
-	if !ok {
-		return false
-	}
-	local, err := strconv.ParseBool(val)
-	if err != nil {
-		return false
-	}
-	return local
-}
-
 // generateLabelsForWebServer return a map of labels that are used for identification
 //
 //	of objects belonging to the particular WebServer instance
@@ -1288,17 +690,12 @@ func UnixEpoch() string {
 	return strconv.FormatInt(time.Now().UnixNano(), 10)
 }
 
-// Check for openshift looking for routes
-func WebServerHaveRoutes(clt client.Client, ctx context.Context, t *testing.T) bool {
-	routeList := &routev1.RouteList{}
-	listOpts := []client.ListOption{}
-	err := clt.List(ctx, routeList, listOpts...)
-	if err != nil {
-		t.Logf("webServerHaveRoutes error: %s", err)
-		return false
+func GetHost(route *routev1.Route) string {
+	if len(route.Status.Ingress) > 0 {
+		host := route.Status.Ingress[0].Host
+		return host
 	}
-	t.Logf("webServerHaveRoutes found %d routes", int32(len(routeList.Items)))
-	return true
+	return ""
 }
 
 // WebServerTestFor tests the pod for a content in the URI

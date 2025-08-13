@@ -49,6 +49,7 @@ var _ = Describe("WebServer controller", Ordered, func() {
 
 	routeName := "def"
 	serviceName := "def"
+	host := ""
 
 	webserver := &webserversv1alpha1.WebServer{
 		TypeMeta: metav1.TypeMeta{
@@ -127,9 +128,10 @@ var _ = Describe("WebServer controller", Ordered, func() {
 			return true
 		}, "1m", "1s").Should(BeTrue())
 
-		host := route.Status.Ingress[0].Host
-
-		Expect(host).ShouldNot(BeEmpty())
+		Eventually(func() string {
+			host = utils.GetHost(foundRoute)
+			return host
+		}, "1m", "1s").ShouldNot(BeEmpty())
 
 		webserver.Spec.TLSConfig.RouteHostname = "tls:hosttest-" + namespace + "." + host[4:]
 
