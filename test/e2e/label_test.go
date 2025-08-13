@@ -47,6 +47,7 @@ var _ = Describe("WebServer controller", Ordered, func() {
 			ctx := context.Background()
 			name := "label-test"
 			appName := "test-tomcat-demo"
+			namespace := "jws-operator-tests"
 
 			webserver := &webserversv1alpha1.WebServer{
 				ObjectMeta: metav1.ObjectMeta{
