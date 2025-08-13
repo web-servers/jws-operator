@@ -203,43 +203,7 @@ func WebServerSecureRouteTest(clt client.Client, ctx context.Context, t *testing
 
 }
 
-func PrometheusTest(clt client.Client, ctx context.Context, t *testing.T, namespace string, name string, domain string) (err error) {
-	webServer := &webserversv1alpha1.WebServer{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
-			Namespace: namespace,
-		},
-		Spec: webserversv1alpha1.WebServerSpec{
-			ApplicationName: "prometheus-test",
-			Replicas:        int32(1),
-			WebImage: &webserversv1alpha1.WebImageSpec{
-				ApplicationImage: "quay.io/web-servers/tomcat-prometheus",
-			},
-		},
-	}
-	// cleanup
-	defer func() {
-		clt.Delete(context.Background(), webServer)
-		time.Sleep(time.Second * 5)
-	}()
-
-	err = clt.Create(ctx, webServer)
-
-	if err != nil {
-		t.Logf("Webserver creation failed due to: %s\n", err)
-		t.Fatal(err)
-		return err
-	}
-
-	err = waitUntilReady(clt, ctx, t, webServer)
-
-	if err != nil {
-		t.Logf("Failed to deploy the application due to: %s\n", err)
-		t.Fatal(err)
-		return err
-	}
-
-	t.Logf("Application %s is deployed ", name)
+func PrometheusTest(clt client.Client, ctx context.Context, t *testing.T, namespace string, webServer *webserversv1alpha1.WebServer, testURI string, domain string) (err error) {
 
 	crd := &apiextensionsv1.CustomResourceDefinition{}
 	err = clt.Get(ctx, types.NamespacedName{Name: "servicemonitors.monitoring.coreos.com", Namespace: "openshift-monitoring"}, crd)
@@ -298,7 +262,7 @@ func PrometheusTest(clt client.Client, ctx context.Context, t *testing.T, namesp
 	var unixTimeStart int64 = unixTime
 	var unixTimeEnd int64 = unixTime + 3600
 
-	cookie, err := WebServerRouteTest(clt, ctx, t, webServer, "/health", false, nil, false)
+	cookie, err := WebServerRouteTest(clt, ctx, t, webServer, testURI, false, nil, false)
 	if err != nil {
 		t.Logf("PrometheusTest: WebServerRouteTest failed")
 		return err
@@ -550,16 +514,16 @@ func HPATest(clt client.Client, ctx context.Context, t *testing.T, namespace str
 		time.Sleep(time.Second * 5)
 	}()
 
-	err = autoScalingTest(clt, ctx, t, webServer, testURI, hpa)
+	err = AutoScalingTest(clt, ctx, t, webServer, testURI, hpa)
 	if err != nil {
-		t.Logf("HorizontalPodAutoscaler autoScalingTest Failed: %s\n", err)
+		t.Logf("HorizontalPodAutoscaler AutoScalingTest Failed: %s\n", err)
 		t.Fatal(err)
 		return err
 	}
 	return nil
 }
 
-func autoScalingTest(clt client.Client, ctx context.Context, t *testing.T, webServer *webserversv1alpha1.WebServer, testURI string, hpa *v2.HorizontalPodAutoscaler) (err error) {
+func AutoScalingTest(clt client.Client, ctx context.Context, t *testing.T, webServer *webserversv1alpha1.WebServer, testURI string, hpa *v2.HorizontalPodAutoscaler) (err error) {
 
 	curwebServer := &webserversv1alpha1.WebServer{}
 	err = clt.Get(ctx, types.NamespacedName{Name: webServer.ObjectMeta.Name, Namespace: webServer.ObjectMeta.Namespace}, curwebServer)
