@@ -5,7 +5,7 @@ import (
 	"strings"
 
 	"gopkg.in/yaml.v2"
-	//	"k8s.io/apimachinery/pkg/api/resource"
+	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/util/intstr"
 
 	webserversv1alpha1 "github.com/web-servers/jws-operator/api/v1alpha1"
@@ -200,11 +200,11 @@ func (r *WebServerReconciler) generatePersistentVolumeClaimForLogging(webServer 
 		ObjectMeta: r.generateObjectMeta(webServer, "volume-pvc-"+webServer.Name),
 		Spec: corev1.PersistentVolumeClaimSpec{
 			AccessModes: []corev1.PersistentVolumeAccessMode{corev1.ReadWriteMany}, //works only if you remove "default" from StorageClass
-			//			Resources: corev1.ResourceRequirements{
-			//				Requests: corev1.ResourceList{
-			//					corev1.ResourceName(corev1.ResourceStorage): resource.MustParse("1Gi"),
-			//				},
-			//			},
+			Resources: corev1.VolumeResourceRequirements{
+				Requests: corev1.ResourceList{
+					corev1.ResourceName(corev1.ResourceStorage): resource.MustParse("1Gi"),
+				},
+			},
 		},
 	}
 
