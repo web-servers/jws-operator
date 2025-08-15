@@ -314,7 +314,7 @@ spec:
                   type: RuntimeDefault
               serviceAccountName: jws-operator-controller-manager
               terminationGracePeriodSeconds: 10
-        - label:
+      - label:
           app.kubernetes.io/name: jws-operator-insights
           control-plane: controller-manager
         name: jws-operator-insights
