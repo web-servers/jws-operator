@@ -941,6 +941,32 @@ func (r *WebServerReconciler) generateVolumeMounts(webServer *webserversv1alpha1
 		}
 	}
 
+	if webServer.Spec.Volume != nil {
+		for _, pvolume := range webServer.Spec.Volume.PersistentVolumeClaims {
+			volm = append(volm, corev1.VolumeMount{
+				Name:      "persistent-vol-" + pvolume,
+				MountPath: "/volumes/" + "persistent-volume-" + pvolume,
+			})
+		}
+
+		for _, secret := range webServer.Spec.Volume.Secrets {
+			volm = append(volm, corev1.VolumeMount{
+				Name:      "secret-vol-" + secret,
+				MountPath: "/secrets/" + secret,
+				ReadOnly:  true,
+			})
+		}
+
+		for _, configmap := range webServer.Spec.Volume.Secrets {
+			volm = append(volm, corev1.VolumeMount{
+				Name:      "configmap-vol-" + configmap,
+				MountPath: "/configmaps/" + configmap,
+				ReadOnly:  true,
+			})
+		}
+
+	}
+
 	if webServer.Spec.TLSConfig.TLSSecret != "" {
 		volm = append(volm, corev1.VolumeMount{
 			Name:      "webserver-tls" + webServer.Name,
@@ -1037,6 +1063,44 @@ func (r *WebServerReconciler) generateVolumes(webServer *webserversv1alpha1.WebS
 							Name: "livenessprobescript-sh-webserver-" + webServer.Name,
 						},
 						DefaultMode: &executeMode,
+					},
+				},
+			})
+		}
+	}
+
+	if webServer.Spec.Volume != nil {
+		for _, pvolume := range webServer.Spec.Volume.PersistentVolumeClaims {
+
+			vol = append(vol, corev1.Volume{
+				Name: "persistent-vol-" + pvolume,
+				VolumeSource: corev1.VolumeSource{
+					PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
+						ClaimName: pvolume,
+					},
+				},
+			})
+		}
+
+		for _, secret := range webServer.Spec.Volume.Secrets {
+			vol = append(vol, corev1.Volume{
+				Name: "secret-vol-" + secret,
+				VolumeSource: corev1.VolumeSource{
+					Secret: &corev1.SecretVolumeSource{
+						SecretName: secret,
+					},
+				},
+			})
+		}
+
+		for _, configmap := range webServer.Spec.Volume.ConfigMaps {
+			vol = append(vol, corev1.Volume{
+				Name: "configmap-vol-" + configmap,
+				VolumeSource: corev1.VolumeSource{
+					ConfigMap: &corev1.ConfigMapVolumeSource{
+						LocalObjectReference: corev1.LocalObjectReference{
+							Name: configmap,
+						},
 					},
 				},
 			})

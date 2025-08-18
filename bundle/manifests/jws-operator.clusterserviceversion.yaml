@@ -69,9 +69,12 @@ spec:
         path: podResources
         x-descriptors:
           - 'urn:alm:descriptor:com.tectonic.ui:resourceRequirements'
-      - description: SecurityContext defines the security capabilities required to run the application.
+      - description: Security context defines the security capabilities required to run the application.
         displayName: Security Context
         path: securityContext
+      - description: Specifications of volumes which will be mounted.
+        displayName: Volume Specifications
+        path: volumeSpec
   description: WebServer operator can manage JBoss Web Server images and Apache Tomcat
     images.
   displayName: WebServer
