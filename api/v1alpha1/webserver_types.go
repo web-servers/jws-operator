@@ -46,13 +46,13 @@ type WebServerSpec struct {
 
 // Volume specification
 type VolumeSpec struct {
-	// PersistentVolumeClaimList
+	// Persistent volume claims will be mounted to /volumes
 	PersistentVolumeClaims []string `json:"persistentVolumeClaims,omitempty"`
-	// SecretList
+	// Secrets will be mounted to /secrets
 	Secrets []string `json:"secrets,omitempty"`
-	// ConfigMapList
+	// Config maps will be mounted to /configmaps
 	ConfigMaps []string `json:"configMaps,omitempty"`
-	// VolumeClaimTemplate for stateful applications
+	// Volume Claim Template for stateful applications
 	VolumeClaimTemplates []corev1.PersistentVolumeClaimSpec `json:"volumeClaimTemplates,omitempty"`
 }
 
