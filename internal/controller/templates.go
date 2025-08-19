@@ -957,7 +957,7 @@ func (r *WebServerReconciler) generateVolumeMounts(webServer *webserversv1alpha1
 			})
 		}
 
-		for _, configmap := range webServer.Spec.Volume.Secrets {
+		for _, configmap := range webServer.Spec.Volume.ConfigMaps {
 			volm = append(volm, corev1.VolumeMount{
 				Name:      "configmap-vol-" + configmap,
 				MountPath: "/configmaps/" + configmap,

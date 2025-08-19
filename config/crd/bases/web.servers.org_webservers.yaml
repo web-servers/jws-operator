@@ -467,22 +467,23 @@ spec:
                 description: Volume specification
                 properties:
                   configMaps:
-                    description: ConfigMapList
+                    description: Names of config maps which will be mounted to /configmaps
                     items:
                       type: string
                     type: array
                   persistentVolumeClaims:
-                    description: PersistentVolumeClaimList
+                    description: Names of persistent volume claims which will be mounted
+                      to /volumes
                     items:
                       type: string
                     type: array
                   secrets:
-                    description: SecretList
+                    description: Names of secrets which will be mounted to /secrets
                     items:
                       type: string
                     type: array
                   volumeClaimTemplates:
-                    description: VolumeClaimTemplate for stateful applications
+                    description: Volume Claim Template for stateful applications
                     items:
                       description: |-
                         PersistentVolumeClaimSpec describes the common attributes of storage devices
