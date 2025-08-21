@@ -1,7 +1,0 @@
-apiVersion: web.servers.org/v1alpha1
-kind: Webserver
-metadata:
-  name: webserver-sample
-spec:
-  # Add fields here
-  foo: bar
