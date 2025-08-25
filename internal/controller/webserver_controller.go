@@ -85,6 +85,7 @@ type WebServerReconciler struct {
 // +kubebuilder:rbac:groups="apps",resources=jws-operator,verbs=update
 // +kubebuilder:rbac:groups="apps",resources=deployments,verbs=create;get;list;delete;watch;update;patch
 // +kubebuilder:rbac:groups="apps",resources=deployments/finalizers,verbs=update
+// +kubebuilder:rbac:groups="apps",resources=statefulsets,verbs=create;get;list;delete;watch;update;patch
 
 // +kubebuilder:rbac:groups=monitoring.coreos.com,resources=servicemonitors,verbs=create;get;
 
@@ -121,7 +122,7 @@ func (r *WebServerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 	updateStatus := false
 	requeue := false
 	isKubernetes := !r.isOpenShift
-	result := ctrl.Result{}
+	var result ctrl.Result
 	var err error = nil
 
 	// Fetch the WebServer
@@ -259,7 +260,6 @@ func (r *WebServerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 
 	}
 
-	var foundReplicas int32
 	if webServer.Spec.WebImage != nil {
 		result, err = r.webImabeConfiguration(ctx, webServer)
 
@@ -367,6 +367,8 @@ func (r *WebServerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		webServer.Status.Pods = podsStatus
 		updateStatus = true
 	}
+
+	var foundReplicas int32
 
 	// Update the replicas
 	if webServer.Status.Replicas != foundReplicas {

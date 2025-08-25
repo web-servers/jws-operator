@@ -162,9 +162,8 @@ func (r *WebServerReconciler) generateWebAppBuildScript(webServer *webserversv1a
 }
 
 func (r *WebServerReconciler) webImabeConfiguration(ctx context.Context, webServer *webserversv1alpha1.WebServer) (ctrl.Result, error) {
-	result := ctrl.Result{}
+	var result ctrl.Result
 	var err error = nil
-	updateDeployment := false
 
 	// Check if a webapp needs to be built
 	if webServer.Spec.WebImage.WebApp != nil && webServer.Spec.WebImage.WebApp.SourceRepositoryURL != "" && webServer.Spec.WebImage.WebApp.Builder != nil && webServer.Spec.WebImage.WebApp.Builder.Image != "" {
@@ -222,10 +221,20 @@ func (r *WebServerReconciler) webImabeConfiguration(ctx context.Context, webServ
 		applicationImage = webServer.Spec.WebImage.WebApp.WebAppWarImage
 	}
 
+	if webServer.Spec.Volume != nil && len(webServer.Spec.Volume.VolumeClaimTemplates) == 0 {
+		return r.continueWithDeployment(ctx, webServer, applicationImage)
+	} else {
+		return r.continueWithStatefulSet(ctx, webServer, applicationImage)
+	}
+}
+
+func (r *WebServerReconciler) continueWithDeployment(ctx context.Context, webServer *webserversv1alpha1.WebServer, applicationImage string) (ctrl.Result, error) {
+	updateDeployment := false
+
 	// Check if a Deployment already exists, and if not create a new one
 	deployment := r.generateDeployment(webServer, applicationImage)
 	log.Info("WebServe createDeployment: " + deployment.Name + " in " + deployment.Namespace + " using: " + deployment.Spec.Template.Spec.Containers[0].Image)
-	result, err = r.createDeployment(ctx, webServer, deployment, deployment.Name, deployment.Namespace)
+	result, err := r.createDeployment(ctx, webServer, deployment, deployment.Name, deployment.Namespace)
 	if err != nil || result != (ctrl.Result{}) {
 		if err != nil {
 			log.Info("WebServer can't create deployment")
@@ -293,8 +302,81 @@ func (r *WebServerReconciler) webImabeConfiguration(ctx context.Context, webServ
 	return result, err
 }
 
+func (r *WebServerReconciler) continueWithStatefulSet(ctx context.Context, webServer *webserversv1alpha1.WebServer, applicationImage string) (ctrl.Result, error) {
+	updateDeployment := false
+
+	statefulset := r.generateStatefulSet(webServer, applicationImage)
+	log.Info("WebServe createStatefulSet: " + statefulset.Name + " in " + statefulset.Namespace + " using: " + statefulset.Spec.Template.Spec.Containers[0].Image)
+	result, err := r.createStatefulSet(ctx, webServer, statefulset)
+	if err != nil || result != (ctrl.Result{}) {
+		if err != nil {
+			log.Info("WebServer can't create deployment")
+		}
+		return result, err
+	}
+
+	// Check if we need to update it.
+	currentHash := r.getWebServerHash(webServer)
+	if statefulset.ObjectMeta.Labels["webserver-hash"] == "" {
+		statefulset.ObjectMeta.Labels["webserver-hash"] = currentHash
+		updateDeployment = true
+	} else {
+		if statefulset.ObjectMeta.Labels["webserver-hash"] != currentHash {
+			// Just Update and requeue
+			r.generateUpdatedStatefulSet(webServer, statefulset, applicationImage)
+			statefulset.ObjectMeta.Labels["webserver-hash"] = currentHash
+			err = r.Client.Update(ctx, statefulset)
+			if err != nil {
+				log.Error(err, "Failed to update:", "Namespace", statefulset.Namespace, "Name", statefulset.Name)
+				if errors.IsConflict(err) {
+					log.V(1).Info(err.Error())
+				} else {
+					return ctrl.Result{}, nil
+				}
+			}
+			log.Info("Webserver hash changed: Update Deployment and requeue reconciliation")
+			return ctrl.Result{RequeueAfter: (500 * time.Millisecond)}, nil
+		}
+	}
+
+	foundImage := statefulset.Spec.Template.Spec.Containers[0].Image
+	if foundImage != webServer.Spec.WebImage.ApplicationImage {
+		// if we are using a builder that it normal otherwise we need to redeploy.
+		if webServer.Spec.WebImage.WebApp == nil {
+			log.Info("WebServer application image change detected. Deployment update scheduled")
+			statefulset.Spec.Template.Spec.Containers[0].Image = webServer.Spec.WebImage.ApplicationImage
+			updateDeployment = true
+		}
+	}
+
+	// Handle Scaling
+	foundReplicas := *statefulset.Spec.Replicas
+	replicas := webServer.Spec.Replicas
+	if foundReplicas != replicas {
+		log.Info("Deployment replicas number does not match the WebServer specification. Deployment update scheduled")
+		statefulset.Spec.Replicas = &replicas
+		updateDeployment = true
+	}
+
+	if updateDeployment {
+		err = r.Update(ctx, statefulset)
+		if err != nil {
+			log.Error(err, "Failed to update:", "Namespace", statefulset.Namespace, "Name", statefulset.Name)
+			if errors.IsConflict(err) {
+				log.V(1).Info(err.Error())
+			} else {
+				return ctrl.Result{}, err
+			}
+		}
+		// Spec updated - return and requeue
+		return ctrl.Result{Requeue: true}, nil
+	}
+
+	return result, err
+}
+
 func (r *WebServerReconciler) webImabeSourceConfiguration(ctx context.Context, webServer *webserversv1alpha1.WebServer) (ctrl.Result, error) {
-	result := ctrl.Result{}
+	var result ctrl.Result
 	var err error = nil
 	updateDeployment := false
 
@@ -749,6 +831,9 @@ func (r *WebServerReconciler) useSessionClusteringConfig(ctx context.Context, we
 		// like:
 		// oc policy add-role-to-user view system:serviceaccount:tomcat-in-the-cloud:default -n tomcat-in-the-cloud
 		useKUBEPing, update, err := r.createRoleBinding(ctx, webServer, rolebinding, rolename, rolebinding.Namespace)
+		if err != nil {
+			return reconcile.Result{}, err
+		}
 		if !useKUBEPing {
 			// Update the webServer annotation to prevent retrying
 			log.Info("Won't use KUBEPing missing view permissions")
@@ -972,6 +1057,30 @@ func (r *WebServerReconciler) createDeployment(ctx context.Context, webServer *w
 	return reconcile.Result{}, err
 }
 
+func (r *WebServerReconciler) createStatefulSet(ctx context.Context, webServer *webserversv1alpha1.WebServer, resource *kbappsv1.StatefulSet) (ctrl.Result, error) {
+	name := resource.Name
+	namespace := resource.Namespace
+
+	err := r.Client.Get(ctx, types.NamespacedName{Name: name, Namespace: namespace}, resource)
+
+	if err != nil && errors.IsNotFound(err) {
+		// Create a new resource
+		log.Info("Creating a new StatefulSet: " + name + " Namespace: " + namespace)
+		resource.ObjectMeta.Labels["webserver-hash"] = r.getWebServerHash(webServer)
+		err = r.Client.Create(ctx, resource)
+		if err != nil && !errors.IsAlreadyExists(err) {
+			log.Error(err, "Failed to create a new StatefulSet: "+name+" Namespace: "+namespace)
+			return reconcile.Result{}, err
+		}
+		// Resource created successfully - return and requeue
+		return ctrl.Result{Requeue: true}, nil
+	} else if err != nil {
+		log.Error(err, "Failed to get StatefulSet: "+name)
+		return reconcile.Result{}, err
+	}
+	return reconcile.Result{}, err
+}
+
 func (r *WebServerReconciler) createImageStream(ctx context.Context, webServer *webserversv1alpha1.WebServer, resource *imagev1.ImageStream, resourceName string, resourceNamespace string) (ctrl.Result, error) {
 	err := r.Client.Get(ctx, client.ObjectKey{
 		Namespace: resourceNamespace,
@@ -1078,12 +1187,18 @@ func (r *WebServerReconciler) getPodList(ctx context.Context, webServer *webserv
 // NOTE: that is ONLY for application pods! (not for the builder or any helpers
 func (r *WebServerReconciler) generateLabelsForWeb(webServer *webserversv1alpha1.WebServer) map[string]string {
 	labels := map[string]string{
-		"deployment":  webServer.Spec.ApplicationName,
 		"WebServer":   webServer.Name,
 		"application": webServer.Spec.ApplicationName,
 		// app.kubernetes.io/name is used for HPA selector like in wildfly
 		"app.kubernetes.io/name": webServer.Name,
 	}
+
+	if webServer.Spec.Volume != nil && len(webServer.Spec.Volume.VolumeClaimTemplates) > 0 {
+		labels["statefulset"] = webServer.Spec.ApplicationName
+	} else {
+		labels["deployment"] = webServer.Spec.ApplicationName
+	}
+
 	// Those are from the wildfly operator (in their Dockerfile)
 	// labels["app.kubernetes.io/managed-by"] = os.Getenv("LABEL_APP_MANAGED_BY")
 	// labels["app.openshift.io/runtime"] = os.Getenv("LABEL_APP_RUNTIME")
@@ -1101,12 +1216,18 @@ func (r *WebServerReconciler) generateLabelsForWeb(webServer *webserversv1alpha1
 // the other labels might change and that is NOT allowed when updating a Deployment
 func (r *WebServerReconciler) generateSelectorLabelsForWeb(webServer *webserversv1alpha1.WebServer) map[string]string {
 	labels := map[string]string{
-		"deployment":  webServer.Spec.ApplicationName,
 		"WebServer":   webServer.Name,
 		"application": webServer.Spec.ApplicationName,
 		// app.kubernetes.io/name is used for HPA selector like in wildfly
 		"app.kubernetes.io/name": webServer.Name,
 	}
+
+	if webServer.Spec.Volume != nil && len(webServer.Spec.Volume.VolumeClaimTemplates) > 0 {
+		labels["statefulset"] = webServer.Spec.ApplicationName
+	} else {
+		labels["deployment"] = webServer.Spec.ApplicationName
+	}
+
 	return labels
 }
 
