@@ -228,11 +228,11 @@ func (r *WebServerReconciler) webImabeConfiguration(ctx context.Context, webServ
 	}
 }
 
-func (r *WebServerReconciler) continueWithDeployment(ctx context.Context, webServer *webserversv1alpha1.WebServer, applicationImage string) (ctrl.Result, error) {
+func (r *WebServerReconciler) continueWithDeployment(ctx context.Context, webServer *webserversv1alpha1.WebServer, image string) (ctrl.Result, error) {
 	updateDeployment := false
 
 	// Check if a Deployment already exists, and if not create a new one
-	deployment := r.generateDeployment(webServer, applicationImage)
+	deployment := r.generateDeployment(webServer, image)
 	log.Info("WebServe createDeployment: " + deployment.Name + " in " + deployment.Namespace + " using: " + deployment.Spec.Template.Spec.Containers[0].Image)
 	result, err := r.createDeployment(ctx, webServer, deployment, deployment.Name, deployment.Namespace)
 	if err != nil || result != (ctrl.Result{}) {
@@ -250,7 +250,7 @@ func (r *WebServerReconciler) continueWithDeployment(ctx context.Context, webSer
 	} else {
 		if deployment.ObjectMeta.Labels["webserver-hash"] != currentHash {
 			// Just Update and requeue
-			r.generateUpdatedDeployment(webServer, deployment, applicationImage)
+			r.generateUpdatedDeployment(webServer, deployment, image)
 			deployment.ObjectMeta.Labels["webserver-hash"] = currentHash
 			err = r.Client.Update(ctx, deployment)
 			if err != nil {
@@ -267,7 +267,7 @@ func (r *WebServerReconciler) continueWithDeployment(ctx context.Context, webSer
 	}
 
 	foundImage := deployment.Spec.Template.Spec.Containers[0].Image
-	if foundImage != webServer.Spec.WebImage.ApplicationImage {
+	if webServer.Spec.WebImage.ApplicationImage != "" && webServer.Spec.WebImage.ApplicationImage != foundImage {
 		// if we are using a builder that it normal otherwise we need to redeploy.
 		if webServer.Spec.WebImage.WebApp == nil {
 			log.Info("WebServer application image change detected. Deployment update scheduled")
@@ -302,10 +302,10 @@ func (r *WebServerReconciler) continueWithDeployment(ctx context.Context, webSer
 	return result, err
 }
 
-func (r *WebServerReconciler) continueWithStatefulSet(ctx context.Context, webServer *webserversv1alpha1.WebServer, applicationImage string) (ctrl.Result, error) {
+func (r *WebServerReconciler) continueWithStatefulSet(ctx context.Context, webServer *webserversv1alpha1.WebServer, image string) (ctrl.Result, error) {
 	updateDeployment := false
 
-	statefulset := r.generateStatefulSet(webServer, applicationImage)
+	statefulset := r.generateStatefulSet(webServer, image)
 	log.Info("WebServe createStatefulSet: " + statefulset.Name + " in " + statefulset.Namespace + " using: " + statefulset.Spec.Template.Spec.Containers[0].Image)
 	result, err := r.createStatefulSet(ctx, webServer, statefulset)
 	if err != nil || result != (ctrl.Result{}) {
@@ -323,7 +323,7 @@ func (r *WebServerReconciler) continueWithStatefulSet(ctx context.Context, webSe
 	} else {
 		if statefulset.ObjectMeta.Labels["webserver-hash"] != currentHash {
 			// Just Update and requeue
-			r.generateUpdatedStatefulSet(webServer, statefulset, applicationImage)
+			r.generateUpdatedStatefulSet(webServer, statefulset, image)
 			statefulset.ObjectMeta.Labels["webserver-hash"] = currentHash
 			err = r.Client.Update(ctx, statefulset)
 			if err != nil {
@@ -340,7 +340,7 @@ func (r *WebServerReconciler) continueWithStatefulSet(ctx context.Context, webSe
 	}
 
 	foundImage := statefulset.Spec.Template.Spec.Containers[0].Image
-	if foundImage != webServer.Spec.WebImage.ApplicationImage {
+	if webServer.Spec.WebImage.ApplicationImage != "" && webServer.Spec.WebImage.ApplicationImage != foundImage {
 		// if we are using a builder that it normal otherwise we need to redeploy.
 		if webServer.Spec.WebImage.WebApp == nil {
 			log.Info("WebServer application image change detected. Deployment update scheduled")
@@ -378,7 +378,6 @@ func (r *WebServerReconciler) continueWithStatefulSet(ctx context.Context, webSe
 func (r *WebServerReconciler) webImabeSourceConfiguration(ctx context.Context, webServer *webserversv1alpha1.WebServer) (ctrl.Result, error) {
 	var result ctrl.Result
 	var err error = nil
-	updateDeployment := false
 
 	imageStreamName := webServer.Spec.WebImageStream.ImageStreamName
 	imageStreamNamespace := webServer.Spec.WebImageStream.ImageStreamNamespace
@@ -760,62 +759,11 @@ func (r *WebServerReconciler) webImabeSourceConfiguration(ctx context.Context, w
 	dockerImageRepository := is.Status.DockerImageRepository
 	log.Info("Using " + dockerImageRepository + " as applicationImage")
 
-	// Check if a Deployment already exists and if not, create a new one
-	deployment := r.generateDeployment(webServer, dockerImageRepository)
-	result, err = r.createDeployment(ctx, webServer, deployment, deployment.Name, deployment.Namespace)
-	if err != nil || result != (ctrl.Result{}) {
-		return result, err
-	}
-
-	// Check if we need to delete it and recreate it.
-	currentHash := r.getWebServerHash(webServer)
-	if deployment.Labels["webserver-hash"] == "" {
-		deployment.ObjectMeta.Labels["webserver-hash"] = currentHash
-		updateDeployment = true
+	if webServer.Spec.Volume != nil && len(webServer.Spec.Volume.VolumeClaimTemplates) == 0 {
+		return r.continueWithDeployment(ctx, webServer, dockerImageRepository)
 	} else {
-		if deployment.Labels["webserver-hash"] != currentHash {
-			// Just Update and requeue
-			r.generateUpdatedDeployment(webServer, deployment, dockerImageRepository)
-			deployment.ObjectMeta.Labels["webserver-hash"] = currentHash
-			err = r.Client.Update(ctx, deployment)
-			if err != nil {
-				log.Error(err, "Failed to update Deployment.", "Deployment.Namespace", deployment.Namespace, "Deployment.Name", deployment.Name)
-				if errors.IsConflict(err) {
-					log.V(1).Info(err.Error())
-				} else {
-					return ctrl.Result{}, nil
-				}
-			}
-			log.Info("Webserver hash changed: Update Deployment and requeue reconciliation")
-			return ctrl.Result{RequeueAfter: (500 * time.Millisecond)}, nil
-		}
+		return r.continueWithStatefulSet(ctx, webServer, dockerImageRepository)
 	}
-
-	// Handle Scaling
-	foundReplicas := *deployment.Spec.Replicas
-	replicas := webServer.Spec.Replicas
-	if foundReplicas != replicas {
-		log.Info("Deployment replicas number does not match the WebServer specification. Deployment update scheduled")
-		deployment.Spec.Replicas = &replicas
-		updateDeployment = true
-	}
-
-	if updateDeployment {
-		err = r.Update(ctx, deployment)
-		if err != nil {
-			log.Info("Failed to update Deployment." + "Deployment.Namespace" + deployment.Namespace + "Deployment.Name" + deployment.Name)
-			if errors.IsConflict(err) {
-				log.V(1).Info(err.Error())
-			} else {
-				return ctrl.Result{}, err
-			}
-
-		}
-		// Spec updated - return and requeue
-		return ctrl.Result{Requeue: true}, nil
-	}
-
-	return result, err
 }
 
 func (r *WebServerReconciler) useSessionClusteringConfig(ctx context.Context, webServer *webserversv1alpha1.WebServer) (ctrl.Result, error) {

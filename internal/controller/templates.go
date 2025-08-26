@@ -1049,6 +1049,12 @@ func (r *WebServerReconciler) generateVolumeMounts(webServer *webserversv1alpha1
 			})
 		}
 
+		for index := range webServer.Spec.Volume.VolumeClaimTemplates {
+			volm = append(volm, corev1.VolumeMount{
+				Name:      webServer.Spec.ApplicationName + "-" + strconv.Itoa(index),
+				MountPath: "/app-data/" + webServer.Spec.ApplicationName + "-" + strconv.Itoa(index),
+			})
+		}
 	}
 
 	if webServer.Spec.TLSConfig.TLSSecret != "" {
