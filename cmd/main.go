@@ -17,6 +17,7 @@ limitations under the License.
 package main
 
 import (
+	"context"
 	"crypto/tls"
 	"flag"
 	"os"
@@ -26,11 +27,14 @@ import (
 	// to ensure that exec-entrypoint and run can make use of them.
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 
+	appsv1 "k8s.io/api/apps/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/certwatcher"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	"sigs.k8s.io/controller-runtime/pkg/metrics/filters"
@@ -46,6 +50,10 @@ import (
 
 	"github.com/web-servers/jws-operator/internal/controller"
 	// +kubebuilder:scaffold:imports
+)
+
+const (
+	ownerUIDIndex = ".metadata.ownerReference.uid"
 )
 
 var (
@@ -215,6 +223,28 @@ func main() {
 		os.Exit(1)
 	}
 
+	// Indexer for Deployments
+	err = mgr.GetFieldIndexer().IndexField(context.Background(), &appsv1.Deployment{}, ownerUIDIndex, func(rawObj client.Object) []string {
+		obj := rawObj.(*appsv1.Deployment)
+		return getOwnerUIDs(obj.GetOwnerReferences())
+	})
+
+	if err != nil {
+		setupLog.Error(err, "failed to add owner UID index for Deployments")
+		os.Exit(1)
+	}
+
+	// Indexer for StatefulSets
+	err = mgr.GetFieldIndexer().IndexField(context.Background(), &appsv1.StatefulSet{}, ownerUIDIndex, func(rawObj client.Object) []string {
+		obj := rawObj.(*appsv1.StatefulSet)
+		return getOwnerUIDs(obj.GetOwnerReferences())
+	})
+
+	if err != nil {
+		setupLog.Error(err, "failed to add owner UID index for StatefulSets")
+		os.Exit(1)
+	}
+
 	if err := (&controller.WebServerReconciler{
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),
@@ -254,4 +284,13 @@ func main() {
 		setupLog.Error(err, "problem running manager")
 		os.Exit(1)
 	}
+}
+
+// Helper function to extract owner UIDs, avoiding code duplication
+func getOwnerUIDs(refs []metav1.OwnerReference) []string {
+	var ownerUIDs []string
+	for _, ref := range refs {
+		ownerUIDs = append(ownerUIDs, string(ref.UID))
+	}
+	return ownerUIDs
 }

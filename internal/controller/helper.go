@@ -15,7 +15,6 @@ import (
 
 	buildv1 "github.com/openshift/api/build/v1"
 	imagestreamv1 "github.com/openshift/api/image/v1"
-	imagev1 "github.com/openshift/api/image/v1"
 	routev1 "github.com/openshift/api/route/v1"
 	kbappsv1 "k8s.io/api/apps/v1"
 
@@ -31,6 +30,10 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+)
+
+const (
+	ownerUIDIndex = ".metadata.ownerReference.uid"
 )
 
 func isOpenShift(c *rest.Config) bool {
@@ -221,10 +224,10 @@ func (r *WebServerReconciler) webImabeConfiguration(ctx context.Context, webServ
 		applicationImage = webServer.Spec.WebImage.WebApp.WebAppWarImage
 	}
 
-	if webServer.Spec.Volume != nil && len(webServer.Spec.Volume.VolumeClaimTemplates) == 0 {
-		return r.continueWithDeployment(ctx, webServer, applicationImage)
-	} else {
+	if webServer.Spec.Volume != nil && len(webServer.Spec.Volume.VolumeClaimTemplates) > 0 {
 		return r.continueWithStatefulSet(ctx, webServer, applicationImage)
+	} else {
+		return r.continueWithDeployment(ctx, webServer, applicationImage)
 	}
 }
 
@@ -759,10 +762,10 @@ func (r *WebServerReconciler) webImabeSourceConfiguration(ctx context.Context, w
 	dockerImageRepository := is.Status.DockerImageRepository
 	log.Info("Using " + dockerImageRepository + " as applicationImage")
 
-	if webServer.Spec.Volume != nil && len(webServer.Spec.Volume.VolumeClaimTemplates) == 0 {
-		return r.continueWithDeployment(ctx, webServer, dockerImageRepository)
-	} else {
+	if webServer.Spec.Volume != nil && len(webServer.Spec.Volume.VolumeClaimTemplates) > 0 {
 		return r.continueWithStatefulSet(ctx, webServer, dockerImageRepository)
+	} else {
+		return r.continueWithDeployment(ctx, webServer, dockerImageRepository)
 	}
 }
 
@@ -1029,7 +1032,7 @@ func (r *WebServerReconciler) createStatefulSet(ctx context.Context, webServer *
 	return reconcile.Result{}, err
 }
 
-func (r *WebServerReconciler) createImageStream(ctx context.Context, webServer *webserversv1alpha1.WebServer, resource *imagev1.ImageStream, resourceName string, resourceNamespace string) (ctrl.Result, error) {
+func (r *WebServerReconciler) createImageStream(ctx context.Context, webServer *webserversv1alpha1.WebServer, resource *imagestreamv1.ImageStream, resourceName string, resourceNamespace string) (ctrl.Result, error) {
 	err := r.Client.Get(ctx, client.ObjectKey{
 		Namespace: resourceNamespace,
 		Name:      resourceName,
@@ -1371,4 +1374,68 @@ func CustomResourceDefinitionExists(gvk schema.GroupVersionKind, c *rest.Config)
 		}
 	}
 	return false
+}
+
+func (r *WebServerReconciler) checkOwnedObjects(ctx context.Context, webServer *webserversv1alpha1.WebServer) error {
+	log.Info("CheckOwnedObjects")
+
+	ownedDeployments := &kbappsv1.DeploymentList{}
+	err := r.List(ctx, ownedDeployments,
+		client.InNamespace(webServer.Namespace),
+		client.MatchingFields{ownerUIDIndex: string(webServer.GetUID())},
+	)
+	if err != nil {
+		log.Error(err, "unable to list owned Deployments")
+		return err
+	}
+
+	ownedStatefulSets := &kbappsv1.StatefulSetList{}
+	err = r.List(ctx, ownedStatefulSets,
+		client.InNamespace(webServer.Namespace),
+		client.MatchingFields{ownerUIDIndex: string(webServer.GetUID())},
+	)
+	if err != nil {
+		log.Error(err, "unable to list owned StatefulSets")
+		return err
+	}
+
+	if webServer.Spec.Volume != nil && len(webServer.Spec.Volume.VolumeClaimTemplates) > 0 {
+		log.Info("CheckOwnedObjects: statefulset case")
+		for _, deployment := range ownedDeployments.Items {
+			err = r.Client.Delete(ctx, &deployment)
+			if err != nil {
+				log.Error(err, "Failed to delete Deployment.", "Deployment.Namespace", deployment.Namespace, "Deployment.Name", deployment.Name)
+				return err
+			}
+		}
+		for _, statefulset := range ownedStatefulSets.Items {
+			if statefulset.Name != webServer.Spec.ApplicationName {
+				err = r.Client.Delete(ctx, &statefulset)
+				if err != nil {
+					log.Error(err, "Failed to delete StatefulSet.", "StatefulSet.Namespace", statefulset.Namespace, "StatefulSet.Name", statefulset.Name)
+					return err
+				}
+			}
+		}
+	} else {
+		log.Info("CheckOwnedObjects: deployment case")
+		for _, statefulset := range ownedStatefulSets.Items {
+			err = r.Client.Delete(ctx, &statefulset)
+			if err != nil {
+				log.Error(err, "Failed to delete StatefulSet.", "StatefulSet.Namespace", statefulset.Namespace, "StatefulSet.Name", statefulset.Name)
+				return err
+			}
+		}
+		for _, deployment := range ownedDeployments.Items {
+			if deployment.Name != webServer.Spec.ApplicationName {
+				err = r.Client.Delete(ctx, &deployment)
+				if err != nil {
+					log.Error(err, "Failed to delete Deployment.", "Deployment.Namespace", deployment.Namespace, "Deployment.Name", deployment.Name)
+					return err
+				}
+			}
+		}
+	}
+
+	return nil
 }

@@ -260,6 +260,12 @@ func (r *WebServerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 
 	}
 
+	err = r.checkOwnedObjects(ctx, webServer)
+
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+
 	if webServer.Spec.WebImage != nil {
 		result, err = r.webImabeConfiguration(ctx, webServer)
 
