@@ -164,7 +164,7 @@ func (r *WebServerReconciler) generateWebAppBuildScript(webServer *webserversv1a
 	)
 }
 
-func (r *WebServerReconciler) webImabeConfiguration(ctx context.Context, webServer *webserversv1alpha1.WebServer) (ctrl.Result, error) {
+func (r *WebServerReconciler) webImageConfiguration(ctx context.Context, webServer *webserversv1alpha1.WebServer) (ctrl.Result, error) {
 	var result ctrl.Result
 	var err error = nil
 
@@ -378,7 +378,7 @@ func (r *WebServerReconciler) continueWithStatefulSet(ctx context.Context, webSe
 	return result, err
 }
 
-func (r *WebServerReconciler) webImabeSourceConfiguration(ctx context.Context, webServer *webserversv1alpha1.WebServer) (ctrl.Result, error) {
+func (r *WebServerReconciler) webImageSourceConfiguration(ctx context.Context, webServer *webserversv1alpha1.WebServer) (ctrl.Result, error) {
 	var result ctrl.Result
 	var err error = nil
 
