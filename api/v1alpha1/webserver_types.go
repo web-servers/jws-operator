@@ -40,6 +40,20 @@ type WebServerSpec struct {
 	IsNotJWS bool `json:"isNotJWS,omitempty"`
 	// SecurityContext defines the security capabilities required to run the application.
 	SecurityContext *corev1.SecurityContext `json:"securityContext,omitempty"`
+	// Volume specification
+	Volume *VolumeSpec `json:"volumeSpec,omitempty"`
+}
+
+// Volume specification
+type VolumeSpec struct {
+	// Names of persistent volume claims which will be mounted to /volumes
+	PersistentVolumeClaims []string `json:"persistentVolumeClaims,omitempty"`
+	// Names of secrets which will be mounted to /secrets
+	Secrets []string `json:"secrets,omitempty"`
+	// Names of config maps which will be mounted to /configmaps
+	ConfigMaps []string `json:"configMaps,omitempty"`
+	// Volume Claim Template for stateful applications
+	VolumeClaimTemplates []corev1.PersistentVolumeClaimSpec `json:"volumeClaimTemplates,omitempty"`
 }
 
 // (Deployment method 1) Application image

@@ -11,15 +11,10 @@ import (
 
 	webserversv1alpha1 "github.com/web-servers/jws-operator/api/v1alpha1"
 
-	buildv1 "github.com/openshift/api/build/v1"
-	imagestreamv1 "github.com/openshift/api/image/v1"
-
 	kbappsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -90,6 +85,7 @@ type WebServerReconciler struct {
 // +kubebuilder:rbac:groups="apps",resources=jws-operator,verbs=update
 // +kubebuilder:rbac:groups="apps",resources=deployments,verbs=create;get;list;delete;watch;update;patch
 // +kubebuilder:rbac:groups="apps",resources=deployments/finalizers,verbs=update
+// +kubebuilder:rbac:groups="apps",resources=statefulsets,verbs=create;get;list;delete;watch;update;patch
 
 // +kubebuilder:rbac:groups=monitoring.coreos.com,resources=servicemonitors,verbs=create;get;
 
@@ -125,9 +121,8 @@ func (r *WebServerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 	log.Info("Reconciling WebServer")
 	updateStatus := false
 	requeue := false
-	updateDeployment := false
 	isKubernetes := !r.isOpenShift
-	result := ctrl.Result{}
+	var result ctrl.Result
 	var err error = nil
 
 	// Fetch the WebServer
@@ -200,50 +195,11 @@ func (r *WebServerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 	}
 
 	if webServer.Spec.UseSessionClustering {
+		result, err = r.useSessionClusteringConfig(ctx, webServer)
 
-		if r.needgetUseKUBEPing(webServer) {
-
-			// Check if a RoleBinding for the KUBEPing exists, and if not create one.
-			rolename := "view-kubeping-" + webServer.Name
-			rolebinding := r.generateRoleBinding(webServer, rolename)
-			//
-			// The example in docs seems to use view (name: view and roleRef ClusterRole/view for our ServiceAccount)
-			// like:
-			// oc policy add-role-to-user view system:serviceaccount:tomcat-in-the-cloud:default -n tomcat-in-the-cloud
-			useKUBEPing, update, err := r.createRoleBinding(ctx, webServer, rolebinding, rolename, rolebinding.Namespace)
-			if !useKUBEPing {
-				// Update the webServer annotation to prevent retrying
-				log.Info("Won't use KUBEPing missing view permissions")
-			} else {
-				log.Info("Will use KUBEPing")
-				if update {
-					// We have created the Role Binding
-					log.Info("We have created the Role Binding")
-					return ctrl.Result{Requeue: update}, nil
-				}
-			}
-			update, err = r.setUseKUBEPing(ctx, webServer, useKUBEPing)
-			if err != nil {
-				log.Error(err, "Failed to add a new Annotations")
-				return reconcile.Result{}, err
-			} else {
-				if update {
-					log.Info("Add a new Annotations or need UPDATE")
-					return ctrl.Result{Requeue: update}, nil
-				}
-			}
+		if err != nil {
+			return result, err
 		}
-		if !r.getUseKUBEPing(webServer) {
-
-			// Check if a Service for DNSPing already exists, and if not create a new one
-			dnsService := r.generateServiceForDNS(webServer)
-			result, err = r.createService(ctx, webServer, dnsService, dnsService.Name, dnsService.Namespace)
-			if err != nil || result != (ctrl.Result{}) {
-				return result, err
-			}
-
-		}
-
 	}
 
 	// Check if exists a ConfigMap for the server.xml <Cluster/> definition otherwise create it.
@@ -304,568 +260,24 @@ func (r *WebServerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 
 	}
 
-	var foundReplicas int32
+	err = r.checkOwnedObjects(ctx, webServer)
+
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+
 	if webServer.Spec.WebImage != nil {
+		result, err = r.webImageConfiguration(ctx, webServer)
 
-		// Check if a webapp needs to be built
-		if webServer.Spec.WebImage.WebApp != nil && webServer.Spec.WebImage.WebApp.SourceRepositoryURL != "" && webServer.Spec.WebImage.WebApp.Builder != nil && webServer.Spec.WebImage.WebApp.Builder.Image != "" {
-
-			// Create a ConfigMap for custom build script
-			if webServer.Spec.WebImage.WebApp.Builder.ApplicationBuildScript != "" {
-				configMap := r.generateConfigMapForCustomBuildScript(webServer)
-				result, err = r.createConfigMap(ctx, webServer, configMap, configMap.Name, configMap.Namespace)
-				if err != nil || result != (ctrl.Result{}) {
-					return result, err
-				}
-				// Check the script has changed, if yes delete it and requeue
-				if configMap.Data["build.sh"] != webServer.Spec.WebImage.WebApp.Builder.ApplicationBuildScript {
-					// Just Delete and requeue
-					err = r.Client.Delete(ctx, configMap)
-					if err != nil && errors.IsNotFound(err) {
-						return ctrl.Result{}, nil
-					}
-					log.Info("Webserver hash changed: Delete Builder ConfigMap and requeue reconciliation")
-					return ctrl.Result{RequeueAfter: (500 * time.Millisecond)}, nil
-				}
-			}
-
-			// Check if a build Pod for the webapp already exists, and if not create a new one
-			buildPod := r.generateBuildPod(webServer)
-			log.Info("WebServe createBuildPod: " + buildPod.Name + " in " + buildPod.Namespace + " using: " + buildPod.Spec.Volumes[0].VolumeSource.Secret.SecretName + " and: " + buildPod.Spec.Containers[0].Image)
-			result, err = r.createBuildPod(ctx, webServer, buildPod, buildPod.Name, buildPod.Namespace)
-			if err != nil || result != (ctrl.Result{}) {
-				return result, err
-			}
-
-			// Check if we need to delete it and recreate it.
-			currentHash := r.getWebServerHash(webServer)
-			if buildPod.Labels["webserver-hash"] != currentHash {
-				// Just Delete and requeue
-				err = r.Client.Delete(ctx, buildPod)
-				if err != nil && errors.IsNotFound(err) {
-					return ctrl.Result{}, nil
-				}
-				log.Info("Webserver hash changed: Delete BuildPod and requeue reconciliation")
-				return ctrl.Result{RequeueAfter: (500 * time.Millisecond)}, nil
-			}
-
-			// Is the build pod ready.
-			result, err = r.checkBuildPodPhase(buildPod)
-			if err != nil || result != (ctrl.Result{}) {
-				return result, err
-			}
-
-		}
-
-		applicationImage := webServer.Spec.WebImage.ApplicationImage
-
-		if webServer.Spec.WebImage.WebApp != nil {
-			applicationImage = webServer.Spec.WebImage.WebApp.WebAppWarImage
-		}
-
-		// Check if a Deployment already exists, and if not create a new one
-		deployment := r.generateDeployment(webServer, applicationImage)
-		log.Info("WebServe createDeployment: " + deployment.Name + " in " + deployment.Namespace + " using: " + deployment.Spec.Template.Spec.Containers[0].Image)
-		result, err = r.createDeployment(ctx, webServer, deployment, deployment.Name, deployment.Namespace)
-		if err != nil || result != (ctrl.Result{}) {
-			if err != nil {
-				log.Info("WebServer can't create deployment")
-			}
+		if err != nil {
 			return result, err
-		}
-
-		// Check if we need to update it.
-		currentHash := r.getWebServerHash(webServer)
-		if deployment.ObjectMeta.Labels["webserver-hash"] == "" {
-			deployment.ObjectMeta.Labels["webserver-hash"] = currentHash
-			updateDeployment = true
-		} else {
-			if deployment.ObjectMeta.Labels["webserver-hash"] != currentHash {
-				// Just Update and requeue
-				r.generateUpdatedDeployment(webServer, deployment, applicationImage)
-				deployment.ObjectMeta.Labels["webserver-hash"] = currentHash
-				err = r.Client.Update(ctx, deployment)
-				if err != nil {
-					log.Error(err, "Failed to update Deployment.", "Deployment.Namespace", deployment.Namespace, "Deployment.Name", deployment.Name)
-					if errors.IsConflict(err) {
-						log.V(1).Info(err.Error())
-					} else {
-						return ctrl.Result{}, nil
-					}
-				}
-				log.Info("Webserver hash changed: Update Deployment and requeue reconciliation")
-				return ctrl.Result{RequeueAfter: (500 * time.Millisecond)}, nil
-			}
-		}
-
-		foundImage := deployment.Spec.Template.Spec.Containers[0].Image
-		if foundImage != webServer.Spec.WebImage.ApplicationImage {
-			// if we are using a builder that it normal otherwise we need to redeploy.
-			if webServer.Spec.WebImage.WebApp == nil {
-				log.Info("WebServer application image change detected. Deployment update scheduled")
-				deployment.Spec.Template.Spec.Containers[0].Image = webServer.Spec.WebImage.ApplicationImage
-				updateDeployment = true
-			}
-		}
-
-		// Handle Scaling
-		foundReplicas = *deployment.Spec.Replicas
-		replicas := webServer.Spec.Replicas
-		if foundReplicas != replicas {
-			log.Info("Deployment replicas number does not match the WebServer specification. Deployment update scheduled")
-			deployment.Spec.Replicas = &replicas
-			updateDeployment = true
-		}
-
-		if updateDeployment {
-			err = r.Update(ctx, deployment)
-			if err != nil {
-				log.Error(err, "Failed to update Deployment.", "Deployment.Namespace", deployment.Namespace, "Deployment.Name", deployment.Name)
-				if errors.IsConflict(err) {
-					log.V(1).Info(err.Error())
-				} else {
-					return ctrl.Result{}, err
-				}
-			}
-			// Spec updated - return and requeue
-			return ctrl.Result{Requeue: true}, nil
 		}
 
 	} else if webServer.Spec.WebImageStream != nil {
+		result, err = r.webImageSourceConfiguration(ctx, webServer)
 
-		imageStreamName := webServer.Spec.WebImageStream.ImageStreamName
-		imageStreamNamespace := webServer.Spec.WebImageStream.ImageStreamNamespace
-
-		// Check if we need to build the webapp from sources
-		if webServer.Spec.WebImageStream.WebSources != nil {
-
-			// Check if an Image Stream already exists, and if not create a new one
-			imageStream := r.generateImageStream(webServer)
-			result, err = r.createImageStream(ctx, webServer, imageStream, imageStream.Name, imageStream.Namespace)
-			if err != nil || result != (ctrl.Result{}) {
-				return result, err
-			}
-
-			// Change the Image Stream that the deployment config will use later to deploy the webserver
-			imageStreamName = imageStream.Name
-			imageStreamNamespace = imageStream.Namespace
-
-			is := &imagestreamv1.ImageStream{}
-
-			err = r.Get(ctx, client.ObjectKey{
-				Namespace: imageStreamNamespace,
-				Name:      imageStreamName,
-			}, is)
-
-			if errors.IsNotFound(err) {
-				log.Error(err, "Namespace/ImageStream doesn't exist.")
-				return ctrl.Result{}, nil
-			}
-			dockerImageRepository := is.Status.DockerImageRepository
-			log.Info("Using " + dockerImageRepository + " as applicationImage")
-
-			// Check if a BuildConfig already exists, and if not create a new one
-			buildConfig := r.generateBuildConfig(webServer)
-			result, err = r.createBuildConfig(ctx, webServer, buildConfig, buildConfig.Name, buildConfig.Namespace)
-			if err != nil || result != (ctrl.Result{}) {
-				return result, err
-			}
-
-			updateBuildConfig := false
-			startNewBuild := false
-
-			if buildConfig.Spec.CommonSpec.Source.Git.URI != webServer.Spec.WebImageStream.WebSources.SourceRepositoryURL {
-				buildConfig.Spec.CommonSpec.Source.Git.URI = webServer.Spec.WebImageStream.WebSources.SourceRepositoryURL
-				updateBuildConfig = true
-				startNewBuild = true
-			}
-
-			if buildConfig.Spec.CommonSpec.Source.Git.Ref != webServer.Spec.WebImageStream.WebSources.SourceRepositoryRef {
-				buildConfig.Spec.CommonSpec.Source.Git.Ref = webServer.Spec.WebImageStream.WebSources.SourceRepositoryRef
-				updateBuildConfig = true
-				startNewBuild = true
-			}
-
-			if buildConfig.Spec.CommonSpec.Source.ContextDir != webServer.Spec.WebImageStream.WebSources.ContextDir {
-				buildConfig.Spec.CommonSpec.Source.ContextDir = webServer.Spec.WebImageStream.WebSources.ContextDir
-				updateBuildConfig = true
-				startNewBuild = true
-			}
-
-			if buildConfig.Spec.CommonSpec.Strategy.SourceStrategy != nil && buildConfig.Spec.CommonSpec.Strategy.SourceStrategy.From.Namespace != webServer.Spec.WebImageStream.ImageStreamNamespace {
-				buildConfig.Spec.CommonSpec.Strategy.SourceStrategy.From.Namespace = webServer.Spec.WebImageStream.ImageStreamNamespace
-				updateBuildConfig = true
-				startNewBuild = true
-			}
-
-			if buildConfig.Spec.CommonSpec.Strategy.SourceStrategy != nil && buildConfig.Spec.CommonSpec.Strategy.SourceStrategy.From.Name != webServer.Spec.WebImageStream.ImageStreamName+":latest" {
-				buildConfig.Spec.CommonSpec.Strategy.SourceStrategy.From.Name = webServer.Spec.WebImageStream.ImageStreamName + ":latest"
-				updateBuildConfig = true
-				startNewBuild = true
-			}
-
-			if webServer.Spec.WebImageStream.WebSources.WebhookSecrets != nil && webServer.Spec.WebImageStream.WebSources.WebhookSecrets.Generic != "" {
-				triggers := buildConfig.Spec.Triggers
-				found := false
-
-				for i := 0; i < len(triggers); i++ {
-					if triggers[i].GenericWebHook != nil && triggers[i].GenericWebHook.SecretReference != nil {
-						found = true
-
-						if triggers[i].GenericWebHook.SecretReference.Name != webServer.Spec.WebImageStream.WebSources.WebhookSecrets.Generic {
-							triggers[i].GenericWebHook.SecretReference.Name = webServer.Spec.WebImageStream.WebSources.WebhookSecrets.Generic
-							updateBuildConfig = true
-						}
-					}
-				}
-
-				if !found {
-					buildConfig.Spec.Triggers = append(triggers, buildv1.BuildTriggerPolicy{
-						GenericWebHook: &buildv1.WebHookTrigger{
-							Secret: webServer.Spec.WebImageStream.WebSources.WebhookSecrets.Generic,
-						},
-					})
-					updateBuildConfig = true
-				}
-			} else {
-				triggers := buildConfig.Spec.Triggers
-
-				for i := 0; i < len(triggers); i++ {
-					if triggers[i].GenericWebHook != nil && triggers[i].GenericWebHook.SecretReference != nil {
-						buildConfig.Spec.Triggers = append(triggers[:i], triggers[i+1:]...)
-						updateBuildConfig = true
-					}
-				}
-
-			}
-
-			if webServer.Spec.WebImageStream.WebSources.WebhookSecrets != nil && webServer.Spec.WebImageStream.WebSources.WebhookSecrets.Github != "" {
-				triggers := buildConfig.Spec.Triggers
-				found := false
-
-				for i := 0; i < len(triggers); i++ {
-					if triggers[i].GitHubWebHook != nil && triggers[i].GitHubWebHook.SecretReference != nil {
-						found = true
-						if triggers[i].GitHubWebHook.SecretReference.Name != webServer.Spec.WebImageStream.WebSources.WebhookSecrets.Github {
-							triggers[i].GitHubWebHook.SecretReference.Name = webServer.Spec.WebImageStream.WebSources.WebhookSecrets.Github
-							updateBuildConfig = true
-						}
-					}
-				}
-
-				if !found {
-					buildConfig.Spec.Triggers = append(triggers, buildv1.BuildTriggerPolicy{
-						GitHubWebHook: &buildv1.WebHookTrigger{
-							Secret: webServer.Spec.WebImageStream.WebSources.WebhookSecrets.Github,
-						},
-					})
-					updateBuildConfig = true
-				}
-			} else {
-				triggers := buildConfig.Spec.Triggers
-
-				for i := 0; i < len(triggers); i++ {
-					if triggers[i].GitHubWebHook != nil && triggers[i].GitHubWebHook.SecretReference != nil {
-						buildConfig.Spec.Triggers = append(triggers[:i], triggers[i+1:]...)
-						updateBuildConfig = true
-					}
-				}
-			}
-
-			if webServer.Spec.WebImageStream.WebSources.WebhookSecrets != nil && webServer.Spec.WebImageStream.WebSources.WebhookSecrets.Gitlab != "" {
-				triggers := buildConfig.Spec.Triggers
-				found := false
-
-				for i := 0; i < len(triggers); i++ {
-					if triggers[i].GitLabWebHook != nil && triggers[i].GitLabWebHook.SecretReference != nil {
-						found = true
-
-						if triggers[i].GitLabWebHook.SecretReference.Name != webServer.Spec.WebImageStream.WebSources.WebhookSecrets.Gitlab {
-							triggers[i].GitLabWebHook.SecretReference.Name = webServer.Spec.WebImageStream.WebSources.WebhookSecrets.Gitlab
-							updateBuildConfig = true
-						}
-					}
-				}
-
-				if !found {
-					buildConfig.Spec.Triggers = append(triggers, buildv1.BuildTriggerPolicy{
-						GitLabWebHook: &buildv1.WebHookTrigger{
-							Secret: webServer.Spec.WebImageStream.WebSources.WebhookSecrets.Gitlab,
-						},
-					})
-					updateBuildConfig = true
-				}
-			} else {
-				triggers := buildConfig.Spec.Triggers
-
-				for i := 0; i < len(triggers); i++ {
-					if triggers[i].GitLabWebHook != nil && triggers[i].GitLabWebHook.SecretReference != nil {
-						buildConfig.Spec.Triggers = append(triggers[:i], triggers[i+1:]...)
-						updateBuildConfig = true
-					}
-				}
-			}
-
-			if webServer.Spec.WebImageStream.WebSources.WebSourcesParams != nil {
-				artifactDir := webServer.Spec.WebImageStream.WebSources.WebSourcesParams.ArtifactDir
-
-				if artifactDir != "" {
-					env := buildConfig.Spec.CommonSpec.Strategy.SourceStrategy.Env
-					found := false
-
-					for i := 0; i < len(env); i++ {
-						if env[i].Name == "ARTIFACT_DIR" {
-							found = true
-
-							if env[i].Value != artifactDir {
-								env[i].Value = artifactDir
-								updateBuildConfig = true
-								startNewBuild = true
-							}
-
-							break
-						}
-					}
-
-					if !found {
-						buildConfig.Spec.CommonSpec.Strategy.SourceStrategy.Env = append(env, corev1.EnvVar{
-							Name:  "ARTIFACT_DIR",
-							Value: artifactDir,
-						})
-
-						updateBuildConfig = true
-						startNewBuild = true
-					}
-				} else {
-					env := buildConfig.Spec.CommonSpec.Strategy.SourceStrategy.Env
-
-					for i := 0; i < len(env); i++ {
-						if env[i].Name == "ARTIFACT_DIR" {
-							buildConfig.Spec.CommonSpec.Strategy.SourceStrategy.Env = append(env[:i], env[i+1:]...)
-							updateBuildConfig = true
-							startNewBuild = true
-							break
-						}
-					}
-				}
-
-				mavenUrl := webServer.Spec.WebImageStream.WebSources.WebSourcesParams.MavenMirrorURL
-
-				if mavenUrl != "" {
-					env := buildConfig.Spec.CommonSpec.Strategy.SourceStrategy.Env
-					found := false
-
-					for i := 0; i < len(env); i++ {
-						if env[i].Name == "MAVEN_MIRROR_URL" {
-							found = true
-
-							if env[i].Value != mavenUrl {
-								env[i].Value = mavenUrl
-								updateBuildConfig = true
-								startNewBuild = true
-							}
-
-							break
-						}
-					}
-
-					if !found {
-						buildConfig.Spec.CommonSpec.Strategy.SourceStrategy.Env = append(env, corev1.EnvVar{
-							Name:  "MAVEN_MIRROR_URL",
-							Value: mavenUrl,
-						})
-
-						updateBuildConfig = true
-						startNewBuild = true
-					}
-				} else {
-					env := buildConfig.Spec.CommonSpec.Strategy.SourceStrategy.Env
-
-					for i := 0; i < len(env); i++ {
-						if env[i].Name == "MAVEN_MIRROR_URL" {
-							buildConfig.Spec.CommonSpec.Strategy.SourceStrategy.Env = append(env[:i], env[i+1:]...)
-							updateBuildConfig = true
-							startNewBuild = true
-							break
-						}
-					}
-				}
-			} else {
-				if len(buildConfig.Spec.CommonSpec.Strategy.SourceStrategy.Env) != 0 {
-					buildConfig.Spec.CommonSpec.Strategy.SourceStrategy.Env = []corev1.EnvVar{}
-					updateBuildConfig = true
-					startNewBuild = true
-				}
-			}
-
-			if startNewBuild {
-				buildVersion := buildConfig.Status.LastVersion + 1
-				buildConfig.Status.LastVersion = buildVersion
-			}
-
-			if updateBuildConfig {
-				log.Info("Update Build Config")
-				err = r.Update(ctx, buildConfig)
-				if err != nil {
-					log.Error(err, "Failed to update BuildConfig.", "BuildConfig.Namespace", buildConfig.Namespace, "BuildConfig.Name", buildConfig.Name)
-					if errors.IsConflict(err) {
-						log.V(1).Info(err.Error())
-					} else {
-						return ctrl.Result{}, err
-					}
-				}
-			}
-
-			// Check if a Build has been created by the BuildConfig
-			log.Info("Checking build version - " + strconv.FormatInt(buildConfig.Status.LastVersion, 10))
-			buildVersion := strconv.FormatInt(buildConfig.Status.LastVersion, 10)
-
-			build := &buildv1.Build{}
-			err = r.Get(ctx, types.NamespacedName{Name: webServer.Spec.ApplicationName + "-" + buildVersion, Namespace: webServer.Namespace}, build)
-
-			if err != nil && errors.IsNotFound(err) {
-				log.Info("Creating new build")
-
-				build := &buildv1.Build{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      buildConfig.Name + "-" + buildVersion,
-						Namespace: buildConfig.Namespace,
-						Labels: map[string]string{
-							"buildconfig":                     buildConfig.Name,
-							"openshift.io/build-config.name":  buildConfig.Name,
-							"openshift.io/build.start-policy": "Serial",
-						},
-						Annotations: map[string]string{
-							"openshift.io/build-config.name": buildConfig.Name,
-							"openshift.io/build.number":      buildVersion,
-							"openshift.io/build.pod-name":    buildConfig.Name + "-" + buildVersion + "-build",
-						},
-					},
-					Spec: buildv1.BuildSpec{
-						CommonSpec: buildConfig.Spec.CommonSpec, // Copy the common spec from the BuildConfig
-					},
-				}
-
-				err = ctrl.SetControllerReference(webServer, build, r.Scheme)
-				if err != nil {
-					log.Error(err, "Failed to set owner reference")
-					return reconcile.Result{}, err
-				}
-
-				err = r.Client.Create(ctx, build)
-				if err != nil {
-					if errors.IsAlreadyExists(err) {
-						// Build already exists, do nothing
-						return reconcile.Result{}, nil
-					}
-
-					log.Error(err, "Failed to create build")
-					return reconcile.Result{}, err
-				}
-			} else if err != nil && !errors.IsNotFound(err) {
-				log.Info("Failed to get the Build")
-				return ctrl.Result{}, err
-			}
-
-			// If the Build was unsuccessful, stop the operator
-			switch build.Status.Phase {
-
-			case buildv1.BuildPhaseFailed:
-				log.Info("Application build failed: " + build.Status.Message)
-				return ctrl.Result{}, nil
-			case buildv1.BuildPhaseError:
-				log.Info("Application build failed: " + build.Status.Message)
-				return ctrl.Result{}, nil
-			case buildv1.BuildPhaseCancelled:
-				log.Info("Application build canceled")
-				return ctrl.Result{}, nil
-			case buildv1.BuildPhaseRunning:
-				log.Info("Waiting for build to be completed: requeue reconciliation")
-				return ctrl.Result{Requeue: true}, nil
-			case buildv1.BuildPhasePending:
-				log.Info("Waiting for build to be completed: requeue reconciliation")
-				return ctrl.Result{Requeue: true}, nil
-			case buildv1.BuildPhaseNew:
-				log.Info("Waiting for build to be completed: requeue reconciliation")
-				return ctrl.Result{Requeue: true}, nil
-			}
-		} else {
-			buildConfig := &buildv1.BuildConfig{}
-
-			err = r.Get(ctx, types.NamespacedName{Name: webServer.Spec.ApplicationName, Namespace: webServer.Namespace}, buildConfig)
-
-			if err == nil {
-				r.Delete(ctx, buildConfig)
-			}
-		}
-
-		is := &imagestreamv1.ImageStream{}
-
-		err = r.Get(ctx, client.ObjectKey{
-			Namespace: imageStreamNamespace,
-			Name:      imageStreamName,
-		}, is)
-
-		if errors.IsNotFound(err) {
-			log.Error(err, "Namespace/ImageStream doesn't exist.")
-			return ctrl.Result{}, nil
-		}
-		dockerImageRepository := is.Status.DockerImageRepository
-		log.Info("Using " + dockerImageRepository + " as applicationImage")
-
-		// Check if a Deployment already exists and if not, create a new one
-		deployment := r.generateDeployment(webServer, dockerImageRepository)
-		result, err = r.createDeployment(ctx, webServer, deployment, deployment.Name, deployment.Namespace)
-		if err != nil || result != (ctrl.Result{}) {
+		if err != nil {
 			return result, err
-		}
-
-		// Check if we need to delete it and recreate it.
-		currentHash := r.getWebServerHash(webServer)
-		if deployment.Labels["webserver-hash"] == "" {
-			deployment.ObjectMeta.Labels["webserver-hash"] = currentHash
-			updateDeployment = true
-		} else {
-			if deployment.Labels["webserver-hash"] != currentHash {
-				// Just Update and requeue
-				r.generateUpdatedDeployment(webServer, deployment, dockerImageRepository)
-				deployment.ObjectMeta.Labels["webserver-hash"] = currentHash
-				err = r.Client.Update(ctx, deployment)
-				if err != nil {
-					log.Error(err, "Failed to update Deployment.", "Deployment.Namespace", deployment.Namespace, "Deployment.Name", deployment.Name)
-					if errors.IsConflict(err) {
-						log.V(1).Info(err.Error())
-					} else {
-						return ctrl.Result{}, nil
-					}
-				}
-				log.Info("Webserver hash changed: Update Deployment and requeue reconciliation")
-				return ctrl.Result{RequeueAfter: (500 * time.Millisecond)}, nil
-			}
-		}
-
-		// Handle Scaling
-		foundReplicas = *deployment.Spec.Replicas
-		replicas := webServer.Spec.Replicas
-		if foundReplicas != replicas {
-			log.Info("Deployment replicas number does not match the WebServer specification. Deployment update scheduled")
-			deployment.Spec.Replicas = &replicas
-			updateDeployment = true
-		}
-
-		if updateDeployment {
-			err = r.Update(ctx, deployment)
-			if err != nil {
-				log.Info("Failed to update Deployment." + "Deployment.Namespace" + deployment.Namespace + "Deployment.Name" + deployment.Name)
-				if errors.IsConflict(err) {
-					log.V(1).Info(err.Error())
-				} else {
-					return ctrl.Result{}, err
-				}
-
-			}
-			// Spec updated - return and requeue
-			return ctrl.Result{Requeue: true}, nil
 		}
 	}
 
@@ -961,6 +373,8 @@ func (r *WebServerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		webServer.Status.Pods = podsStatus
 		updateStatus = true
 	}
+
+	var foundReplicas int32
 
 	// Update the replicas
 	if webServer.Status.Replicas != foundReplicas {

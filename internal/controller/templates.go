@@ -2,6 +2,7 @@ package controller
 
 import (
 	"os"
+	"strconv"
 	"strings"
 
 	"gopkg.in/yaml.v2"
@@ -42,12 +43,20 @@ func (r *WebServerReconciler) generateRoutingService(webServer *webserversv1alph
 			// Don't forget to check generateLabelsForWeb before changing this...
 			// there are more Labels but we only use those for the Route.
 			Selector: map[string]string{
-				"deployment": webServer.Spec.ApplicationName,
-				"WebServer":  webServer.Name,
+				"application": webServer.Spec.ApplicationName,
+				"WebServer":   webServer.Name,
 			},
 		},
 	}
+
+	if webServer.Spec.Volume != nil && len(webServer.Spec.Volume.VolumeClaimTemplates) > 0 {
+		service.Spec.ClusterIP = "None"
+	}
+
 	controllerutil.SetControllerReference(webServer, service, r.Scheme)
+
+	//serviceYaml, _ := yaml.Marshal(service)
+	//log.Info("service object: " + string(serviceYaml))
 	return service
 
 }
@@ -337,6 +346,31 @@ func (r *WebServerReconciler) generateAnnotationsDeployment(webServer *webserver
 	return ann
 }
 
+func (r *WebServerReconciler) generateStatefulSet(webServer *webserversv1alpha1.WebServer, applicationImage string) *kbappsv1.StatefulSet {
+	replicas := int32(webServer.Spec.Replicas)
+	objectMeta := r.generateObjectMeta(webServer, webServer.Spec.ApplicationName)
+	objectMeta.Labels = r.generateLabelsForWeb(webServer)
+
+	statefulset := &kbappsv1.StatefulSet{
+		ObjectMeta: objectMeta,
+		Spec: kbappsv1.StatefulSetSpec{
+			ServiceName: webServer.Spec.ApplicationName,
+			UpdateStrategy: kbappsv1.StatefulSetUpdateStrategy{
+				Type: kbappsv1.RollingUpdateStatefulSetStrategyType,
+			},
+			Replicas: &replicas,
+			Selector: &metav1.LabelSelector{
+				MatchLabels: r.generateSelectorLabelsForWeb(webServer),
+			},
+			Template:             r.generatePodTemplate(webServer, applicationImage),
+			VolumeClaimTemplates: r.generatePersistentVolumeClaims(webServer),
+		},
+	}
+
+	controllerutil.SetControllerReference(webServer, statefulset, r.Scheme)
+	return statefulset
+}
+
 func (r *WebServerReconciler) generateDeployment(webServer *webserversv1alpha1.WebServer, applicationImage string) *kbappsv1.Deployment {
 
 	replicas := int32(webServer.Spec.Replicas)
@@ -365,6 +399,7 @@ func (r *WebServerReconciler) generateDeployment(webServer *webserversv1alpha1.W
 	controllerutil.SetControllerReference(webServer, deployment, r.Scheme)
 	return deployment
 }
+
 func (r *WebServerReconciler) generateUpdatedDeployment(webServer *webserversv1alpha1.WebServer, deployment *kbappsv1.Deployment, applicationImage string) {
 
 	replicas := int32(webServer.Spec.Replicas)
@@ -390,6 +425,35 @@ func (r *WebServerReconciler) generateUpdatedDeployment(webServer *webserversv1a
 	}
 	deployment.Spec = spec
 	controllerutil.SetControllerReference(webServer, deployment, r.Scheme)
+}
+
+func (r *WebServerReconciler) generateUpdatedStatefulSet(webServer *webserversv1alpha1.WebServer, statefulset *kbappsv1.StatefulSet, applicationImage string) {
+
+	replicas := int32(webServer.Spec.Replicas)
+	objectMeta := r.generateObjectMeta(webServer, webServer.Spec.ApplicationName)
+	objectMeta.Labels = r.generateLabelsForWeb(webServer)
+
+	if webServer.Spec.WebImage == nil {
+		objectMeta.Annotations = r.generateAnnotationsDeployment(webServer)
+	}
+
+	log.Info("generateUpdatedStatefulSet")
+	statefulset.ObjectMeta = objectMeta
+
+	spec := kbappsv1.StatefulSetSpec{
+		ServiceName: webServer.Spec.ApplicationName,
+		UpdateStrategy: kbappsv1.StatefulSetUpdateStrategy{
+			Type: kbappsv1.RollingUpdateStatefulSetStrategyType,
+		},
+		Replicas: &replicas,
+		Selector: &metav1.LabelSelector{
+			MatchLabels: r.generateSelectorLabelsForWeb(webServer),
+		},
+		Template:             r.generatePodTemplate(webServer, applicationImage),
+		VolumeClaimTemplates: r.generatePersistentVolumeClaims(webServer),
+	}
+	statefulset.Spec = spec
+	controllerutil.SetControllerReference(webServer, statefulset, r.Scheme)
 }
 
 func (r *WebServerReconciler) generateImageStream(webServer *webserversv1alpha1.WebServer) *imagev1.ImageStream {
@@ -888,6 +952,26 @@ func (r *WebServerReconciler) generateEnvVars(webServer *webserversv1alpha1.WebS
 	return env
 }
 
+func (r *WebServerReconciler) generatePersistentVolumeClaims(webServer *webserversv1alpha1.WebServer) []corev1.PersistentVolumeClaim {
+	var pvClaims []corev1.PersistentVolumeClaim
+
+	if webServer.Spec.Volume == nil {
+		return pvClaims
+	}
+
+	for index, claim := range webServer.Spec.Volume.VolumeClaimTemplates {
+		pvClaims = append(pvClaims, corev1.PersistentVolumeClaim{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      webServer.Spec.ApplicationName + "-" + strconv.Itoa(index),
+				Namespace: webServer.Namespace,
+			},
+			Spec: claim,
+		})
+	}
+
+	return pvClaims
+}
+
 // Create the VolumeMounts
 func (r *WebServerReconciler) generateVolumeMounts(webServer *webserversv1alpha1.WebServer) []corev1.VolumeMount {
 	var volm []corev1.VolumeMount
@@ -937,6 +1021,38 @@ func (r *WebServerReconciler) generateVolumeMounts(webServer *webserversv1alpha1
 				Name:      "readinessprobescript-sh-webserver-" + webServer.Name,
 				MountPath: "/opt/probe/readinessProbeScript.sh",
 				SubPath:   "readinessProbeScript.sh",
+			})
+		}
+	}
+
+	if webServer.Spec.Volume != nil {
+		for _, pvolume := range webServer.Spec.Volume.PersistentVolumeClaims {
+			volm = append(volm, corev1.VolumeMount{
+				Name:      "persistent-vol-" + pvolume,
+				MountPath: "/volumes/" + "persistent-volume-" + pvolume,
+			})
+		}
+
+		for _, secret := range webServer.Spec.Volume.Secrets {
+			volm = append(volm, corev1.VolumeMount{
+				Name:      "secret-vol-" + secret,
+				MountPath: "/secrets/" + secret,
+				ReadOnly:  true,
+			})
+		}
+
+		for _, configmap := range webServer.Spec.Volume.ConfigMaps {
+			volm = append(volm, corev1.VolumeMount{
+				Name:      "configmap-vol-" + configmap,
+				MountPath: "/configmaps/" + configmap,
+				ReadOnly:  true,
+			})
+		}
+
+		for index := range webServer.Spec.Volume.VolumeClaimTemplates {
+			volm = append(volm, corev1.VolumeMount{
+				Name:      webServer.Spec.ApplicationName + "-" + strconv.Itoa(index),
+				MountPath: "/app-data/" + webServer.Spec.ApplicationName + "-" + strconv.Itoa(index),
 			})
 		}
 	}
@@ -1037,6 +1153,44 @@ func (r *WebServerReconciler) generateVolumes(webServer *webserversv1alpha1.WebS
 							Name: "livenessprobescript-sh-webserver-" + webServer.Name,
 						},
 						DefaultMode: &executeMode,
+					},
+				},
+			})
+		}
+	}
+
+	if webServer.Spec.Volume != nil {
+		for _, pvolume := range webServer.Spec.Volume.PersistentVolumeClaims {
+
+			vol = append(vol, corev1.Volume{
+				Name: "persistent-vol-" + pvolume,
+				VolumeSource: corev1.VolumeSource{
+					PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
+						ClaimName: pvolume,
+					},
+				},
+			})
+		}
+
+		for _, secret := range webServer.Spec.Volume.Secrets {
+			vol = append(vol, corev1.Volume{
+				Name: "secret-vol-" + secret,
+				VolumeSource: corev1.VolumeSource{
+					Secret: &corev1.SecretVolumeSource{
+						SecretName: secret,
+					},
+				},
+			})
+		}
+
+		for _, configmap := range webServer.Spec.Volume.ConfigMaps {
+			vol = append(vol, corev1.Volume{
+				Name: "configmap-vol-" + configmap,
+				VolumeSource: corev1.VolumeSource{
+					ConfigMap: &corev1.ConfigMapVolumeSource{
+						LocalObjectReference: corev1.LocalObjectReference{
+							Name: configmap,
+						},
 					},
 				},
 			})
