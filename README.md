@@ -67,7 +67,7 @@ To build the bundle and deploy the operator do something like the following:
 ```bash
 podman login quay.io
 make bundle-build bundle-push BUNDLE_IMG=quay.io/${USER}/jws-operator-bundle:0.0.0
-operator-sdk run bundle quay.io/${USER}/jws-operator-bundle:0.0.0
+operator-sdk run bundle quay.io/${USER}/jws-operator-bundle:0.0.0 --security-context-config restricted
 ```
 To remove
 ```bash
