@@ -483,7 +483,7 @@ spec:
                       type: string
                     type: array
                   volumeClaimTemplates:
-                    description: Volume Claim Template for stateful applications
+                    description: Volume Claim Templates for stateful applications
                     items:
                       description: |-
                         PersistentVolumeClaimSpec describes the common attributes of storage devices

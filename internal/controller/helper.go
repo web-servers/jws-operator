@@ -306,7 +306,7 @@ func (r *WebServerReconciler) continueWithDeployment(ctx context.Context, webSer
 }
 
 func (r *WebServerReconciler) continueWithStatefulSet(ctx context.Context, webServer *webserversv1alpha1.WebServer, image string) (ctrl.Result, error) {
-	updateDeployment := false
+	updateStatefulSet := false
 
 	statefulset := r.generateStatefulSet(webServer, image)
 	log.Info("WebServe createStatefulSet: " + statefulset.Name + " in " + statefulset.Namespace + " using: " + statefulset.Spec.Template.Spec.Containers[0].Image)
@@ -322,7 +322,7 @@ func (r *WebServerReconciler) continueWithStatefulSet(ctx context.Context, webSe
 	currentHash := r.getWebServerHash(webServer)
 	if statefulset.ObjectMeta.Labels["webserver-hash"] == "" {
 		statefulset.ObjectMeta.Labels["webserver-hash"] = currentHash
-		updateDeployment = true
+		updateStatefulSet = true
 	} else {
 		if statefulset.ObjectMeta.Labels["webserver-hash"] != currentHash {
 			// Just Update and requeue
@@ -348,7 +348,7 @@ func (r *WebServerReconciler) continueWithStatefulSet(ctx context.Context, webSe
 		if webServer.Spec.WebImage.WebApp == nil {
 			log.Info("WebServer application image change detected. Deployment update scheduled")
 			statefulset.Spec.Template.Spec.Containers[0].Image = webServer.Spec.WebImage.ApplicationImage
-			updateDeployment = true
+			updateStatefulSet = true
 		}
 	}
 
@@ -358,10 +358,10 @@ func (r *WebServerReconciler) continueWithStatefulSet(ctx context.Context, webSe
 	if foundReplicas != replicas {
 		log.Info("Deployment replicas number does not match the WebServer specification. Deployment update scheduled")
 		statefulset.Spec.Replicas = &replicas
-		updateDeployment = true
+		updateStatefulSet = true
 	}
 
-	if updateDeployment {
+	if updateStatefulSet {
 		err = r.Update(ctx, statefulset)
 		if err != nil {
 			log.Error(err, "Failed to update:", "Namespace", statefulset.Namespace, "Name", statefulset.Name)
@@ -1285,6 +1285,13 @@ func (r *WebServerReconciler) getWebServerHash(webServer *webserversv1alpha1.Web
 	data, err = json.Marshal(webServer.Spec.SecurityContext)
 	if err != nil {
 		log.Error(err, "WebServer hash sum calculation failed - SecurityContext")
+		return ""
+	}
+	h.Write(data)
+
+	data, err = json.Marshal(webServer.Spec.Volume)
+	if err != nil {
+		log.Error(err, "WebServer hash sum calculation failed - Volume")
 		return ""
 	}
 	h.Write(data)
