@@ -44,7 +44,7 @@ spec:
                 pattern: ^[a-z]([-a-z0-9]*[a-z0-9])?$
                 type: string
               environmentVariables:
-                description: Environment variables for deployment
+                description: Environment variables for the WebServer
                 items:
                   description: EnvVar represents an environment variable present in
                     a Container.
@@ -184,7 +184,7 @@ spec:
                 type: object
               podResources:
                 description: Configuration of the resources used by the WebServer,
-                  ie CPU and memory, use limits and requests
+                  e.g. CPU and memory
                 properties:
                   claims:
                     description: |-
@@ -248,8 +248,8 @@ spec:
                 minimum: 0
                 type: integer
               securityContext:
-                description: SecurityContext defines the security capabilities required
-                  to run the application.
+                description: Security context defines the security capabilities required
+                  to run the application
                 properties:
                   allowPrivilegeEscalation:
                     description: |-
@@ -439,7 +439,7 @@ spec:
                     type: object
                 type: object
               tlsConfig:
-                description: TLS configuration
+                description: TLS configuration for the WebServer
                 properties:
                   certificateVerification:
                     description: 'certificateVerification for tomcat configuration:
@@ -458,13 +458,13 @@ spec:
                     type: string
                 type: object
               useInsightsClient:
-                description: Allow Insights client
+                description: Use Insights client (works only with JWS 6.1+ images)
                 type: boolean
               useSessionClustering:
                 description: Use session clustering
                 type: boolean
               volumeSpec:
-                description: Volume specification
+                description: Specifications of volumes which will be mounted
                 properties:
                   configMaps:
                     description: Names of config maps which will be mounted to /configmaps
@@ -483,7 +483,7 @@ spec:
                       type: string
                     type: array
                   volumeClaimTemplates:
-                    description: Volume Claim Template for stateful applications
+                    description: Volume Claim Templates for stateful applications
                     items:
                       description: |-
                         PersistentVolumeClaimSpec describes the common attributes of storage devices
