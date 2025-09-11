@@ -374,9 +374,8 @@ func (r *WebServerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		updateStatus = true
 	}
 
-	var foundReplicas int32
-
 	// Update the replicas
+	foundReplicas := r.getReplicaStatus(ctx, webServer)
 	if webServer.Status.Replicas != foundReplicas {
 		log.Info("Status.Replicas update scheduled")
 		webServer.Status.Replicas = foundReplicas
