@@ -270,7 +270,7 @@ func (r *WebServerReconciler) continueWithDeployment(ctx context.Context, webSer
 	}
 
 	foundImage := deployment.Spec.Template.Spec.Containers[0].Image
-	if webServer.Spec.WebImage.ApplicationImage != "" && webServer.Spec.WebImage.ApplicationImage != foundImage {
+	if webServer.Spec.WebImage != nil && webServer.Spec.WebImage.ApplicationImage != "" && webServer.Spec.WebImage.ApplicationImage != foundImage {
 		// if we are using a builder that it normal otherwise we need to redeploy.
 		if webServer.Spec.WebImage.WebApp == nil {
 			log.Info("WebServer application image change detected. Deployment update scheduled")
