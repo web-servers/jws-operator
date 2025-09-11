@@ -176,7 +176,7 @@ var _ = Describe("WebServer controller", Ordered, func() {
 		}, "2m", "5s").Should(BeTrue(), "the service should be deleted")
 	})
 
-	Context("ImageStreamSourceTest", func() {
+	Context("SecureRouteTest", func() {
 
 		It("Basic Test", func() {
 			_, err := utils.WebServerRouteTest(k8sClient, ctx, thetest, webserver, testURI, false, nil, true)
