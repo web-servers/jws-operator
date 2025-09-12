@@ -107,7 +107,7 @@ var _ = Describe("WebServer controller", Ordered, func() {
 		}, "2m", "5s").Should(BeTrue(), "the webserver should be deleted")
 	})
 
-	Context("ApplicationImageiSourceTest", func() {
+	Context("ApplicationImageSourceTest", func() {
 		It("Basic Test", func() {
 			_, err := utils.WebServerRouteTest(k8sClient, ctx, thetest, webserver, testURI, false, nil, false)
 			Expect(err).Should(Succeed())

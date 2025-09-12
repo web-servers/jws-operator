@@ -144,13 +144,19 @@ test-e2e: setup-test-e2e install deploy generate fmt vet ## Run the e2e tests. E
 cleanup-test-e2e: ## Tear down the Kind cluster used for e2e tests
 	@$(KIND) delete cluster --name $(KIND_CLUSTER)
 
+# Execute tests on real cluster.
+#   - TEST_PARAM: allows to specify additional parameters
+#     e.g. specify a test subset: TEST_PARAM='--ginkgo.focus BasicTest'
+#     Parameter in ginkgo.focus can be "Context" or "It"
+# Prerequisite: the operator is installed and avialable in the cluster
 .PHONY: test-e2e-real
-test-e2e-real: setup-namespace install deploy generate fmt vet
-	go test ./test/e2e/ -v -ginkgo.v
+test-e2e-real: setup-namespace generate fmt vet
+	go test ./test/e2e/ -v -ginkgo.v $(TEST_PARAM)
 
 .PHONY: setup-namespace
 setup-namespace:
 	$(KUBECTL) create namespace $(NAMESPACE_FOR_TESTING) || true
+	$(OCPCTL) adm policy add-scc-to-user anyuid -z builder -n $(NAMESPACE_FOR_TESTING)
 
 .PHONY: lint
 lint: golangci-lint ## Run golangci-lint linter
@@ -240,6 +246,7 @@ $(LOCALBIN):
 
 ## Tool Binaries
 KUBECTL ?= kubectl
+OCPCTL ?= oc
 KIND ?= kind
 KUSTOMIZE ?= $(LOCALBIN)/kustomize
 CONTROLLER_GEN ?= $(LOCALBIN)/controller-gen

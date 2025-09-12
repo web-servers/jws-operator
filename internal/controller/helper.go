@@ -270,7 +270,7 @@ func (r *WebServerReconciler) continueWithDeployment(ctx context.Context, webSer
 	}
 
 	foundImage := deployment.Spec.Template.Spec.Containers[0].Image
-	if webServer.Spec.WebImage.ApplicationImage != "" && webServer.Spec.WebImage.ApplicationImage != foundImage {
+	if webServer.Spec.WebImage != nil && webServer.Spec.WebImage.ApplicationImage != "" && webServer.Spec.WebImage.ApplicationImage != foundImage {
 		// if we are using a builder that it normal otherwise we need to redeploy.
 		if webServer.Spec.WebImage.WebApp == nil {
 			log.Info("WebServer application image change detected. Deployment update scheduled")
@@ -1196,6 +1196,7 @@ func (r *WebServerReconciler) sortPodListByName(podList *corev1.PodList) *corev1
 func (r *WebServerReconciler) getPodStatus(pods []corev1.Pod) ([]webserversv1alpha1.PodStatus, bool) {
 	var requeue = false
 	var podStatuses []webserversv1alpha1.PodStatus
+
 	for _, pod := range pods {
 		podState := webserversv1alpha1.PodStateFailed
 
@@ -1300,6 +1301,30 @@ func (r *WebServerReconciler) getWebServerHash(webServer *webserversv1alpha1.Web
 	enc := base64.NewEncoding("qwertyuiopasdfghjklzxcvbnmQWERTYUIOPASDFGHJKLZXCVBNM_.0123456789")
 	enc = enc.WithPadding(base64.NoPadding)
 	return "A" + enc.EncodeToString(h.Sum(nil)) + "A"
+}
+
+// Calculate a hash of the Spec (configuration) to redeploy/rebuild if needed.
+func (r *WebServerReconciler) getReplicaStatus(ctx context.Context, webServer *webserversv1alpha1.WebServer) int32 {
+	if webServer.Spec.Volume != nil && len(webServer.Spec.Volume.VolumeClaimTemplates) > 0 {
+		statefulset := &kbappsv1.StatefulSet{}
+		err := r.Client.Get(ctx, types.NamespacedName{Name: webServer.Spec.ApplicationName, Namespace: webServer.Namespace}, statefulset)
+
+		if err != nil {
+			log.Error(err, "Failed to get StatefulSet: "+webServer.Spec.ApplicationName)
+			return 0
+		}
+
+		return statefulset.Status.Replicas
+	} else {
+		deployment := &kbappsv1.Deployment{}
+		err := r.Client.Get(ctx, types.NamespacedName{Name: webServer.Spec.ApplicationName, Namespace: webServer.Namespace}, deployment)
+		if err != nil {
+			log.Error(err, "Failed to get Deployment: "+webServer.Spec.ApplicationName)
+			return 0
+		}
+
+		return deployment.Status.Replicas
+	}
 }
 
 // Add an annotation to the webServer for the KUBEPing
