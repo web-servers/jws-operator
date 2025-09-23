@@ -309,9 +309,9 @@ make test-e2e-real
 ```
 The whole testsuite takes about 40 minutes...
 
-In case you don't need to run whole test suite, you can specify individual test (e.g. secure reoute test):
+In case you don't need to run whole test suite, you can specify individual test (e.g. basic test):
 ```
-TEST_PARAM='--ginkgo.focus "SecureRouteTest"' make test-e2e-real
+TEST_PARAM='-ginkgo.focus "BasicTest"' make test-e2e-real
 ```
 
 **Note** When using podman remember the auth.json is in ${XDG_RUNTIME_DIR}/containers the format is like the $HOME/.docker/config.json but has the username/repo instead just username (like "quay.io/jfclere/jws-operator" versus "quay.io/jfclere" in docker).
