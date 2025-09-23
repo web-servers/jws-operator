@@ -265,7 +265,7 @@ If you are using a openjdk:8-jre-alpine based image and /test is your health URL
 Note that HealthCheckValve requires tomcat 9.0.38+ or 10.0.0-M8 to work as expected and it was introducted in 9.0.15.
 
 ## Testing
-Before starting the tests make sure the operator is deployed using ```make deploy``` and its pods are started.
+Before starting the tests make sure the operator is installed and available in ```jws-operator-tests``` namespace.
 
 To run a test with a real cluster you need a real cluster (kubernetes or openshift). A secret is needed to run a bunch of tests.
 You can create the secret using something like:
@@ -298,16 +298,22 @@ kubectl create secret generic test-tls-secret    --from-file=server.crt=server.c
 ```
 The PersistentLogs tests require a PV and SC to be created, check https://github.com/web-servers/jws-operator/blob/main/test/scripts/README.md to create them before starting the tests.
 
-To run the test to:
-```
-make realtest
-```
-The whole testsuite takes about 40 minutes...
-
-**Note** When running the tests on OpenShift make sure to test in your own namespace and DON'T use default. Also make sure you have added "anyuid" to the ServiceAccount builder:
+When running the tests on OpenShift make sure to test in your own namespace and DON'T use default. Also make sure you have added "anyuid" to the ServiceAccount builder:
 ```bash
 oc adm policy add-scc-to-user anyuid -z builder
 ```
+
+To run the test to:
+```
+make test-e2e-real
+```
+The whole testsuite takes about 40 minutes...
+
+In case you don't need to run whole test suite, you can specify individual test (e.g. basic test):
+```
+TEST_PARAM='-ginkgo.focus "BasicTest"' make test-e2e-real
+```
+
 **Note** When using podman remember the auth.json is in ${XDG_RUNTIME_DIR}/containers the format is like the $HOME/.docker/config.json but has the username/repo instead just username (like "quay.io/jfclere/jws-operator" versus "quay.io/jfclere" in docker).
 
 ## What to do next?
