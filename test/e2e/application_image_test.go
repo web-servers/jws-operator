@@ -33,14 +33,13 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-var _ = Describe("WebServer controller", Ordered, func() {
+var _ = Describe("WebServerControllerTest", Ordered, func() {
 	SetDefaultEventuallyTimeout(2 * time.Minute)
 	SetDefaultEventuallyPollingInterval(time.Second)
 
 	ctx := context.Background()
 	name := "image-basic-test"
 	appName := "test-tomcat-demo"
-	namespace := "jws-operator-tests"
 	testURI := "/health"
 	image := "quay.io/web-servers/tomcat10:latest"
 	newImage := "quay.io/web-servers/tomcat10update:latest"

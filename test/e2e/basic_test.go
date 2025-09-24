@@ -24,6 +24,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
 
 	webserversv1alpha1 "github.com/web-servers/jws-operator/api/v1alpha1"
@@ -31,41 +32,60 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-var _ = Describe("WebServer controller", Ordered, func() {
+var _ = Describe("WebServerControllerTest", Ordered, func() {
 	SetDefaultEventuallyTimeout(2 * time.Minute)
 	SetDefaultEventuallyPollingInterval(time.Second)
 
-	Context("BasicTest", func() {
-		It("validating that webserver works", func() {
-			By("creating webserver")
+	name := "basic-test"
+	appName := "basic-test-app"
 
-			ctx := context.Background()
-			name := "basic-test"
-			appName := "test-tomcat-demo"
-			namespace := "jws-operator-tests"
+	webserver := &webserversv1alpha1.WebServer{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "WebServer",
+			APIVersion: "web.servers.org/v1alpha1",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: namespace,
+		},
+		Spec: webserversv1alpha1.WebServerSpec{
+			ApplicationName: appName,
+			Replicas:        int32(2),
+			WebImage: &webserversv1alpha1.WebImageSpec{
+				ApplicationImage: testImg,
+			},
+		},
+	}
 
-			webserver := &webserversv1alpha1.WebServer{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      name,
-					Namespace: namespace,
-				},
-				Spec: webserversv1alpha1.WebServerSpec{
-					ApplicationName: appName,
-					Replicas:        int32(2),
-					WebImage: &webserversv1alpha1.WebImageSpec{
-						ApplicationImage: "quay.io/web-servers/tomcat-demo",
-					},
-				},
+	BeforeAll(func() {
+		// create the webserver
+		Expect(k8sClient.Create(ctx, webserver)).Should(Succeed())
+
+		// Check it is started.
+		webserverLookupKey := types.NamespacedName{Name: name, Namespace: namespace}
+		createdWebserver := &webserversv1alpha1.WebServer{}
+		Eventually(func() bool {
+			err := k8sClient.Get(ctx, webserverLookupKey, createdWebserver)
+			if err != nil {
+				return false
 			}
+			return true
+		}, time.Second*10, time.Millisecond*250).Should(BeTrue())
+		fmt.Printf("new WebServer Name: %s Namespace: %s\n", createdWebserver.ObjectMeta.Name, createdWebserver.ObjectMeta.Namespace)
+	})
 
-			// make sure we cleanup at the end of this test.
-			defer func() {
-				k8sClient.Delete(context.Background(), webserver)
-				time.Sleep(time.Second * 5)
-			}()
+	AfterAll(func() {
+		k8sClient.Delete(context.Background(), webserver)
+		webserverLookupKey := types.NamespacedName{Name: name, Namespace: namespace}
 
-			// create the webserver
-			Expect(k8sClient.Create(ctx, webserver)).Should(Succeed())
+		Eventually(func() bool {
+			err := k8sClient.Get(ctx, webserverLookupKey, &webserversv1alpha1.WebServer{})
+			return apierrors.IsNotFound(err)
+		}, "2m", "5s").Should(BeTrue(), "the webserver should be deleted")
+	})
+
+	Context("BasicTest", func() {
+		It("Basic Test", func() {
 
 			// Check it is started.
 			webserverLookupKey := types.NamespacedName{Name: name, Namespace: namespace}

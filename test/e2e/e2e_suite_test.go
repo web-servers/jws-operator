@@ -31,6 +31,7 @@ import (
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
+
 	//	"k8s.io/client-go/tools/clientcmd"
 
 	buildv1 "github.com/openshift/api/build/v1"
@@ -48,6 +49,7 @@ var (
 	// These variables are useful if CertManager is already installed, avoiding
 	// re-installation and conflicts.
 	skipCertManagerInstall = os.Getenv("CERT_MANAGER_INSTALL_SKIP") == "true"
+
 	// isCertManagerAlreadyInstalled will be set true when CertManager CRDs be found on the cluster
 	isCertManagerAlreadyInstalled = false
 
@@ -57,6 +59,8 @@ var (
 	ctx       context.Context
 	thetest   *testing.T
 	username  string
+	testImg   = os.Getenv("TEST_IMG")
+	namespace = os.Getenv("NAMESPACE_FOR_TESTING")
 
 	retryInterval = time.Second * 5
 	timeout       = time.Minute * 10
@@ -90,6 +94,7 @@ func TestE2E(t *testing.T) {
 var _ = BeforeSuite(func() {
 	By("Before suite")
 	useExistingCluster = true
+	ctx = context.Background()
 
 	testEnv = &envtest.Environment{
 		CRDDirectoryPaths:  []string{filepath.Join("..", "..", "config", "crd", "bases")},
