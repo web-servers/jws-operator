@@ -41,7 +41,6 @@ var _ = Describe("WebServerControllerTest", Ordered, func() {
 	ctx := context.Background()
 	name := "app-img-source-script-test"
 	appName := "source-script-test"
-	namespace := "jws-operator-tests"
 	pkgName := "demo" + utils.UnixEpoch()
 	testURI := "/" + pkgName + "/index.html"
 	image := "quay.io/web-servers/tomcat10:latest"

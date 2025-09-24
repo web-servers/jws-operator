@@ -41,7 +41,6 @@ var _ = Describe("WebServerControllerTest", Ordered, func() {
 	ctx := context.Background()
 	name := "hpa-test"
 	appName := "tomcat-demo-test"
-	namespace := "jws-operator-tests"
 	testURI := "/health"
 	autoscalerName := "hpatest-hpa"
 

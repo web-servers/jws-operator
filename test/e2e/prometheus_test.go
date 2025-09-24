@@ -41,7 +41,6 @@ var _ = Describe("WebServerControllerTest", Ordered, func() {
 	ctx := context.Background()
 	name := "tomcat-prometheus-test"
 	appName := "prometheus-test"
-	namespace := "jws-operator-tests"
 	testURI := "/health"
 
 	routeName := "def"
