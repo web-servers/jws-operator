@@ -34,14 +34,13 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-var _ = Describe("WebServer controller", Ordered, func() {
+var _ = Describe("WebServerControllerTest", Ordered, func() {
 	SetDefaultEventuallyTimeout(2 * time.Minute)
 	SetDefaultEventuallyPollingInterval(time.Second)
 
 	ctx := context.Background()
 	name := "hpa-test"
 	appName := "tomcat-demo-test"
-	namespace := "jws-operator-tests"
 	testURI := "/health"
 	autoscalerName := "hpatest-hpa"
 
@@ -56,7 +55,7 @@ var _ = Describe("WebServer controller", Ordered, func() {
 			ApplicationName: appName,
 			Replicas:        int32(4),
 			WebImage: &webserversv1alpha1.WebImageSpec{
-				ApplicationImage: "quay.io/web-servers/tomcat-demo",
+				ApplicationImage: testImg,
 			},
 			PodResources: corev1.ResourceRequirements{
 				Limits: corev1.ResourceList{

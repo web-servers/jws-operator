@@ -31,7 +31,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-var _ = Describe("WebServer controller", Ordered, func() {
+var _ = Describe("WebServerControllerTest", Ordered, func() {
 	SetDefaultEventuallyTimeout(2 * time.Minute)
 	SetDefaultEventuallyPollingInterval(time.Second)
 
@@ -40,7 +40,6 @@ var _ = Describe("WebServer controller", Ordered, func() {
 	appName := "jws-img"
 	appImage := "registry.redhat.io/jboss-webserver-5/jws58-openjdk11-openshift-rhel8:latest"
 	pullSecret := "secretfortests"
-	namespace := "jws-operator-tests"
 	testURI := "/health"
 
 	webserver := &webserversv1alpha1.WebServer{

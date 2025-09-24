@@ -35,14 +35,13 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-var _ = Describe("WebServer controller", Ordered, func() {
+var _ = Describe("WebServerControllerTest", Ordered, func() {
 	SetDefaultEventuallyTimeout(2 * time.Minute)
 	SetDefaultEventuallyPollingInterval(time.Second)
 
 	ctx := context.Background()
 	name := "app-img-stream-source-test"
 	appName := "image-stream-source-test"
-	namespace := "jws-operator-tests"
 	testURI := "/health"
 	imageStreamName := "jboss-webserver57-openjdk11-tomcat9-openshift-ubi8"
 	imageStreamNamespace := namespace

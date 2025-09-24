@@ -36,7 +36,7 @@ import (
 	// "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
-var _ = Describe("WebServer controller", Ordered, func() {
+var _ = Describe("WebServerControllerTest", Ordered, func() {
 	SetDefaultEventuallyTimeout(2 * time.Minute)
 	SetDefaultEventuallyPollingInterval(time.Second)
 
@@ -47,7 +47,6 @@ var _ = Describe("WebServer controller", Ordered, func() {
 			ctx := context.Background()
 			name := "label-test"
 			appName := "test-tomcat-demo"
-			namespace := "jws-operator-tests"
 
 			webserver := &webserversv1alpha1.WebServer{
 				ObjectMeta: metav1.ObjectMeta{
@@ -62,7 +61,7 @@ var _ = Describe("WebServer controller", Ordered, func() {
 					ApplicationName: appName,
 					Replicas:        int32(2),
 					WebImage: &webserversv1alpha1.WebImageSpec{
-						ApplicationImage: "quay.io/web-servers/tomcat-demo",
+						ApplicationImage: testImg,
 					},
 				},
 			}

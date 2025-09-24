@@ -265,8 +265,6 @@ If you are using a openjdk:8-jre-alpine based image and /test is your health URL
 Note that HealthCheckValve requires tomcat 9.0.38+ or 10.0.0-M8 to work as expected and it was introducted in 9.0.15.
 
 ## Testing
-Before starting the tests make sure the operator is deployed using ```make deploy``` and its pods are started.
-
 To run a test with a real cluster you need a real cluster (kubernetes or openshift). A secret is needed to run a bunch of tests.
 You can create the secret using something like:
 ```
@@ -298,16 +296,23 @@ kubectl create secret generic test-tls-secret    --from-file=server.crt=server.c
 ```
 The PersistentLogs tests require a PV and SC to be created, check https://github.com/web-servers/jws-operator/blob/main/test/scripts/README.md to create them before starting the tests.
 
+Before starting the tests make sure the operator is installed and available in ```NAMESPACE_FOR_TESTING``` namespace.
+
 To run the test to:
 ```
-make realtest
+make test-e2e-real
 ```
+
+Testing can be configured via environment variables:
+  - NAMESPACE_FOR_TESTING - Namespace where webservers will be deployed. Default value: ```jws-operator-tests```
+  - TEST_IMG - Default image for tests which do not require specific image. Default value: ```quay.io/web-servers/tomcat-demo```
+  - EXECUTE_TEST - Comma-separated list of test which will be executed.
+  - TEST_PARAM - additional ginkgo settings.
+
 The whole testsuite takes about 40 minutes...
 
-**Note** When running the tests on OpenShift make sure to test in your own namespace and DON'T use default. Also make sure you have added "anyuid" to the ServiceAccount builder:
-```bash
-oc adm policy add-scc-to-user anyuid -z builder
-```
+**Note** When running the tests on OpenShift make sure to test in your own namespace and DON'T use default.
+**Note** Test suite adds "anyuid" to the the ServiceAccount builder.
 **Note** When using podman remember the auth.json is in ${XDG_RUNTIME_DIR}/containers the format is like the $HOME/.docker/config.json but has the username/repo instead just username (like "quay.io/jfclere/jws-operator" versus "quay.io/jfclere" in docker).
 
 ## What to do next?

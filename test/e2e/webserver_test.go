@@ -37,9 +37,7 @@ import (
 	"github.com/web-servers/jws-operator/test/utils"
 )
 
-const namespace = "jws-operator-tests"
-
-var _ = Describe("WebServer controller", Ordered, func() {
+var _ = Describe("WebServerControllerTest", Ordered, func() {
 	SetDefaultEventuallyTimeout(2 * time.Minute)
 	SetDefaultEventuallyPollingInterval(time.Second)
 
@@ -66,7 +64,7 @@ var _ = Describe("WebServer controller", Ordered, func() {
 					ApplicationName: "test-tomcat-demo",
 					Replicas:        int32(2),
 					WebImage: &webserversv1alpha1.WebImageSpec{
-						ApplicationImage: "quay.io/web-servers/tomcat-demo",
+						ApplicationImage: testImg,
 					},
 				},
 			}
