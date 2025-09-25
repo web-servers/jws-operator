@@ -39,7 +39,6 @@ func getWebServer(name string) *webserversv1alpha1.WebServer {
 		}
 		return true
 	}, time.Second*10, time.Millisecond*250).Should(BeTrue())
-	fmt.Printf("new WebServer Name: %s Namespace: %s\n", createdWebserver.ObjectMeta.Name, createdWebserver.ObjectMeta.Namespace)
 
 	return createdWebserver
 }
