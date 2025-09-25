@@ -41,7 +41,7 @@ var _ = Describe("WebServerControllerTest", Ordered, func() {
 	SetDefaultEventuallyTimeout(2 * time.Minute)
 	SetDefaultEventuallyPollingInterval(time.Second)
 
-	Context("WebServerApplicationImageBasicTest", func() {
+	Context("WebServerApplicationImageTest", func() {
 		It("validating that webserver works", func() {
 			By("creating webserver")
 
