@@ -30,7 +30,7 @@ import (
 	//	webserverstests "github.com/web-servers/jws-operator/test/utils"
 	kbappsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	// "sigs.k8s.io/controller-runtime/pkg/log"
@@ -40,112 +40,106 @@ var _ = Describe("WebServerControllerTest", Ordered, func() {
 	SetDefaultEventuallyTimeout(2 * time.Minute)
 	SetDefaultEventuallyPollingInterval(time.Second)
 
-	Context("LabelTest", func() {
-		It("validating labels propagation", func() {
-			By("creating webserver")
+	name := "label-test"
+	appName := "test-tomcat-demo"
 
-			ctx := context.Background()
-			name := "label-test"
-			appName := "test-tomcat-demo"
+	webserver := &webserversv1alpha1.WebServer{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: namespace,
+			Labels: map[string]string{
+				"WebServer":     name,
+				"ready":         "oui",
+				"willBeRemoved": "InRemoveLabelTest",
+			},
+		},
+		Spec: webserversv1alpha1.WebServerSpec{
+			ApplicationName: appName,
+			Replicas:        int32(2),
+			WebImage: &webserversv1alpha1.WebImageSpec{
+				ApplicationImage: testImg,
+			},
+		},
+	}
 
-			webserver := &webserversv1alpha1.WebServer{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      name,
-					Namespace: namespace,
-					Labels: map[string]string{
-						"WebServer": name,
-						"ready":     "oui",
-					},
-				},
-				Spec: webserversv1alpha1.WebServerSpec{
-					ApplicationName: appName,
-					Replicas:        int32(2),
-					WebImage: &webserversv1alpha1.WebImageSpec{
-						ApplicationImage: testImg,
-					},
-				},
-			}
+	BeforeAll(func() {
+		// create the webserver
+		Expect(k8sClient.Create(ctx, webserver)).Should(Succeed())
 
-			// make sure we cleanup at the end of this test.
-			defer func() {
-				k8sClient.Delete(context.Background(), webserver)
-				time.Sleep(time.Second * 5)
-			}()
+		createdWebserver := getWebServer(name)
+		fmt.Printf("new WebServer Name: %s Namespace: %s\n", createdWebserver.ObjectMeta.Name, createdWebserver.ObjectMeta.Namespace)
+	})
 
-			// create the webserver
-			Expect(k8sClient.Create(ctx, webserver)).Should(Succeed())
+	AfterAll(func() {
+		k8sClient.Delete(context.Background(), webserver)
+		webserverLookupKey := types.NamespacedName{Name: name, Namespace: namespace}
 
-			// Check it is started.
-			webserverLookupKey := types.NamespacedName{Name: name, Namespace: namespace}
-			createdWebserver := &webserversv1alpha1.WebServer{}
+		Eventually(func() bool {
+			err := k8sClient.Get(ctx, webserverLookupKey, &webserversv1alpha1.WebServer{})
+			return apierrors.IsNotFound(err)
+		}, "2m", "5s").Should(BeTrue(), "the webserver should be deleted")
+	})
+
+	Context("LabelPropagationTest", func() {
+		It("CheckLabelsTest", func() {
+			Expect(checkLabel(appName, "app.kubernetes.io/name", name)).Should(BeTrue())
+			Expect(checkLabel(appName, "ready", "oui")).Should(BeTrue())
+		})
+
+		It("AddLabelTest", func() {
+			key := "my-new-label"
+			value := "label-string-1"
+
+			createdWebserver := getWebServer(name)
+
+			labels := createdWebserver.Labels
+			labels[key] = value
+
+			createdWebserver.Labels = labels
+
 			Eventually(func() bool {
-				err := k8sClient.Get(ctx, webserverLookupKey, createdWebserver)
+				err := k8sClient.Update(ctx, createdWebserver)
 				if err != nil {
 					return false
 				}
+				thetest.Logf("WebServer %s updated\n", name)
 				return true
-			}, time.Second*10, time.Millisecond*250).Should(BeTrue())
-			fmt.Printf("new WebServer Name: %s Namespace: %s\n", createdWebserver.ObjectMeta.Name, createdWebserver.ObjectMeta.Namespace)
+			}, time.Second*60, time.Millisecond*250).Should(BeTrue())
 
-			// Verify deployment template selector label.
-			deployment := &kbappsv1.Deployment{}
-			deploymentookupKey := types.NamespacedName{Name: appName, Namespace: namespace}
+			Expect(checkLabel(appName, key, value)).Should(BeTrue())
+		})
+
+		It("RemoveLabelTest", func() {
+			key := "willBeRemoved"
+			value := "InRemoveLabelTest"
+
+			Expect(checkLabel(appName, key, value)).Should(BeTrue())
+
+			createdWebserver := getWebServer(name)
+
+			labels := createdWebserver.Labels
+			delete(labels, key)
+
+			createdWebserver.Labels = labels
+
 			Eventually(func() bool {
-				err := k8sClient.Get(ctx, deploymentookupKey, deployment)
+				err := k8sClient.Update(ctx, createdWebserver)
 				if err != nil {
 					return false
 				}
+				thetest.Logf("WebServer %s updated\n", name)
 				return true
 			}, time.Second*10, time.Millisecond*250).Should(BeTrue())
 
-			// check the labels
-			stringmap := deployment.Spec.Template.GetLabels()
-			fmt.Println(stringmap)
-			Expect(deployment.Spec.Template.GetLabels()["app.kubernetes.io/name"]).Should(Equal(name))
-			Expect(deployment.Spec.Template.GetLabels()["ready"]).Should(Equal("oui"))
+			Expect(checkLabel(appName, key, value)).Should(BeFalse())
+		})
 
-			//TODO why this check whether createdWebserver exists?
-			//get created webserver with updated recourceversion to continue
-			err := k8sClient.Get(ctx, types.NamespacedName{Name: name, Namespace: namespace}, createdWebserver)
-
-			if errors.IsNotFound(err) {
-				thetest.Fatal(err)
-			}
-
-			//patch the webserver to change the labels
-			text := "{\"metadata\":{\"labels\":{\"ready\":\"non\",\"ready1\": \"non1\",\"ready2\": \"non2\",\"ready3\": \"non3\",\"ready4\": \"non4\"}}}"
-			bytes := []byte(text)
-
-			_ = k8sClient.Patch(ctx, createdWebserver, client.RawPatch(types.MergePatchType, bytes))
-
-			// Check it is started.
-			webserverLookupKey = types.NamespacedName{Name: name, Namespace: namespace}
-			createdWebserver = &webserversv1alpha1.WebServer{}
-			Eventually(func() bool {
-				err := k8sClient.Get(ctx, webserverLookupKey, createdWebserver)
-				if err != nil {
-					return false
-				}
-				return true
-			}, time.Second*10, time.Millisecond*250).Should(BeTrue())
-			fmt.Printf("new WebServer Name: %s Namespace: %s\n", createdWebserver.ObjectMeta.Name, createdWebserver.ObjectMeta.Namespace)
-
-			// Verify deployment template selector label.
-			deployment = &kbappsv1.Deployment{}
-			deploymentookupKey = types.NamespacedName{Name: appName, Namespace: namespace}
-			Eventually(func() bool {
-				err := k8sClient.Get(ctx, deploymentookupKey, deployment)
-				if err != nil {
-					return false
-				}
-				return true
-			}, time.Second*10, time.Millisecond*250).Should(BeTrue())
-
+		It("SelectorTest", func() {
 			Eventually(func() bool {
 				podList := &corev1.PodList{}
 
 				labels := map[string]string{
-					"ready": "non",
+					"ready": "oui",
 				}
 
 				listOpts := []client.ListOption{
@@ -162,18 +156,39 @@ var _ = Describe("WebServerControllerTest", Ordered, func() {
 					return true
 				}
 			}, time.Second*300, time.Millisecond*500).Should(BeTrue())
-
-			// remove the created webserver
-			Expect(k8sClient.Delete(ctx, webserver)).Should(Succeed())
-
-			// Check it is deleted.
-			webserverLookupKey = types.NamespacedName{Name: name, Namespace: namespace}
-			createdWebserver = &webserversv1alpha1.WebServer{}
-			Eventually(func() bool {
-				err := k8sClient.Get(ctx, webserverLookupKey, createdWebserver)
-				return errors.IsNotFound(err)
-			}, time.Second*20, time.Millisecond*250).Should(BeTrue())
-
 		})
 	})
 })
+
+func checkLabel(appName string, key string, value string) bool {
+	// Verify deployment template selector label.
+	deployment := &kbappsv1.Deployment{}
+	deploymentookupKey := types.NamespacedName{Name: appName, Namespace: namespace}
+
+	Eventually(func() bool {
+		err := k8sClient.Get(ctx, deploymentookupKey, deployment)
+		if err != nil {
+			return false
+		}
+		return true
+	}, time.Second*10, time.Millisecond*250).Should(BeTrue())
+
+	// check the label
+	return deployment.Spec.Template.GetLabels()[key] == value
+}
+
+func getWebServer(name string) *webserversv1alpha1.WebServer {
+	createdWebserver := &webserversv1alpha1.WebServer{}
+	webserverLookupKey := types.NamespacedName{Name: name, Namespace: namespace}
+
+	Eventually(func() bool {
+		err := k8sClient.Get(ctx, webserverLookupKey, createdWebserver)
+		if err != nil {
+			return false
+		}
+		return true
+	}, time.Second*10, time.Millisecond*250).Should(BeTrue())
+	fmt.Printf("new WebServer Name: %s Namespace: %s\n", createdWebserver.ObjectMeta.Name, createdWebserver.ObjectMeta.Namespace)
+
+	return createdWebserver
+}
