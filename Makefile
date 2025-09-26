@@ -71,7 +71,7 @@ SHELL = /usr/bin/env bash -o pipefail
 .SHELLFLAGS = -ec
 
 NAMESPACE_FOR_TESTING ?= "jws-operator-tests"
-TEST_IMG ?= "quay.io/web-servers/tomcat-demo"
+TEST_IMG ?= "quay.io/web-servers/tomcat10:latest"
 EXECUTE_TEST ?= "WebServerControllerTest"
 
 .PHONY: all
