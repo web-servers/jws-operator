@@ -76,14 +76,23 @@ var _ = Describe("WebServerControllerTest", Ordered, func() {
 			key := "my-new-label"
 			value := "label-string-1"
 
-			createdWebserver := getWebServer(name)
+			// Update labals and update the WebServer
+			Eventually(func() bool {
+				createdWebserver := getWebServer(name)
 
-			labels := createdWebserver.Labels
-			labels[key] = value
+				labels := createdWebserver.Labels
+				labels[key] = value
 
-			createdWebserver.Labels = labels
+				createdWebserver.Labels = labels
 
-			updateWebServer(createdWebserver)
+				err := k8sClient.Update(ctx, createdWebserver)
+				if err != nil {
+					thetest.Logf("WebServer update failed:  %s\n", err)
+					return false
+				}
+				thetest.Logf("WebServer %s updated\n", createdWebserver.Name)
+				return true
+			}, time.Second*30, time.Millisecond*250).Should(BeTrue())
 
 			Expect(checkLabel(appName, key, value)).Should(BeTrue())
 		})
@@ -94,14 +103,23 @@ var _ = Describe("WebServerControllerTest", Ordered, func() {
 
 			Expect(checkLabel(appName, key, value)).Should(BeTrue())
 
-			createdWebserver := getWebServer(name)
+			// Update labals and update the WebServer
+			Eventually(func() bool {
+				createdWebserver := getWebServer(name)
 
-			labels := createdWebserver.Labels
-			delete(labels, key)
+				labels := createdWebserver.Labels
+				delete(labels, key)
 
-			createdWebserver.Labels = labels
+				createdWebserver.Labels = labels
 
-			updateWebServer(createdWebserver)
+				err := k8sClient.Update(ctx, createdWebserver)
+				if err != nil {
+					thetest.Logf("WebServer update failed:  %s\n", err)
+					return false
+				}
+				thetest.Logf("WebServer %s updated\n", createdWebserver.Name)
+				return true
+			}, time.Second*30, time.Millisecond*250).Should(BeTrue())
 
 			Expect(checkLabel(appName, key, value)).Should(BeFalse())
 		})

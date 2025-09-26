@@ -90,8 +90,19 @@ var _ = Describe("WebServerControllerTest", Ordered, func() {
 
 		It("Update Test", func() {
 			createdWebserver := getWebServer(name)
-			createdWebserver.Spec.WebImage.ApplicationImage = newImage
-			updateWebServer(createdWebserver)
+
+			// Update WebImage and update WebServer
+			Eventually(func() bool {
+				createdWebserver.Spec.WebImage.ApplicationImage = newImage
+
+				err := k8sClient.Update(ctx, createdWebserver)
+				if err != nil {
+					thetest.Logf("WebServer update failed:  %s\n", err)
+					return false
+				}
+				thetest.Logf("WebServer %s updated\n", createdWebserver.Name)
+				return true
+			}, time.Second*30, time.Millisecond*250).Should(BeTrue())
 
 			foundDeployment := &kbappsv1.Deployment{}
 			Eventually(func() bool {

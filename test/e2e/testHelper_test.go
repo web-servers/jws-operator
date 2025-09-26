@@ -44,17 +44,6 @@ func getWebServer(name string) *webserversv1alpha1.WebServer {
 	return createdWebserver
 }
 
-func updateWebServer(webServer *webserversv1alpha1.WebServer) {
-	Eventually(func() bool {
-		err := k8sClient.Update(ctx, webServer)
-		if err != nil {
-			return false
-		}
-		thetest.Logf("WebServer %s updated\n", webServer.Name)
-		return true
-	}, time.Second*10, time.Millisecond*250).Should(BeTrue())
-}
-
 func createImageStream(imgStream *imagev1.ImageStream) {
 	Eventually(func() bool {
 		err := k8sClient.Create(ctx, imgStream)
