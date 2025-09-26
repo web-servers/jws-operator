@@ -101,98 +101,26 @@ var _ = Describe("WebServerControllerTest", Ordered, func() {
 		},
 	}
 
-	/*
-		service := &corev1.Service{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      serviceName,
-				Namespace: namespace,
-			},
-			Spec: corev1.ServiceSpec{
-				Ports: []corev1.ServicePort{{
-					Name:       "def",
-					Port:       int32(8080),
-					TargetPort: intstr.FromInt(8080),
-				}},
-			},
-		}
-
-		route := &routev1.Route{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      routeName,
-				Namespace: namespace,
-			},
-			Spec: routev1.RouteSpec{
-				Subdomain: "sub",
-				To: routev1.RouteTargetReference{
-					Name: "def",
-					Kind: "Service",
-				},
-			},
-		}
-	*/
-
 	BeforeAll(func() {
-		/*
-			// create the service
-			Expect(k8sClient.Create(ctx, service)).Should(Succeed())
-
-			foundService := &corev1.Service{}
-			Eventually(func() bool {
-				err := k8sClient.Get(ctx, types.NamespacedName{Name: appName, Namespace: namespace}, foundService)
-				if err != nil {
-					return false
-				}
-				return true
-			}, "1m", "1s").Should(BeTrue())
-
-			// create the route
-			Expect(k8sClient.Create(ctx, route)).Should(Succeed())
-
-			foundRoute := &routev1.Route{}
-			Eventually(func() bool {
-				err := k8sClient.Get(ctx, types.NamespacedName{Name: appName, Namespace: namespace}, foundRoute)
-				if err != nil {
-					return false
-				}
-				return true
-			}, "1m", "1s").Should(BeTrue())
-
-			host := route.Status.Ingress[0].Host
-
-			Expect(host).ShouldNot(BeEmpty())
-
-			webserver.Spec.TLSConfig.RouteHostname = "tls:hosttest-" + namespace + "." + host[4:]
-		*/
-
-		// create the webserver
-		Expect(k8sClient.Create(ctx, webserver)).Should(Succeed())
-
-		// is the webserver running
-		webserverLookupKey := types.NamespacedName{Name: name, Namespace: namespace}
-		createdWebserver := &webserversv1alpha1.WebServer{}
-		Eventually(func() bool {
-			err := k8sClient.Get(ctx, webserverLookupKey, createdWebserver)
-			if err != nil {
-				return false
-			}
-			return true
-		}, time.Second*10, time.Millisecond*250).Should(BeTrue())
+		createWebServer(webserver)
 
 		metrics := make([]v2.MetricSpec, 0, 4)
 		metrics = append(metrics, *metric)
 		hpa.Spec.Metrics = metrics
 
-		Expect(k8sClient.Create(ctx, hpa)).Should(Succeed())
+		Eventually(func() bool {
+			err := k8sClient.Create(ctx, hpa)
+			if err != nil {
+				thetest.Logf("Error: %s", err)
+				return false
+			}
+			thetest.Logf("HPA was created\n")
+			return true
+		}, time.Second*30, time.Millisecond*250).Should(BeTrue())
 	})
 
 	AfterAll(func() {
-		k8sClient.Delete(ctx, webserver)
-		webserverLookupKey := types.NamespacedName{Name: name, Namespace: namespace}
-
-		Eventually(func() bool {
-			err := k8sClient.Get(ctx, webserverLookupKey, &webserversv1alpha1.WebServer{})
-			return apierrors.IsNotFound(err)
-		}, "2m", "5s").Should(BeTrue(), "the webserver should be deleted")
+		deleteWebServer(webserver)
 
 		k8sClient.Delete(ctx, hpa)
 		hpaLookupKey := types.NamespacedName{Name: autoscalerName, Namespace: namespace}
@@ -203,7 +131,7 @@ var _ = Describe("WebServerControllerTest", Ordered, func() {
 		}, "2m", "5s").Should(BeTrue(), "the route should be deleted")
 	})
 
-	Context("HPA Test", func() {
+	Context("HPATest", func() {
 
 		It("Basic Test", func() {
 			err := utils.AutoScalingTest(k8sClient, ctx, thetest, webserver, testURI, hpa)
