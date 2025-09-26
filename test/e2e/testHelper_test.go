@@ -5,6 +5,7 @@ import (
 	"time"
 
 	. "github.com/onsi/gomega"
+	imagev1 "github.com/openshift/api/image/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
 
@@ -52,4 +53,26 @@ func updateWebServer(webServer *webserversv1alpha1.WebServer) {
 		thetest.Logf("WebServer %s updated\n", webServer.Name)
 		return true
 	}, time.Second*10, time.Millisecond*250).Should(BeTrue())
+}
+
+func createImageStream(imgStream *imagev1.ImageStream) {
+	Eventually(func() bool {
+		err := k8sClient.Create(ctx, imgStream)
+		if err != nil {
+			thetest.Logf("Error: %s", err)
+			return false
+		}
+		thetest.Logf("Image stream %s was created\n", imgStream.Name)
+		return true
+	}, time.Second*30, time.Millisecond*250).Should(BeTrue())
+}
+
+func deleteImageStream(imgStream *imagev1.ImageStream) {
+	k8sClient.Delete(ctx, imgStream)
+	imgStreamLookupKey := types.NamespacedName{Name: imgStream.Name, Namespace: namespace}
+
+	Eventually(func() bool {
+		err := k8sClient.Get(ctx, imgStreamLookupKey, &imagev1.ImageStream{})
+		return apierrors.IsNotFound(err)
+	}, "2m", "5s").Should(BeTrue(), "the webserver should be deleted")
 }
