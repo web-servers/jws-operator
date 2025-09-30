@@ -29,6 +29,7 @@ import (
 
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/clientcmd"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 
@@ -39,6 +40,7 @@ import (
 	routev1 "github.com/openshift/api/route/v1"
 	webserversv1alpha1 "github.com/web-servers/jws-operator/api/v1alpha1"
 	appsv1 "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
 
 	"github.com/web-servers/jws-operator/test/utils"
 )
@@ -53,14 +55,15 @@ var (
 	// isCertManagerAlreadyInstalled will be set true when CertManager CRDs be found on the cluster
 	isCertManagerAlreadyInstalled = false
 
-	cfg       *rest.Config
-	k8sClient client.Client
-	testEnv   *envtest.Environment
-	ctx       context.Context
-	thetest   *testing.T
-	username  string
-	testImg   = os.Getenv("TEST_IMG")
-	namespace = os.Getenv("NAMESPACE_FOR_TESTING")
+	cfg        *rest.Config
+	k8sClient  client.Client
+	restClient *rest.RESTClient
+	testEnv    *envtest.Environment
+	ctx        context.Context
+	thetest    *testing.T
+	username   string
+	testImg    = os.Getenv("TEST_IMG")
+	namespace  = os.Getenv("NAMESPACE_FOR_TESTING")
 
 	retryInterval = time.Second * 5
 	timeout       = time.Minute * 10
@@ -96,16 +99,7 @@ var _ = BeforeSuite(func() {
 	useExistingCluster = true
 	ctx = context.Background()
 
-	testEnv = &envtest.Environment{
-		CRDDirectoryPaths:  []string{filepath.Join("..", "..", "config", "crd", "bases")},
-		UseExistingCluster: &useExistingCluster,
-	}
-
-	cfg, err := testEnv.Start()
-	Expect(err).NotTo(HaveOccurred())
-	Expect(cfg).NotTo(BeNil())
-
-	err = webserversv1alpha1.AddToScheme(scheme.Scheme)
+	err := webserversv1alpha1.AddToScheme(scheme.Scheme)
 	Expect(err).NotTo(HaveOccurred())
 
 	// Route
@@ -124,11 +118,33 @@ var _ = BeforeSuite(func() {
 	err = buildv1.AddToScheme(scheme.Scheme)
 	Expect(err).NotTo(HaveOccurred())
 
+	kubeconfigPath := os.Getenv("KUBECONFIG")
+
+	if kubeconfigPath == "" {
+		homeDir, err := os.UserHomeDir()
+		if err != nil {
+			panic(err.Error())
+		}
+		kubeconfigPath = filepath.Join(homeDir, ".kube", "config")
+	}
+
+	cfg, err = clientcmd.BuildConfigFromFlags("", kubeconfigPath)
+	Expect(err).NotTo(HaveOccurred())
+	Expect(cfg).NotTo(BeNil())
+
 	//+kubebuilder:scaffold:scheme
 
 	k8sClient, err = client.New(cfg, client.Options{Scheme: scheme.Scheme})
 	Expect(err).NotTo(HaveOccurred())
 	Expect(k8sClient).NotTo(BeNil())
+
+	cfg.NegotiatedSerializer = scheme.Codecs.WithoutConversion()
+	cfg.GroupVersion = &corev1.SchemeGroupVersion
+	cfg.APIPath = "/api"
+
+	restClient, err = rest.RESTClientFor(cfg)
+	Expect(err).NotTo(HaveOccurred())
+	Expect(restClient).NotTo(BeNil())
 
 	// The tests-e2e are intended to run on a temporary cluster that is created and destroyed for testing.
 	// To prevent errors when tests run in environments with CertManager already installed,
