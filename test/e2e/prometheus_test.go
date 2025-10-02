@@ -18,20 +18,19 @@ package e2e
 
 import (
 	"context"
+	"fmt"
+	"strings"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/apimachinery/pkg/util/intstr"
-
-	routev1 "github.com/openshift/api/route/v1"
 	webserversv1alpha1 "github.com/web-servers/jws-operator/api/v1alpha1"
 	"github.com/web-servers/jws-operator/test/utils"
 	corev1 "k8s.io/api/core/v1"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 )
 
 var _ = Describe("WebServerControllerTest", Ordered, func() {
@@ -42,10 +41,6 @@ var _ = Describe("WebServerControllerTest", Ordered, func() {
 	name := "tomcat-prometheus-test"
 	appName := "prometheus-test"
 	testURI := "/health"
-
-	routeName := "def"
-	serviceName := "def"
-	host := ""
 
 	webserver := &webserversv1alpha1.WebServer{
 		ObjectMeta: metav1.ObjectMeta{
@@ -61,120 +56,48 @@ var _ = Describe("WebServerControllerTest", Ordered, func() {
 		},
 	}
 
-	service := &corev1.Service{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      serviceName,
-			Namespace: namespace,
-		},
-		Spec: corev1.ServiceSpec{
-			Ports: []corev1.ServicePort{{
-				Name:       "def",
-				Port:       int32(8080),
-				TargetPort: intstr.FromInt(8080),
-			}},
-		},
-	}
-
-	route := &routev1.Route{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      routeName,
-			Namespace: namespace,
-		},
-		Spec: routev1.RouteSpec{
-			Subdomain: "sub",
-			To: routev1.RouteTargetReference{
-				Name: "def",
-				Kind: "Service",
-			},
-		},
-	}
-
 	BeforeAll(func() {
-		// create the service
-		Expect(k8sClient.Create(ctx, service)).Should(Succeed())
+		crd := &apiextensionsv1.CustomResourceDefinition{}
+		Expect(k8sClient.Get(ctx, types.NamespacedName{Name: "servicemonitors.monitoring.coreos.com", Namespace: "openshift-monitoring"}, crd)).Should(Succeed(), "Servicemonitor CRD not found")
 
-		foundService := &corev1.Service{}
-		Eventually(func() bool {
-			err := k8sClient.Get(ctx, types.NamespacedName{Name: serviceName, Namespace: namespace}, foundService)
-			if err != nil {
-				return false
-			}
-			return true
-		}, "1m", "1s").Should(BeTrue())
+		cm := &corev1.ConfigMap{}
+		Expect(k8sClient.Get(ctx, types.NamespacedName{Name: "cluster-monitoring-config", Namespace: "openshift-monitoring"}, cm)).Should(Succeed(), "Configmap cluster-monitoring-config not found")
 
-		// create the route
-		Expect(k8sClient.Create(ctx, route)).Should(Succeed())
-
-		foundRoute := &routev1.Route{}
-		Eventually(func() bool {
-			err := k8sClient.Get(ctx, types.NamespacedName{Name: routeName, Namespace: namespace}, foundRoute)
-			if err != nil {
-				return false
-			}
-			return true
-		}, "1m", "1s").Should(BeTrue())
-
-		Eventually(func() string {
-			host = getHost(foundRoute)
-			return host
-		}, "1m", "1s").ShouldNot(BeEmpty())
-
-		webserver.Spec.TLSConfig.RouteHostname = "tls:hosttest-" + namespace + "." + host[4:]
-
-		// create the webserver
-		Expect(k8sClient.Create(ctx, webserver)).Should(Succeed())
-
-		// is the webserver running
-		webserverLookupKey := types.NamespacedName{Name: name, Namespace: namespace}
-		createdWebserver := &webserversv1alpha1.WebServer{}
-		Eventually(func() bool {
-			err := k8sClient.Get(ctx, webserverLookupKey, createdWebserver)
-			if err != nil {
-				return false
-			}
-			return true
-		}, time.Second*10, time.Millisecond*250).Should(BeTrue())
+		createWebServer(webserver)
 	})
 
 	AfterAll(func() {
-		k8sClient.Delete(ctx, webserver)
-		webserverLookupKey := types.NamespacedName{Name: name, Namespace: namespace}
-
-		Eventually(func() bool {
-			err := k8sClient.Get(ctx, webserverLookupKey, &webserversv1alpha1.WebServer{})
-			return apierrors.IsNotFound(err)
-		}, "2m", "5s").Should(BeTrue(), "the webserver should be deleted")
-
-		k8sClient.Delete(ctx, route)
-		routeLookupKey := types.NamespacedName{Name: routeName, Namespace: namespace}
-
-		Eventually(func() bool {
-			err := k8sClient.Get(ctx, routeLookupKey, &routev1.Route{})
-			return apierrors.IsNotFound(err)
-		}, "2m", "5s").Should(BeTrue(), "the route should be deleted")
-
-		k8sClient.Delete(ctx, service)
-		serviceLookupKey := types.NamespacedName{Name: serviceName, Namespace: namespace}
-
-		Eventually(func() bool {
-			err := k8sClient.Get(ctx, serviceLookupKey, &corev1.Service{})
-			return apierrors.IsNotFound(err)
-		}, "2m", "5s").Should(BeTrue(), "the service should be deleted")
+		deleteWebServer(webserver)
 	})
 
 	Context("PrometheusTest", func() {
 
 		It("Basic Test", func() {
-			err := utils.PrometheusTest(k8sClient, ctx, thetest, namespace, webserver, testURI, host[4:])
+			err := utils.PrometheusTest(k8sClient, ctx, thetest, namespace, webserver, testURI, getDomain(name))
 			Expect(err).Should(Succeed())
 		})
 	})
 })
 
-func getHost(route *routev1.Route) string {
-	if len(route.Status.Ingress) > 0 {
-		host := route.Status.Ingress[0].Host
-		return host
-	}
-	return ""
+func getHost(name string) string {
+	host := ""
+	Eventually(func() bool {
+		createdWebserver := getWebServer(name)
+
+		if len(createdWebserver.Status.Hosts) > 0 {
+			host = createdWebserver.Status.Hosts[0]
+			return true
+		}
+		return false
+	}, time.Second*120, time.Second).Should(BeTrue())
+
+	return host
+}
+
+func getDomain(name string) string {
+	host := getHost(name)
+	_, after, _ := strings.Cut(host, namespace+".")
+
+	fmt.Printf("DOMAIN: %s", after)
+	return after
 }

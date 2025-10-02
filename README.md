@@ -312,6 +312,7 @@ Testing can be configured via environment variables:
 The whole testsuite takes about 40 minutes...
 
 **Note** When running the tests on OpenShift make sure to test in your own namespace and DON'T use default.
+**Note** Check whether kubectl client and server versions are the same.
 **Note** Test suite adds "anyuid" to the the ServiceAccount builder.
 **Note** When using podman remember the auth.json is in ${XDG_RUNTIME_DIR}/containers the format is like the $HOME/.docker/config.json but has the username/repo instead just username (like "quay.io/jfclere/jws-operator" versus "quay.io/jfclere" in docker).
 

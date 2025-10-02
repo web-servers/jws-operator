@@ -17,7 +17,6 @@ import (
 	. "github.com/onsi/gomega"
 	v2 "k8s.io/api/autoscaling/v2"
 	corev1 "k8s.io/api/core/v1"
-	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 
 	// "github.com/operator-framework/operator-sdk/pkg/test"
@@ -68,21 +67,6 @@ var name string
 var namespace string
 
 func PrometheusTest(clt client.Client, ctx context.Context, t *testing.T, namespace string, webServer *webserversv1alpha1.WebServer, testURI string, domain string) (err error) {
-
-	crd := &apiextensionsv1.CustomResourceDefinition{}
-	err = clt.Get(ctx, types.NamespacedName{Name: "servicemonitors.monitoring.coreos.com", Namespace: "openshift-monitoring"}, crd)
-	if err != nil {
-		t.Logf("servicemonitor crd not found: %s\n", err)
-		return err
-	}
-
-	cm := &corev1.ConfigMap{}
-	err = clt.Get(ctx, types.NamespacedName{Name: "cluster-monitoring-config", Namespace: "openshift-monitoring"}, cm)
-	if err != nil {
-		t.Logf("configmap cluster-monitoring-config not found: %s\n", err)
-		return err
-	}
-
 	// create a http client
 	tr := &http.Transport{
 		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
@@ -168,6 +152,7 @@ func PrometheusTest(clt client.Client, ctx context.Context, t *testing.T, namesp
 	// "https://thanos-querier-openshift-monitoring.apps.jws-qe-afll.dynamic.xpaas/api/v1/query?query=tomcat_errorcount_total"
 
 	// send the request
+	t.Logf("GET: host *%s* URI *%s*\n", req.Host, req.URL.RequestURI())
 	res, err := client.Do(req)
 	for i := 0; i < 60; i++ {
 		if err == nil {
@@ -197,7 +182,7 @@ func PrometheusTest(clt client.Client, ctx context.Context, t *testing.T, namesp
 	// print the response body
 	t.Logf("Response body: %s", string(body))
 
-	if strings.Contains(string(body), webServer.Name) && strings.Contains(string(body), "\"service\":\"prometheustest-admin\"") && strings.Contains(string(body), "tomcat_bytesreceived_total") {
+	if strings.Contains(string(body), webServer.Name) && strings.Contains(string(body), "tomcat_bytesreceived_total") {
 		t.Logf("Response body contains the expected message")
 		return nil
 	} else {

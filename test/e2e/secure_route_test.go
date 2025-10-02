@@ -26,6 +26,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
 
+	imagev1 "github.com/openshift/api/image/v1"
 	routev1 "github.com/openshift/api/route/v1"
 	webserversv1alpha1 "github.com/web-servers/jws-operator/api/v1alpha1"
 	"github.com/web-servers/jws-operator/test/utils"
@@ -43,12 +44,30 @@ var _ = Describe("WebServerControllerTest", Ordered, func() {
 	name := "app-img-stream-source-test"
 	appName := "image-stream-source-test"
 	testURI := "/health"
-	imageStreamName := "jboss-webserver57-openjdk11-tomcat9-openshift-ubi8"
+	imageStreamName := "secure-route-test"
 	imageStreamNamespace := namespace
 
 	routeName := "def"
 	serviceName := "def"
 	host := ""
+
+	imgStream := &imagev1.ImageStream{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      imageStreamName,
+			Namespace: namespace,
+		},
+		Spec: imagev1.ImageStreamSpec{
+			Tags: []imagev1.TagReference{
+				{
+					Name: "latest",
+					From: &corev1.ObjectReference{
+						Kind: "DockerImage",
+						Name: testImg,
+					},
+				},
+			},
+		},
+	}
 
 	webserver := &webserversv1alpha1.WebServer{
 		TypeMeta: metav1.TypeMeta{
@@ -103,7 +122,10 @@ var _ = Describe("WebServerControllerTest", Ordered, func() {
 	}
 
 	BeforeAll(func() {
-		// create the service
+		// create image stream
+		createImageStream(imgStream)
+
+		// create service
 		Expect(k8sClient.Create(ctx, service)).Should(Succeed())
 
 		foundService := &corev1.Service{}
@@ -115,7 +137,7 @@ var _ = Describe("WebServerControllerTest", Ordered, func() {
 			return true
 		}, "1m", "1s").Should(BeTrue())
 
-		// create the route
+		// create route
 		Expect(k8sClient.Create(ctx, route)).Should(Succeed())
 
 		foundRoute := &routev1.Route{}
@@ -134,29 +156,12 @@ var _ = Describe("WebServerControllerTest", Ordered, func() {
 
 		webserver.Spec.TLSConfig.RouteHostname = "tls:hosttest-" + namespace + "." + host[4:]
 
-		// create the webserver
-		Expect(k8sClient.Create(ctx, webserver)).Should(Succeed())
-
-		// is the webserver running
-		webserverLookupKey := types.NamespacedName{Name: name, Namespace: namespace}
-		createdWebserver := &webserversv1alpha1.WebServer{}
-		Eventually(func() bool {
-			err := k8sClient.Get(ctx, webserverLookupKey, createdWebserver)
-			if err != nil {
-				return false
-			}
-			return true
-		}, time.Second*10, time.Millisecond*250).Should(BeTrue())
+		// create WebServer
+		createWebServer(webserver)
 	})
 
 	AfterAll(func() {
-		k8sClient.Delete(ctx, webserver)
-		webserverLookupKey := types.NamespacedName{Name: name, Namespace: namespace}
-
-		Eventually(func() bool {
-			err := k8sClient.Get(ctx, webserverLookupKey, &webserversv1alpha1.WebServer{})
-			return apierrors.IsNotFound(err)
-		}, "2m", "5s").Should(BeTrue(), "the webserver should be deleted")
+		deleteWebServer(webserver)
 
 		k8sClient.Delete(ctx, route)
 		routeLookupKey := types.NamespacedName{Name: routeName, Namespace: namespace}
@@ -173,6 +178,8 @@ var _ = Describe("WebServerControllerTest", Ordered, func() {
 			err := k8sClient.Get(ctx, serviceLookupKey, &corev1.Service{})
 			return apierrors.IsNotFound(err)
 		}, "2m", "5s").Should(BeTrue(), "the service should be deleted")
+
+		deleteImageStream(imgStream)
 	})
 
 	Context("SecureRouteTest", func() {
@@ -193,6 +200,26 @@ var _ = Describe("WebServerControllerTest", Ordered, func() {
 				Expect(int32(webserver.Spec.Replicas) == int32(foundDeployment.Status.AvailableReplicas)).Should(BeTrue())
 				return true
 			}, "5m", "10s").Should(BeTrue())
+		})
+
+		It("SessionClusteringTest", func() {
+			Eventually(func() error {
+				createdWebserver := getWebServer(name)
+				createdWebserver.Spec.UseSessionClustering = true
+
+				err := k8sClient.Update(ctx, createdWebserver)
+
+				if err != nil {
+					thetest.Logf("Error: %s", err)
+					return err
+				}
+				thetest.Logf("WebServer %s was updated\n", createdWebserver.Name)
+
+				_, err = utils.WebServerRouteTest(k8sClient, ctx, thetest, webserver, testURI, false, nil, true)
+				return err
+
+			}, time.Second*60, time.Millisecond*250).Should(Succeed())
+
 		})
 
 		/*
