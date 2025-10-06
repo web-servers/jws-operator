@@ -26,11 +26,6 @@ var (
 	log = logf.Log.WithName("webserver_controller")
 )
 
-/**
-* USER ACTION REQUIRED: This is a scaffold file intended for the user to modify with their own Controller
-* business logic.  Delete these comments after modifying this file.*
- */
-
 // Add creates a new WebServer Controller and adds it to the Manager. The Manager will set fields on the Controller
 // and Start it when the Manager is Started.
 // func Add(mgr manager.Manager) error {
@@ -74,7 +69,7 @@ type WebServerReconciler struct {
 }
 
 // It seems we shouldn't mess up directly in role.yaml...
-// and it is probably needing a _very_ carefull check here too !!
+// and it is probably needing a _very_ careful check here too !!
 // +kubebuilder:rbac:groups="core",resources=configmaps,verbs=create;get;list;delete;watch
 // +kubebuilder:rbac:groups="core",resources=pods,verbs=create;get;list;delete;watch
 // +kubebuilder:rbac:groups="core",resources=services,verbs=create;get;list;delete;watch
@@ -113,9 +108,11 @@ type WebServerReconciler struct {
 // The Controller will requeue the Request to be processed again if the returned error is non-nil or
 // Result.Requeue is true, otherwise upon completion it will remove the work from the queue.
 // func (r *WebServerReconciler) Reconcile(request reconcile.Request) (reconcile.Result, error) {
+//
+//nolint:gocyclo
 func (r *WebServerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	log := logf.FromContext(ctx)
-	//Log an empty line to separate reconciliation logs
+	// Log an empty line to separate reconciliation logs
 	log.Info("")
 	log = logf.Log.WithName("webserver_controller").WithValues("Request.Namespace", req.Namespace, "Request.Name", req.Name)
 	log.Info("Reconciling WebServer")
@@ -123,7 +120,6 @@ func (r *WebServerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 	requeue := false
 	isKubernetes := !r.isOpenShift
 	var result ctrl.Result
-	var err error = nil
 
 	// Fetch the WebServer
 	webServer, err := r.getWebServer(ctx, req)
@@ -145,7 +141,7 @@ func (r *WebServerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 
 		// Check if exists a ConfigMap for prometheus otherwise create it.
 		configMap := r.generateConfigMapForPrometheus(webServer)
-		result, err = r.createConfigMap(ctx, webServer, configMap, configMap.Name, configMap.Namespace)
+		result, err = r.createConfigMap(ctx, configMap, configMap.Name, configMap.Namespace)
 		if err != nil || result != (ctrl.Result{}) {
 			return result, err
 		}
@@ -189,7 +185,7 @@ func (r *WebServerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		log.Info("generating routing service with port 8080 " + "with TLSSecret= " + webServer.Spec.TLSConfig.TLSSecret)
 		routingService = r.generateRoutingService(webServer, 8080)
 	}
-	result, err = r.createService(ctx, webServer, routingService, routingService.Name, routingService.Namespace)
+	result, err = r.createService(ctx, routingService, routingService.Name, routingService.Namespace)
 	if err != nil || result != (ctrl.Result{}) {
 		return result, err
 	}
@@ -205,13 +201,13 @@ func (r *WebServerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 	// Check if exists a ConfigMap for the server.xml <Cluster/> definition otherwise create it.
 	if strings.HasPrefix(webServer.Spec.TLSConfig.RouteHostname, "tls") || webServer.Spec.UseSessionClustering || webServer.Spec.PersistentLogsConfig.AccessLogs {
 		configMap := r.generateConfigMapForDNSTLS(webServer)
-		result, err = r.createConfigMap(ctx, webServer, configMap, configMap.Name, configMap.Namespace)
+		result, err = r.createConfigMap(ctx, configMap, configMap.Name, configMap.Namespace)
 		if err != nil || result != (ctrl.Result{}) {
 			return result, err
 		}
 	}
 
-	var health *webserversv1alpha1.WebServerHealthCheckSpec = &webserversv1alpha1.WebServerHealthCheckSpec{}
+	var health = &webserversv1alpha1.WebServerHealthCheckSpec{}
 	if webServer.Spec.WebImage != nil {
 		health = webServer.Spec.WebImage.WebServerHealthCheck
 	} else {
@@ -220,14 +216,14 @@ func (r *WebServerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 	if health != nil {
 		if health.ServerLivenessScript != "" {
 			configMap := r.generateConfigMapForLivenessProbe(webServer)
-			result, err = r.createConfigMap(ctx, webServer, configMap, configMap.Name, configMap.Namespace)
+			result, err = r.createConfigMap(ctx, configMap, configMap.Name, configMap.Namespace)
 			if err != nil || result != (ctrl.Result{}) {
 				return result, err
 			}
 		}
 		if health.ServerReadinessScript != "" {
 			configMap := r.generateConfigMapForReadinessProbe(webServer)
-			result, err = r.createConfigMap(ctx, webServer, configMap, configMap.Name, configMap.Namespace)
+			result, err = r.createConfigMap(ctx, configMap, configMap.Name, configMap.Namespace)
 			if err != nil || result != (ctrl.Result{}) {
 				return result, err
 			}
@@ -237,7 +233,7 @@ func (r *WebServerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 	if webServer.Spec.IsNotJWS {
 		// Check if exists a ConfigMap for ASF image start otherwise create it.
 		configMap := r.generateConfigMapForASFStart(webServer)
-		result, err = r.createConfigMap(ctx, webServer, configMap, configMap.Name, configMap.Namespace)
+		result, err = r.createConfigMap(ctx, configMap, configMap.Name, configMap.Namespace)
 		if err != nil || result != (ctrl.Result{}) {
 			return result, err
 		}
@@ -246,14 +242,14 @@ func (r *WebServerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 	if webServer.Spec.PersistentLogsConfig.CatalinaLogs || webServer.Spec.PersistentLogsConfig.AccessLogs {
 		// Check if exists a ConfigMap for the LoggingProperties otherwise create it.
 		configMap := r.generateConfigMapForLoggingProperties(webServer)
-		result, err = r.createConfigMap(ctx, webServer, configMap, configMap.Name, configMap.Namespace)
+		result, err = r.createConfigMap(ctx, configMap, configMap.Name, configMap.Namespace)
 		if err != nil || result != (ctrl.Result{}) {
 			return result, err
 		}
 
 		// Check if exists a PersistentVolumeClaim for logs otherwise create it.
 		persistentVolumeClaim := r.generatePersistentVolumeClaimForLogging(webServer)
-		result, err = r.createPersistentVolumeClaim(ctx, webServer, persistentVolumeClaim, persistentVolumeClaim.Name, persistentVolumeClaim.Namespace)
+		result, err = r.createPersistentVolumeClaim(ctx, persistentVolumeClaim, persistentVolumeClaim.Name, persistentVolumeClaim.Namespace)
 		if err != nil || result != (ctrl.Result{}) {
 			return result, err
 		}
@@ -287,7 +283,7 @@ func (r *WebServerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 
 			// Check if a Route already exists, and if not create a new one
 			route := r.generateRoute(webServer)
-			result, err = r.createRoute(ctx, webServer, route, route.Name, route.Namespace)
+			result, err = r.createRoute(ctx, route, route.Name, route.Namespace)
 			if err != nil || result != (ctrl.Result{}) {
 				return result, err
 			}
@@ -306,7 +302,7 @@ func (r *WebServerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		} else if strings.HasPrefix(webServer.Spec.TLSConfig.RouteHostname, "tls") {
 			// Check if a Route already exists, and if not create a new one
 			route := r.generateSecureRoute(webServer)
-			result, err = r.createRoute(ctx, webServer, route, route.Name, route.Namespace)
+			result, err = r.createRoute(ctx, route, route.Name, route.Namespace)
 			if err != nil || result != (ctrl.Result{}) {
 				return result, err
 			}
@@ -326,7 +322,7 @@ func (r *WebServerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 	} else {
 		// on kuberntes we use a loadbalancer service
 		loadbalancer := r.generateLoadBalancer(webServer)
-		result, err = r.createService(ctx, webServer, loadbalancer, loadbalancer.Name, loadbalancer.Namespace)
+		result, err = r.createService(ctx, loadbalancer, loadbalancer.Name, loadbalancer.Namespace)
 		if err != nil || result != (ctrl.Result{}) {
 			return result, err
 		}

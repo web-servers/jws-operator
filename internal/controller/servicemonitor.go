@@ -2,6 +2,7 @@ package controller
 
 import (
 	"context"
+
 	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	webserversv1alpha1 "github.com/web-servers/jws-operator/api/v1alpha1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -15,12 +16,12 @@ import (
 // GetOrCreateNewServiceMonitor either returns the headless service or create it
 func (r *WebServerReconciler) GetOrCreateNewServiceMonitor(w *webserversv1alpha1.WebServer, ctx context.Context, labels map[string]string) (*monitoringv1.ServiceMonitor, error) {
 	serviceMonitor := &monitoringv1.ServiceMonitor{}
-	if err := r.Client.Get(ctx, client.ObjectKey{
+	if err := r.Get(ctx, client.ObjectKey{
 		Namespace: w.Namespace,
 		Name:      w.Name,
 	}, serviceMonitor); err != nil {
 		if errors.IsNotFound(err) {
-			if err := r.Client.Create(ctx, r.generateServiceMonitor(w, labels)); err != nil {
+			if err := r.Create(ctx, r.generateServiceMonitor(w, labels)); err != nil {
 				if errors.IsAlreadyExists(err) {
 					return nil, nil
 				}
@@ -48,7 +49,12 @@ func (r *WebServerReconciler) generateServiceMonitor(w *webserversv1alpha1.WebSe
 			},
 		},
 	}
-	controllerutil.SetControllerReference(w, service, r.Scheme)
+
+	err := controllerutil.SetControllerReference(w, service, r.Scheme)
+	if err != nil {
+		log.Error(err, "SetControllerReference was not successful")
+	}
+
 	return service
 }
 
