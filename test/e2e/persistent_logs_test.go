@@ -18,16 +18,14 @@ package e2e
 
 import (
 	"context"
+	"strings"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	"k8s.io/apimachinery/pkg/types"
-
 	webserversv1alpha1 "github.com/web-servers/jws-operator/api/v1alpha1"
 	"github.com/web-servers/jws-operator/test/utils"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -61,43 +59,43 @@ var _ = Describe("WebServerControllerTest", Ordered, func() {
 				CatalinaLogs: true,
 				AccessLogs:   true,
 				VolumeName:   "pv0002",
-				//				StorageClass: "nfs-client",
 			},
 			UseSessionClustering: true,
 		},
 	}
 
 	BeforeAll(func() {
-		// create the webserver
-		Expect(k8sClient.Create(ctx, webserver)).Should(Succeed())
-
-		// is the webserver running
-		webserverLookupKey := types.NamespacedName{Name: name, Namespace: namespace}
-		createdWebserver := &webserversv1alpha1.WebServer{}
-		Eventually(func() bool {
-			err := k8sClient.Get(ctx, webserverLookupKey, createdWebserver)
-			if err != nil {
-				return false
-			}
-			return true
-		}, time.Second*10, time.Millisecond*250).Should(BeTrue())
+		createWebServer(webserver)
 	})
 
 	AfterAll(func() {
-		k8sClient.Delete(ctx, webserver)
-		webserverLookupKey := types.NamespacedName{Name: name, Namespace: namespace}
-
-		Eventually(func() bool {
-			err := k8sClient.Get(ctx, webserverLookupKey, &webserversv1alpha1.WebServer{})
-			return apierrors.IsNotFound(err)
-		}, "2m", "5s").Should(BeTrue(), "the webserver should be deleted")
+		deleteWebServer(webserver)
 	})
 
-	Context("Persistent Logs Test", func() {
+	Context("PersistentLogsTest", func() {
 
-		It("Basic Test", func() {
+		It("CheckLogsAvailability", func() {
 			_, err := utils.WebServerRouteTest(k8sClient, ctx, thetest, webserver, testURI, false, nil, false)
 			Expect(err).Should(Succeed())
+
+			createdWebserver := getWebServer(name)
+
+			statusPod := createdWebserver.Status.Pods[0]
+			Expect(statusPod).ShouldNot(BeNil())
+
+			pod := getPod(statusPod.Name)
+			container := pod.Spec.Containers[0]
+			Expect(container).ShouldNot(BeNil())
+
+			command := []string{"ls", "/opt/tomcat_logs"}
+			stdout, stderr := executeCommandOnPod(pod.Name, container.Name, command)
+
+			Expect(stderr).Should(BeEmpty())
+
+			for _, pod := range createdWebserver.Status.Pods {
+				Expect(strings.Contains(stdout, "access-"+pod.Name+".log")).Should(BeTrue())
+				Expect(strings.Contains(stdout, "catalina-"+pod.Name)).Should(BeTrue())
+			}
 		})
 	})
 })

@@ -18,19 +18,16 @@ package e2e
 
 import (
 	"context"
-	"fmt"
 	"os"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	"k8s.io/apimachinery/pkg/types"
-
 	webserversv1alpha1 "github.com/web-servers/jws-operator/api/v1alpha1"
 	"github.com/web-servers/jws-operator/test/utils"
+
 	//	kbappsv1 "k8s.io/api/apps/v1"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -80,30 +77,11 @@ var _ = Describe("WebServerControllerTest", Ordered, func() {
 	}
 
 	BeforeAll(func() {
-		// create the webserver
-		Expect(k8sClient.Create(ctx, webserver)).Should(Succeed())
-
-		// Check it is started.
-		webserverLookupKey := types.NamespacedName{Name: name, Namespace: namespace}
-		createdWebserver := &webserversv1alpha1.WebServer{}
-		Eventually(func() bool {
-			err := k8sClient.Get(ctx, webserverLookupKey, createdWebserver)
-			if err != nil {
-				return false
-			}
-			return true
-		}, time.Second*10, time.Millisecond*250).Should(BeTrue())
-		fmt.Printf("new WebServer Name: %s Namespace: %s\n", createdWebserver.ObjectMeta.Name, createdWebserver.ObjectMeta.Namespace)
+		createWebServer(webserver)
 	})
 
 	AfterAll(func() {
-		k8sClient.Delete(context.Background(), webserver)
-		webserverLookupKey := types.NamespacedName{Name: name, Namespace: namespace}
-
-		Eventually(func() bool {
-			err := k8sClient.Get(ctx, webserverLookupKey, &webserversv1alpha1.WebServer{})
-			return apierrors.IsNotFound(err)
-		}, "2m", "5s").Should(BeTrue(), "the webserver should be deleted")
+		deleteWebServer(webserver)
 	})
 
 	Context("ApplicationImageSourceTest", func() {
