@@ -136,7 +136,7 @@ var _ = Describe("WebServerControllerTest", Ordered, func() {
 					client.InNamespace(webserver.Namespace),
 					client.MatchingLabels(labels),
 				}
-				k8sClient.List(ctx, podList, listOpts...)
+				Expect(k8sClient.List(ctx, podList, listOpts...)).Should(Succeed())
 
 				numberOfDeployedPods := int32(len(podList.Items))
 				if numberOfDeployedPods != webserver.Spec.Replicas {
@@ -157,10 +157,7 @@ func checkLabel(appName string, key string, value string) bool {
 
 	Eventually(func() bool {
 		err := k8sClient.Get(ctx, deploymentookupKey, deployment)
-		if err != nil {
-			return false
-		}
-		return true
+		return err == nil
 	}, time.Second*10, time.Millisecond*250).Should(BeTrue())
 
 	// check the label

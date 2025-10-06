@@ -2,6 +2,7 @@ package controller
 
 import (
 	"context"
+
 	webserversv1alpha1 "github.com/web-servers/jws-operator/api/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -13,12 +14,12 @@ import (
 // GetOrCreateNewPrometheusService either returns the headless service or create
 func (r *WebServerReconciler) GetOrCreateNewPrometheusService(w *webserversv1alpha1.WebServer, ctx context.Context, labels map[string]string) (*corev1.Service, error) {
 	service := &corev1.Service{}
-	if err := r.Client.Get(ctx, client.ObjectKey{
+	if err := r.Get(ctx, client.ObjectKey{
 		Namespace: w.Namespace,
 		Name:      PrometeusServiceName(w),
 	}, service); err != nil {
 		if errors.IsNotFound(err) {
-			if err := r.Client.Create(ctx, r.generatePrometeusService(w, labels)); err != nil {
+			if err := r.Create(ctx, r.generatePrometeusService(w, labels)); err != nil {
 				if errors.IsAlreadyExists(err) {
 					return nil, nil
 				}
@@ -51,7 +52,12 @@ func (r *WebServerReconciler) generatePrometeusService(w *webserversv1alpha1.Web
 			},
 		},
 	}
-	controllerutil.SetControllerReference(w, headlessService, r.Scheme)
+
+	err := controllerutil.SetControllerReference(w, headlessService, r.Scheme)
+	if err != nil {
+		log.Error(err, "SetControllerReference was not successful")
+	}
+
 	return headlessService
 }
 

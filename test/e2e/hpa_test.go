@@ -17,7 +17,10 @@ limitations under the License.
 package e2e
 
 import (
-	"context"
+	"errors"
+	"os"
+	"os/exec"
+	"strconv"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -27,7 +30,6 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 
 	webserversv1alpha1 "github.com/web-servers/jws-operator/api/v1alpha1"
-	"github.com/web-servers/jws-operator/test/utils"
 	v2 "k8s.io/api/autoscaling/v2"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -38,7 +40,6 @@ var _ = Describe("WebServerControllerTest", Ordered, func() {
 	SetDefaultEventuallyTimeout(2 * time.Minute)
 	SetDefaultEventuallyPollingInterval(time.Second)
 
-	ctx := context.Background()
 	name := "hpa-test"
 	appName := "tomcat-demo-test"
 	testURI := "/health"
@@ -122,7 +123,7 @@ var _ = Describe("WebServerControllerTest", Ordered, func() {
 	AfterAll(func() {
 		deleteWebServer(webserver)
 
-		k8sClient.Delete(ctx, hpa)
+		Expect(k8sClient.Delete(ctx, hpa)).Should(Succeed())
 		hpaLookupKey := types.NamespacedName{Name: autoscalerName, Namespace: namespace}
 
 		Eventually(func() bool {
@@ -134,8 +135,126 @@ var _ = Describe("WebServerControllerTest", Ordered, func() {
 	Context("HPATest", func() {
 
 		It("Basic Test", func() {
-			err := utils.AutoScalingTest(k8sClient, ctx, thetest, webserver, testURI, hpa)
+			err := autoScalingTest(webserver, testURI)
 			Expect(err).Should(Succeed())
 		})
 	})
 })
+
+func autoScalingTest(webServer *webserversv1alpha1.WebServer, testURI string) (err error) {
+
+	curwebServer := &webserversv1alpha1.WebServer{}
+	err = k8sClient.Get(ctx, types.NamespacedName{Name: webServer.Name, Namespace: webServer.Namespace}, curwebServer)
+	if err != nil {
+		return errors.New("can't read webserver")
+	}
+	URL := ""
+	if os.Getenv("NODENAME") != "" {
+		// here we need to use nodePort
+		balancer := &corev1.Service{}
+		err = k8sClient.Get(ctx, types.NamespacedName{Name: webServer.Spec.ApplicationName + "-lb", Namespace: webServer.Namespace}, balancer)
+		if err != nil {
+			thetest.Logf("WebServer.Status.Hosts error!!!")
+			return errors.New("can't read balancer")
+		}
+		port := balancer.Spec.Ports[0].NodePort
+
+		URL = "http://" + os.Getenv("NODENAME") + ":" + strconv.Itoa(int(port)) + testURI
+
+	} else {
+		for i := 1; i < 20; i++ {
+			err = k8sClient.Get(ctx, types.NamespacedName{Name: webServer.Name, Namespace: webServer.Namespace}, curwebServer)
+			if err != nil {
+				thetest.Logf("WebServer.Status.Hosts error!!!")
+				time.Sleep(10 * time.Second)
+				continue
+			}
+			if len(curwebServer.Status.Hosts) == 0 {
+				thetest.Logf("WebServer.Status.Hosts is empty. Attempt %d/20\n", i)
+				time.Sleep(20 * time.Second)
+			} else {
+				break
+			}
+		}
+		if err != nil {
+			return err
+		}
+
+		if len(curwebServer.Status.Hosts) == 0 {
+			thetest.Logf("WebServer.Status.Hosts is empty\n")
+			return errors.New("route is empty")
+		}
+		thetest.Logf("Route:  (%s)\n", curwebServer.Status.Hosts)
+
+		URL = "http://" + curwebServer.Status.Hosts[0] + testURI
+
+	}
+
+	// Wait a little to let the hpa scale down the pod
+	Eventually(func() bool {
+		err = k8sClient.Get(ctx, types.NamespacedName{Name: webServer.ObjectMeta.Name, Namespace: webServer.ObjectMeta.Namespace}, curwebServer)
+		if err != nil {
+			thetest.Fatalf("can't read webserver")
+			return false
+		}
+
+		if curwebServer.Status.Replicas == int32(4) {
+			thetest.Logf("Replicas:  (%d:4)\n", curwebServer.Status.Replicas)
+			return false
+		} else {
+			return true
+		}
+
+	}, time.Second*420, time.Second*30).Should(BeTrue())
+
+	err = k8sClient.Get(ctx, types.NamespacedName{Name: webServer.Name, Namespace: webServer.Namespace}, curwebServer)
+	if err != nil {
+		return errors.New("can't read webserver")
+	}
+
+	if curwebServer.Status.Replicas == int32(4) {
+		return errors.New("didn't scaled down")
+	}
+
+	Eventually(func() bool {
+
+		for i := 0; i < 100; i++ {
+			go func() {
+				cmd := exec.Command("curl", URL)
+				_, _ = cmd.Output()
+			}()
+
+		}
+
+		if err != nil {
+			return false
+		}
+
+		err = k8sClient.Get(ctx, types.NamespacedName{Name: webServer.ObjectMeta.Name, Namespace: webServer.ObjectMeta.Namespace}, curwebServer)
+		if err != nil {
+			thetest.Fatalf("can't read webserver")
+			return false
+		}
+
+		if curwebServer.Status.Replicas > int32(1) {
+			return true
+		}
+
+		thetest.Logf("Replicas:  (%d>1)\n", curwebServer.Status.Replicas)
+		return false
+
+	}, time.Second*250, time.Millisecond*10).Should(BeTrue())
+
+	err = k8sClient.Get(ctx, types.NamespacedName{Name: webServer.Name, Namespace: webServer.Namespace}, curwebServer)
+	if err != nil {
+		return errors.New("can't read webserver")
+	}
+
+	if curwebServer.Status.Replicas < int32(2) {
+		thetest.Logf("Replicas:  (%d<2)\n", curwebServer.Status.Replicas)
+		return errors.New("didn't scaled up")
+	} else {
+		return nil
+	}
+
+}

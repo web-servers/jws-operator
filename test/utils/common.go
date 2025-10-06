@@ -5,7 +5,7 @@ import (
 	"crypto/tls"
 	"encoding/json"
 	"errors"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"os"
 	"os/exec"
@@ -14,22 +14,19 @@ import (
 	"testing"
 	"time"
 
+	//nolint:staticcheck
 	. "github.com/onsi/gomega"
-	v2 "k8s.io/api/autoscaling/v2"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 
-	// "github.com/operator-framework/operator-sdk/pkg/test"
 	routev1 "github.com/openshift/api/route/v1"
 	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	webserversv1alpha1 "github.com/web-servers/jws-operator/api/v1alpha1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 
-	// metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/kubectl/pkg/util/podutils"
 
-	// podv1 "k8s.io/kubernetes/pkg/api/v1/pod"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes/scheme"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -57,21 +54,18 @@ type DemoResult struct {
 }
 
 var (
-	retryInterval        = time.Second * 5
-	timeout              = time.Minute * 10
-	cleanupRetryInterval = time.Second * 1
-	cleanupTimeout       = time.Second * 5
+	retryInterval = time.Second * 5
+	timeout       = time.Minute * 10
 )
 
 var name string
-var namespace string
 
 func PrometheusTest(clt client.Client, ctx context.Context, t *testing.T, namespace string, webServer *webserversv1alpha1.WebServer, testURI string, domain string) (err error) {
 	// create a http client
 	tr := &http.Transport{
 		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
 	}
-	client := &http.Client{Transport: tr}
+	httpClient := &http.Client{Transport: tr}
 
 	schemeBuilder := runtime.NewSchemeBuilder(
 		monitoringv1.AddToScheme,
@@ -98,17 +92,17 @@ func PrometheusTest(clt client.Client, ctx context.Context, t *testing.T, namesp
 		t.Logf("token: %s\n", s)
 		stoken := strings.Split(s, " ")
 		s = stoken[4]
-		s = strings.Replace(s, "\n", "", -1)
+		s = strings.ReplaceAll(s, "\n", "")
 		t.Logf("token: *%s*\n", s)
 	} else {
 		s = string(token)
-		s = strings.Replace(s, "\n", "", -1)
+		s = strings.ReplaceAll(s, "\n", "")
 		url = "https://thanos-querier-openshift-monitoring." + domain
 	}
 
 	unixTime := time.Now().Unix()
-	var unixTimeStart int64 = unixTime
-	var unixTimeEnd int64 = unixTime + 3600
+	var unixTimeStart = unixTime
+	var unixTimeEnd = unixTime + 3600
 
 	cookie, err := WebServerRouteTest(clt, ctx, t, webServer, testURI, false, nil, false)
 	if err != nil {
@@ -116,7 +110,8 @@ func PrometheusTest(clt client.Client, ctx context.Context, t *testing.T, namesp
 		return err
 	}
 	_ = cookie
-	time.Sleep(time.Second * 120) //waiting for some queries from healh check...
+	// waiting for some queries from healh check...
+	time.Sleep(time.Second * 120)
 
 	// create a http request to Prometheus server
 	req, err := http.NewRequest("GET", url+"/api/v1/query_range?query=tomcat_bytesreceived_total&start="+strconv.FormatInt(unixTimeStart, 10)+"&end="+strconv.FormatInt(unixTimeEnd, 10)+"&step=14", nil)
@@ -132,6 +127,7 @@ func PrometheusTest(clt client.Client, ctx context.Context, t *testing.T, namesp
 		//		t.Logf("using pod: " + podname)
 		cmd := exec.Command("oc", "port-forward", "-n", "openshift-monitoring", "pod/"+podname, "9090")
 		stdout, err := cmd.StdoutPipe()
+		Expect(err).Should(BeEquivalentTo(nil))
 		cmd.Stderr = cmd.Stdout
 		err = cmd.Start()
 		if err != nil {
@@ -153,7 +149,7 @@ func PrometheusTest(clt client.Client, ctx context.Context, t *testing.T, namesp
 
 	// send the request
 	t.Logf("GET: host *%s* URI *%s*\n", req.Host, req.URL.RequestURI())
-	res, err := client.Do(req)
+	res, err := httpClient.Do(req)
 	for i := 0; i < 60; i++ {
 		if err == nil {
 			break
@@ -174,7 +170,7 @@ func PrometheusTest(clt client.Client, ctx context.Context, t *testing.T, namesp
 	}
 
 	// read the response body
-	body, err := ioutil.ReadAll(res.Body)
+	body, err := io.ReadAll(res.Body)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -208,148 +204,27 @@ func GetThanos(clt client.Client, ctx context.Context, t *testing.T) (thanos str
 		t.Logf("List pods failed: %s", err)
 		return ""
 	}
-	return podList.Items[0].ObjectMeta.Name
-}
-
-func AutoScalingTest(clt client.Client, ctx context.Context, t *testing.T, webServer *webserversv1alpha1.WebServer, testURI string, hpa *v2.HorizontalPodAutoscaler) (err error) {
-
-	curwebServer := &webserversv1alpha1.WebServer{}
-	err = clt.Get(ctx, types.NamespacedName{Name: webServer.ObjectMeta.Name, Namespace: webServer.ObjectMeta.Namespace}, curwebServer)
-	if err != nil {
-		return errors.New("can't read webserver")
-	}
-	URL := ""
-	if os.Getenv("NODENAME") != "" {
-		// here we need to use nodePort
-		balancer := &corev1.Service{}
-		err = clt.Get(ctx, types.NamespacedName{Name: webServer.Spec.ApplicationName + "-lb", Namespace: webServer.ObjectMeta.Namespace}, balancer)
-		if err != nil {
-			t.Logf("WebServer.Status.Hosts error!!!")
-			return errors.New("can't read balancer")
-		}
-		port := balancer.Spec.Ports[0].NodePort
-
-		URL = "http://" + os.Getenv("NODENAME") + ":" + strconv.Itoa(int(port)) + testURI
-
-	} else {
-		for i := 1; i < 20; i++ {
-			err = clt.Get(ctx, types.NamespacedName{Name: webServer.ObjectMeta.Name, Namespace: webServer.ObjectMeta.Namespace}, curwebServer)
-			if err != nil {
-				t.Logf("WebServer.Status.Hosts error!!!")
-				time.Sleep(10 * time.Second)
-				continue
-			}
-			if len(curwebServer.Status.Hosts) == 0 {
-				t.Logf("WebServer.Status.Hosts is empty. Attempt %d/20\n", i)
-				time.Sleep(20 * time.Second)
-			} else {
-				break
-			}
-		}
-		if err != nil {
-			return err
-		}
-
-		if len(curwebServer.Status.Hosts) == 0 {
-			t.Logf("WebServer.Status.Hosts is empty\n")
-			return errors.New("route is empty")
-		}
-		t.Logf("Route:  (%s)\n", curwebServer.Status.Hosts)
-
-		URL = "http://" + curwebServer.Status.Hosts[0] + testURI
-
-	}
-
-	// Wait a little to let the hpa scale down the pod
-	Eventually(func() bool {
-		err = clt.Get(ctx, types.NamespacedName{Name: webServer.ObjectMeta.Name, Namespace: webServer.ObjectMeta.Namespace}, curwebServer)
-		if err != nil {
-			t.Fatalf("can't read webserver")
-			return false
-		}
-
-		if int32(curwebServer.Status.Replicas) == int32(4) {
-			t.Logf("Replicas:  (%d:4)\n", int32(curwebServer.Status.Replicas))
-			return false
-		} else {
-			return true
-		}
-
-	}, time.Second*420, time.Second*30).Should(BeTrue())
-
-	err = clt.Get(ctx, types.NamespacedName{Name: webServer.ObjectMeta.Name, Namespace: webServer.ObjectMeta.Namespace}, curwebServer)
-	if err != nil {
-		return errors.New("can't read webserver")
-	}
-
-	if int32(curwebServer.Status.Replicas) == int32(4) {
-		return errors.New("didn't scaled down")
-	}
-
-	Eventually(func() bool {
-
-		for i := 0; i < 100; i++ {
-			go getRequest(URL)
-		}
-
-		if err != nil {
-			return false
-		}
-
-		err = clt.Get(ctx, types.NamespacedName{Name: webServer.ObjectMeta.Name, Namespace: webServer.ObjectMeta.Namespace}, curwebServer)
-		if err != nil {
-			t.Fatalf("can't read webserver")
-			return false
-		}
-
-		if int32(curwebServer.Status.Replicas) > int32(1) {
-			return true
-		}
-
-		t.Logf("Replicas:  (%d>1)\n", int32(curwebServer.Status.Replicas))
-		return false
-
-	}, time.Second*250, time.Millisecond*10).Should(BeTrue())
-
-	err = clt.Get(ctx, types.NamespacedName{Name: webServer.ObjectMeta.Name, Namespace: webServer.ObjectMeta.Namespace}, curwebServer)
-	if err != nil {
-		return errors.New("can't read webserver")
-	}
-
-	if int32(curwebServer.Status.Replicas) < int32(2) {
-		t.Logf("Replicas:  (%d<2)\n", int32(curwebServer.Status.Replicas))
-		return errors.New("didn't scaled up")
-	} else {
-		return nil
-	}
-
-}
-
-func getRequest(URL string) (interface{}, error) {
-	cmd := exec.Command("curl", URL)
-	stdout, err := cmd.Output()
-
-	return stdout, err
+	return podList.Items[0].Name
 }
 
 // WebServerScale changes the replica number of the WebServer resource
 func WebServerScale(clt client.Client, ctx context.Context, t *testing.T, webServer *webserversv1alpha1.WebServer, testURI string, newReplicasValue int32) {
 
-	err := clt.Get(ctx, types.NamespacedName{Name: webServer.ObjectMeta.Name, Namespace: webServer.ObjectMeta.Namespace}, webServer)
+	err := clt.Get(ctx, types.NamespacedName{Name: webServer.Name, Namespace: webServer.Namespace}, webServer)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	webServer.Spec.Replicas = newReplicasValue
 
-	updateWebServer(clt, ctx, t, webServer, name, namespace)
+	updateWebServer(clt, ctx, t, webServer, name)
 
 	t.Logf("Updated application %s number of replicas to %d\n", name, webServer.Spec.Replicas)
 
 }
 
 // updateWebServer updates the WebServer resource and waits until the new deployment is ready
-func updateWebServer(clt client.Client, ctx context.Context, t *testing.T, webServer *webserversv1alpha1.WebServer, name string, namespace string) {
+func updateWebServer(clt client.Client, ctx context.Context, t *testing.T, webServer *webserversv1alpha1.WebServer, name string) {
 
 	err := clt.Update(ctx, webServer)
 	if err != nil {
@@ -359,8 +234,11 @@ func updateWebServer(clt client.Client, ctx context.Context, t *testing.T, webSe
 	t.Logf("WebServer %s updated\n", name)
 
 	// Waits until the pods are deployed
-	waitUntilReady(clt, ctx, t, webServer)
+	err = waitUntilReady(clt, ctx, t, webServer)
 
+	if err != nil {
+		t.Fatal(err)
+	}
 }
 
 // waitUntilReady waits until the number of pods matches the WebServer Spec replica number.
@@ -369,12 +247,12 @@ func WaitUntilReady(clt client.Client, ctx context.Context, t *testing.T, webSer
 }
 
 func waitUntilReady(clt client.Client, ctx context.Context, t *testing.T, webServer *webserversv1alpha1.WebServer) (err error) {
-	name := webServer.ObjectMeta.Name
+	name := webServer.Name
 	replicas := webServer.Spec.Replicas
 
 	t.Logf("Waiting until %[1]d/%[1]d pods for %s are ready", replicas, name)
 
-	err = wait.Poll(retryInterval, timeout, func() (done bool, err error) {
+	err = wait.PollUntilContextTimeout(ctx, retryInterval, timeout, true, func(ctx context.Context) (done bool, err error) {
 
 		podList := &corev1.PodList{}
 		listOpts := []client.ListOption{
@@ -410,21 +288,24 @@ func waitUntilReady(clt client.Client, ctx context.Context, t *testing.T, webSer
 }
 
 // WebServerRouteTest tests the Route created for the operator pods
-func WebServerRouteTest(clt client.Client, ctx context.Context, t *testing.T, webServer *webserversv1alpha1.WebServer, URI string, sticky bool, oldCookie *http.Cookie, isSecure bool) (sessionCookie *http.Cookie, err error) {
+//
+//nolint:gocyclo
+func WebServerRouteTest(clt client.Client, ctx context.Context, t *testing.T, webServer *webserversv1alpha1.WebServer,
+	URI string, sticky bool, oldCookie *http.Cookie, isSecure bool) (sessionCookie *http.Cookie, err error) {
 
 	curwebServer := &webserversv1alpha1.WebServer{}
-	err = clt.Get(ctx, types.NamespacedName{Name: webServer.ObjectMeta.Name, Namespace: webServer.ObjectMeta.Namespace}, curwebServer)
+	err = clt.Get(ctx, types.NamespacedName{Name: webServer.Name, Namespace: webServer.Namespace}, curwebServer)
 	if err != nil {
-		return nil, errors.New("Can't read webserver!")
+		return nil, errors.New("can't read webserver")
 	}
 	URL := ""
 	if os.Getenv("NODENAME") != "" {
 		// here we need to use nodePort
 		balancer := &corev1.Service{}
-		err = clt.Get(ctx, types.NamespacedName{Name: webServer.Spec.ApplicationName + "-lb", Namespace: webServer.ObjectMeta.Namespace}, balancer)
+		err = clt.Get(ctx, types.NamespacedName{Name: webServer.Spec.ApplicationName + "-lb", Namespace: webServer.Namespace}, balancer)
 		if err != nil {
 			t.Logf("WebServer.Status.Hosts error!!!")
-			return nil, errors.New("Can't read balancer!")
+			return nil, errors.New("can't read balancer")
 		}
 		port := balancer.Spec.Ports[0].NodePort
 		if isSecure {
@@ -434,7 +315,7 @@ func WebServerRouteTest(clt client.Client, ctx context.Context, t *testing.T, we
 		}
 	} else {
 		for i := 1; i < 20; i++ {
-			err = clt.Get(ctx, types.NamespacedName{Name: webServer.ObjectMeta.Name, Namespace: webServer.ObjectMeta.Namespace}, curwebServer)
+			err = clt.Get(ctx, types.NamespacedName{Name: webServer.Name, Namespace: webServer.Namespace}, curwebServer)
 			if err != nil {
 				t.Logf("WebServer.Status.Hosts error!!!")
 				time.Sleep(10 * time.Second)
@@ -453,7 +334,7 @@ func WebServerRouteTest(clt client.Client, ctx context.Context, t *testing.T, we
 
 		if len(curwebServer.Status.Hosts) == 0 {
 			t.Logf("WebServer.Status.Hosts is empty\n")
-			return nil, errors.New("Route is empty!")
+			return nil, errors.New("route is empty")
 		}
 		t.Logf("Route:  (%s)\n", webServer.Status.Hosts)
 		t.Logf("RouteHostName:  (%s)\n", webServer.Spec.TLSConfig.RouteHostname)
@@ -488,20 +369,20 @@ func WebServerRouteTest(clt client.Client, ctx context.Context, t *testing.T, we
 	} else {
 		t.Logf("GET:  (%s)\n", URL)
 	}
-	var client = &http.Client{}
-	if isSecure { //disable security check for the client to overcome issues with the certificate
+	var httpClient = &http.Client{}
+	if isSecure { // disable security check for the client to overcome issues with the certificate
 		tr := &http.Transport{
 			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
 		}
-		client = &http.Client{Transport: tr}
+		httpClient = &http.Client{Transport: tr}
 	}
-	res, err := client.Do(req)
+	res, err := httpClient.Do(req)
 	if err != nil {
 		// Probably the  dns information needs more time.
 		t.Logf("GET: (%s) FAILED\n", URL)
 		for i := 1; i < 60; i++ {
 			time.Sleep(10 * time.Second)
-			res, err = client.Do(req)
+			res, err = httpClient.Do(req)
 			if err == nil {
 				break
 			}
@@ -511,8 +392,8 @@ func WebServerRouteTest(clt client.Client, ctx context.Context, t *testing.T, we
 			return nil, err
 		}
 	}
-	body, err := ioutil.ReadAll(res.Body)
-	res.Body.Close()
+	body, err := io.ReadAll(res.Body)
+	Expect(res.Body.Close()).Should(Succeed())
 	if err != nil {
 		t.Logf("GET: (%s) FAILED no Body\n", URL)
 		return nil, err
@@ -546,7 +427,7 @@ func WebServerRouteTest(clt client.Client, ctx context.Context, t *testing.T, we
 
 		// Parse the response.
 		var oldResult DemoResult
-		json.Unmarshal(body, &oldResult)
+		Expect(json.Unmarshal(body, &oldResult)).Should(Succeed())
 		counter := 1
 		if oldCookie != nil {
 			// Read previous value and increase it.
@@ -568,14 +449,14 @@ func WebServerRouteTest(clt client.Client, ctx context.Context, t *testing.T, we
 				return nil, err
 			}
 			req.AddCookie(sessionCookie)
-			client = &http.Client{}
-			res, err = client.Do(req)
+			httpClient = &http.Client{}
+			res, err = httpClient.Do(req)
 			if err != nil {
 				t.Logf("GET: (%s) FAILED\n", URL)
 				return nil, err
 			}
-			newBody, err := ioutil.ReadAll(res.Body)
-			res.Body.Close()
+			newBody, err := io.ReadAll(res.Body)
+			Expect(res.Body.Close()).Should(Succeed())
 			if err != nil {
 				t.Logf("GET: (%s) FAILED no Body\n", URL)
 				return nil, err
@@ -586,8 +467,8 @@ func WebServerRouteTest(clt client.Client, ctx context.Context, t *testing.T, we
 			}
 			t.Logf("%d - body: %s\n", counter, newBody)
 			cookies = res.Cookies()
-			newSessionCookie := &http.Cookie{}
-			newSessionCookie = nil
+
+			var newSessionCookie *http.Cookie = nil
 			for _, cookie := range cookies {
 				t.Logf("2-cookies: %s", cookie.Raw)
 				if cookie.Name == "JSESSIONID" {
@@ -602,7 +483,7 @@ func WebServerRouteTest(clt client.Client, ctx context.Context, t *testing.T, we
 
 			// Check the counter in the body.
 			var result DemoResult
-			json.Unmarshal(newBody, &result)
+			Expect(json.Unmarshal(newBody, &result)).Should(Succeed())
 			t.Logf("Demo counter: %d", result.Counter)
 			if result.Counter != counter {
 				return nil, errors.New(URL + " NOTOK, counter should be " + strconv.Itoa(counter) + "... Not sticky!!!")
@@ -687,24 +568,24 @@ func GetHost(route *routev1.Route) string {
 func WebServerTestFor(clt client.Client, ctx context.Context, t *testing.T, webServer *webserversv1alpha1.WebServer, URI string, content string) (err error) {
 
 	curwebServer := &webserversv1alpha1.WebServer{}
-	err = clt.Get(ctx, types.NamespacedName{Name: webServer.ObjectMeta.Name, Namespace: webServer.ObjectMeta.Namespace}, curwebServer)
+	err = clt.Get(ctx, types.NamespacedName{Name: webServer.Name, Namespace: webServer.Namespace}, curwebServer)
 	if err != nil {
-		return errors.New("Can't read webserver!")
+		return errors.New("can't read webserver")
 	}
 	URL := ""
 	if os.Getenv("NODENAME") != "" {
 		// here we need to use nodePort
 		balancer := &corev1.Service{}
-		err = clt.Get(ctx, types.NamespacedName{Name: webServer.Spec.ApplicationName + "-lb", Namespace: webServer.ObjectMeta.Namespace}, balancer)
+		err = clt.Get(ctx, types.NamespacedName{Name: webServer.Spec.ApplicationName + "-lb", Namespace: webServer.Namespace}, balancer)
 		if err != nil {
 			t.Logf("WebServer.Status.Hosts error!!!")
-			return errors.New("Can't read balancer!")
+			return errors.New("can't read balancer")
 		}
 		port := balancer.Spec.Ports[0].NodePort
 		URL = "http://" + os.Getenv("NODENAME") + ":" + strconv.Itoa(int(port)) + URI
 	} else {
 		for i := 1; i < 10; i++ {
-			err = clt.Get(ctx, types.NamespacedName{Name: webServer.ObjectMeta.Name, Namespace: webServer.ObjectMeta.Namespace}, curwebServer)
+			err = clt.Get(ctx, types.NamespacedName{Name: webServer.Name, Namespace: webServer.Namespace}, curwebServer)
 			if err != nil {
 				t.Logf("WebServer.Status.Hosts error!!!")
 				time.Sleep(10 * time.Second)
@@ -723,7 +604,7 @@ func WebServerTestFor(clt client.Client, ctx context.Context, t *testing.T, webS
 
 		if len(curwebServer.Status.Hosts) == 0 {
 			t.Logf("WebServer.Status.Hosts is empty\n")
-			return errors.New("Route is empty!")
+			return errors.New("route is empty")
 		}
 		t.Logf("Route:  (%s)\n", curwebServer.Status.Hosts)
 		URL = "http://" + curwebServer.Status.Hosts[0] + URI
@@ -737,14 +618,14 @@ func WebServerTestFor(clt client.Client, ctx context.Context, t *testing.T, webS
 		t.Logf("GET: (%s) FAILED\n", URL)
 		return err
 	}
-	client := &http.Client{}
-	res, err := client.Do(req)
+	httpClient := &http.Client{}
+	res, err := httpClient.Do(req)
 	if err != nil {
 		// Probably the  dns information needs more time.
 		t.Logf("GET: (%s) FAILED\n", URL)
 		for i := 1; i < 20; i++ {
 			time.Sleep(60 * time.Second)
-			res, err = client.Do(req)
+			res, err = httpClient.Do(req)
 			if err == nil {
 				break
 			}
@@ -754,8 +635,8 @@ func WebServerTestFor(clt client.Client, ctx context.Context, t *testing.T, webS
 			return err
 		}
 	}
-	body, err := ioutil.ReadAll(res.Body)
-	res.Body.Close()
+	body, err := io.ReadAll(res.Body)
+	Expect(res.Body.Close()).Should(Succeed())
 	if err != nil {
 		t.Logf("GET: (%s) FAILED no Body\n", URL)
 		return err
@@ -774,14 +655,14 @@ func WebServerTestFor(clt client.Client, ctx context.Context, t *testing.T, webS
 		// we retry until the webserver gets updated
 		for i := 1; i < 20; i++ {
 			time.Sleep(60 * time.Second)
-			res, err = client.Do(req)
+			res, err = httpClient.Do(req)
 			if err != nil {
 				t.Logf("GET: (%s) FAILED: %s try: %d\n", URL, err, i)
 				continue
 				// return errors.New(URL + " does not contain" + content)
 			}
-			body, err := ioutil.ReadAll(res.Body)
-			res.Body.Close()
+			body, err := io.ReadAll(res.Body)
+			Expect(res.Body.Close()).Should(Succeed())
 			if err != nil {
 				t.Logf("GET: (%s) FAILED no Body\n", URL)
 				return errors.New(URL + " does not contain" + content)

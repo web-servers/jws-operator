@@ -31,7 +31,6 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/envtest"
 
 	//	"k8s.io/client-go/tools/clientcmd"
 
@@ -58,30 +57,14 @@ var (
 	cfg        *rest.Config
 	k8sClient  client.Client
 	restClient *rest.RESTClient
-	testEnv    *envtest.Environment
 	ctx        context.Context
 	thetest    *testing.T
-	username   string
 	testImg    = os.Getenv("TEST_IMG")
 	namespace  = os.Getenv("NAMESPACE_FOR_TESTING")
 
 	retryInterval = time.Second * 5
 	timeout       = time.Minute * 10
 )
-
-// namespace where the project is deployed in
-//const namespace = "jws-operator-tests"
-
-var useExistingCluster bool
-
-// serviceAccountName created for the project
-const serviceAccountName = "jws-operator-controller-manager"
-
-// metricsServiceName is the name of the metrics service of the project
-const metricsServiceName = "jws-operator-controller-manager-metrics-service"
-
-// metricsRoleBindingName is the name of the RBAC that will be created to allow get the metrics data
-const metricsRoleBindingName = "jws-operator-metrics-binding"
 
 // TestE2E runs the end-to-end (e2e) test suite for the project. These tests execute in an isolated,
 // temporary environment to validate project changes with the purposed to be used in CI jobs.
@@ -96,7 +79,6 @@ func TestE2E(t *testing.T) {
 
 var _ = BeforeSuite(func() {
 	By("Before suite")
-	useExistingCluster = true
 	ctx = context.Background()
 
 	err := webserversv1alpha1.AddToScheme(scheme.Scheme)
@@ -132,7 +114,7 @@ var _ = BeforeSuite(func() {
 	Expect(err).NotTo(HaveOccurred())
 	Expect(cfg).NotTo(BeNil())
 
-	//+kubebuilder:scaffold:scheme
+	// +kubebuilder:scaffold:scheme
 
 	k8sClient, err = client.New(cfg, client.Options{Scheme: scheme.Scheme})
 	Expect(err).NotTo(HaveOccurred())

@@ -62,7 +62,7 @@ func isOpenShift(c *rest.Config) bool {
 
 func (r *WebServerReconciler) getWebServer(ctx context.Context, request reconcile.Request) (*webserversv1alpha1.WebServer, error) {
 	webServer := &webserversv1alpha1.WebServer{}
-	err := r.Client.Get(ctx, request.NamespacedName, webServer)
+	err := r.Get(ctx, request.NamespacedName, webServer)
 	if err != nil {
 		if errors.IsNotFound(err) {
 			// Request object not found, could have been deleted after reconcile request.
@@ -98,75 +98,9 @@ func (r *WebServerReconciler) setDefaultValues(webServer *webserversv1alpha1.Web
 
 }
 
-func (r *WebServerReconciler) generateWebAppBuildScript(webServer *webserversv1alpha1.WebServer) string {
-	webApp := webServer.Spec.WebImage.WebApp
-	webAppWarFileName := webApp.Name + ".war"
-	webAppSourceRepositoryURL := webApp.SourceRepositoryURL
-	webAppSourceRepositoryRef := webApp.SourceRepositoryRef
-	webAppSourceRepositoryContextDir := webApp.SourceRepositoryContextDir
-
-	return fmt.Sprintf(`
-		webAppWarFileName=%s;
-		webAppSourceRepositoryURL=%s;
-		webAppSourceRepositoryRef=%s;
-		webAppSourceRepositoryContextDir=%s;
-
-		# Some pods don't have root privileges, so the build takes place in /tmp
-		cd tmp;
-
-		# Create a custom .m2 repo in a location where no root privileges are required
-		mkdir -p /tmp/.m2/repo;
-
-		# Create custom maven settings that change the location of the .m2 repo
-		echo '<settings xmlns="http://maven.apache.org/SETTINGS/1.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"' >> /tmp/.m2/settings.xml
-		echo 'xsi:schemaLocation="http://maven.apache.org/SETTINGS/1.0.0 https://maven.apache.org/xsd/settings-1.0.0.xsd">' >> /tmp/.m2/settings.xml
-		echo '<localRepository>/tmp/.m2/repo</localRepository>' >> /tmp/.m2/settings.xml
-		echo '</settings>' >> /tmp/.m2/settings.xml
-
-		if [ -z ${webAppSourceRepositoryURL} ]; then
-			echo "Need an URL like https://github.com/jfclere/demo-webapp.git";
-			exit 1;
-		fi;
-
-		git clone ${webAppSourceRepositoryURL};
-		if [ $? -ne 0 ]; then
-			echo "Can't clone ${webAppSourceRepositoryURL}";
-			exit 1;
-		fi;
-
-		# Get the name of the source code directory
-		DIR=$(echo ${webAppSourceRepositoryURL##*/});
-		DIR=$(echo ${DIR%%.*});
-
-		cd ${DIR};
-
-		if [ ! -z ${webAppSourceRepositoryRef} ]; then
-			git checkout ${webAppSourceRepositoryRef};
-		fi;
-
-		if [ ! -z ${webAppSourceRepositoryContextDir} ]; then
-			cd ${webAppSourceRepositoryContextDir};
-		fi;
-
-		# Builds the webapp using the custom maven settings
-		mvn clean install -gs /tmp/.m2/settings.xml;
-		if [ $? -ne 0 ]; then
-			echo "mvn install failed please check the pom.xml in ${webAppSourceRepositoryURL}";
-			exit 1;
-		fi
-
-		# Copies the resulting war to the mounted persistent volume
-		cp target/*.war /mnt/${webAppWarFileName};`,
-		webAppWarFileName,
-		webAppSourceRepositoryURL,
-		webAppSourceRepositoryRef,
-		webAppSourceRepositoryContextDir,
-	)
-}
-
 func (r *WebServerReconciler) webImageConfiguration(ctx context.Context, webServer *webserversv1alpha1.WebServer) (ctrl.Result, error) {
 	var result ctrl.Result
-	var err error = nil
+	var err error
 
 	// Check if a webapp needs to be built
 	if webServer.Spec.WebImage.WebApp != nil && webServer.Spec.WebImage.WebApp.SourceRepositoryURL != "" && webServer.Spec.WebImage.WebApp.Builder != nil && webServer.Spec.WebImage.WebApp.Builder.Image != "" {
@@ -174,14 +108,14 @@ func (r *WebServerReconciler) webImageConfiguration(ctx context.Context, webServ
 		// Create a ConfigMap for custom build script
 		if webServer.Spec.WebImage.WebApp.Builder.ApplicationBuildScript != "" {
 			configMap := r.generateConfigMapForCustomBuildScript(webServer)
-			result, err = r.createConfigMap(ctx, webServer, configMap, configMap.Name, configMap.Namespace)
+			result, err = r.createConfigMap(ctx, configMap, configMap.Name, configMap.Namespace)
 			if err != nil || result != (ctrl.Result{}) {
 				return result, err
 			}
 			// Check the script has changed, if yes delete it and requeue
 			if configMap.Data["build.sh"] != webServer.Spec.WebImage.WebApp.Builder.ApplicationBuildScript {
 				// Just Delete and requeue
-				err = r.Client.Delete(ctx, configMap)
+				err = r.Delete(ctx, configMap)
 				if err != nil && errors.IsNotFound(err) {
 					return ctrl.Result{}, nil
 				}
@@ -192,8 +126,8 @@ func (r *WebServerReconciler) webImageConfiguration(ctx context.Context, webServ
 
 		// Check if a build Pod for the webapp already exists, and if not create a new one
 		buildPod := r.generateBuildPod(webServer)
-		log.Info("WebServe createBuildPod: " + buildPod.Name + " in " + buildPod.Namespace + " using: " + buildPod.Spec.Volumes[0].VolumeSource.Secret.SecretName + " and: " + buildPod.Spec.Containers[0].Image)
-		result, err = r.createBuildPod(ctx, webServer, buildPod, buildPod.Name, buildPod.Namespace)
+		log.Info("WebServe createBuildPod: " + buildPod.Name + " in " + buildPod.Namespace + " using: " + buildPod.Spec.Volumes[0].Secret.SecretName + " and: " + buildPod.Spec.Containers[0].Image)
+		result, err = r.createBuildPod(ctx, buildPod, buildPod.Name, buildPod.Namespace)
 		if err != nil || result != (ctrl.Result{}) {
 			return result, err
 		}
@@ -202,7 +136,7 @@ func (r *WebServerReconciler) webImageConfiguration(ctx context.Context, webServ
 		currentHash := r.getWebServerHash(webServer)
 		if buildPod.Labels["webserver-hash"] != currentHash {
 			// Just Delete and requeue
-			err = r.Client.Delete(ctx, buildPod)
+			err = r.Delete(ctx, buildPod)
 			if err != nil && errors.IsNotFound(err) {
 				return ctrl.Result{}, nil
 			}
@@ -211,9 +145,9 @@ func (r *WebServerReconciler) webImageConfiguration(ctx context.Context, webServ
 		}
 
 		// Is the build pod ready.
-		result, err = r.checkBuildPodPhase(buildPod)
-		if err != nil || result != (ctrl.Result{}) {
-			return result, err
+		result = r.checkBuildPodPhase(buildPod)
+		if result != (ctrl.Result{}) {
+			return result, nil
 		}
 
 	}
@@ -247,15 +181,15 @@ func (r *WebServerReconciler) continueWithDeployment(ctx context.Context, webSer
 
 	// Check if we need to update it.
 	currentHash := r.getWebServerHash(webServer)
-	if deployment.ObjectMeta.Labels["webserver-hash"] == "" {
-		deployment.ObjectMeta.Labels["webserver-hash"] = currentHash
+	if deployment.Labels["webserver-hash"] == "" {
+		deployment.Labels["webserver-hash"] = currentHash
 		updateDeployment = true
 	} else {
-		if deployment.ObjectMeta.Labels["webserver-hash"] != currentHash {
+		if deployment.Labels["webserver-hash"] != currentHash {
 			// Just Update and requeue
 			r.generateUpdatedDeployment(webServer, deployment, image)
-			deployment.ObjectMeta.Labels["webserver-hash"] = currentHash
-			err = r.Client.Update(ctx, deployment)
+			deployment.Labels["webserver-hash"] = currentHash
+			err = r.Update(ctx, deployment)
 			if err != nil {
 				log.Error(err, "Failed to update Deployment.", "Deployment.Namespace", deployment.Namespace, "Deployment.Name", deployment.Name)
 				if errors.IsConflict(err) {
@@ -320,15 +254,15 @@ func (r *WebServerReconciler) continueWithStatefulSet(ctx context.Context, webSe
 
 	// Check if we need to update it.
 	currentHash := r.getWebServerHash(webServer)
-	if statefulset.ObjectMeta.Labels["webserver-hash"] == "" {
-		statefulset.ObjectMeta.Labels["webserver-hash"] = currentHash
+	if statefulset.Labels["webserver-hash"] == "" {
+		statefulset.Labels["webserver-hash"] = currentHash
 		updateStatefulSet = true
 	} else {
-		if statefulset.ObjectMeta.Labels["webserver-hash"] != currentHash {
+		if statefulset.Labels["webserver-hash"] != currentHash {
 			// Just Update and requeue
 			r.generateUpdatedStatefulSet(webServer, statefulset, image)
-			statefulset.ObjectMeta.Labels["webserver-hash"] = currentHash
-			err = r.Client.Update(ctx, statefulset)
+			statefulset.Labels["webserver-hash"] = currentHash
+			err = r.Update(ctx, statefulset)
 			if err != nil {
 				log.Error(err, "Failed to update:", "Namespace", statefulset.Namespace, "Name", statefulset.Name)
 				if errors.IsConflict(err) {
@@ -378,6 +312,7 @@ func (r *WebServerReconciler) continueWithStatefulSet(ctx context.Context, webSe
 	return result, err
 }
 
+//nolint:gocyclo
 func (r *WebServerReconciler) webImageSourceConfiguration(ctx context.Context, webServer *webserversv1alpha1.WebServer) (ctrl.Result, error) {
 	var result ctrl.Result
 	var err error = nil
@@ -390,7 +325,7 @@ func (r *WebServerReconciler) webImageSourceConfiguration(ctx context.Context, w
 
 		// Check if an Image Stream already exists, and if not create a new one
 		imageStream := r.generateImageStream(webServer)
-		result, err = r.createImageStream(ctx, webServer, imageStream, imageStream.Name, imageStream.Namespace)
+		result, err = r.createImageStream(ctx, imageStream, imageStream.Name, imageStream.Namespace)
 		if err != nil || result != (ctrl.Result{}) {
 			return result, err
 		}
@@ -415,7 +350,7 @@ func (r *WebServerReconciler) webImageSourceConfiguration(ctx context.Context, w
 
 		// Check if a BuildConfig already exists, and if not create a new one
 		buildConfig := r.generateBuildConfig(webServer)
-		result, err = r.createBuildConfig(ctx, webServer, buildConfig, buildConfig.Name, buildConfig.Namespace)
+		result, err = r.createBuildConfig(ctx, buildConfig, buildConfig.Name, buildConfig.Namespace)
 		if err != nil || result != (ctrl.Result{}) {
 			return result, err
 		}
@@ -423,32 +358,32 @@ func (r *WebServerReconciler) webImageSourceConfiguration(ctx context.Context, w
 		updateBuildConfig := false
 		startNewBuild := false
 
-		if buildConfig.Spec.CommonSpec.Source.Git.URI != webServer.Spec.WebImageStream.WebSources.SourceRepositoryURL {
-			buildConfig.Spec.CommonSpec.Source.Git.URI = webServer.Spec.WebImageStream.WebSources.SourceRepositoryURL
+		if buildConfig.Spec.Source.Git.URI != webServer.Spec.WebImageStream.WebSources.SourceRepositoryURL {
+			buildConfig.Spec.Source.Git.URI = webServer.Spec.WebImageStream.WebSources.SourceRepositoryURL
 			updateBuildConfig = true
 			startNewBuild = true
 		}
 
-		if buildConfig.Spec.CommonSpec.Source.Git.Ref != webServer.Spec.WebImageStream.WebSources.SourceRepositoryRef {
-			buildConfig.Spec.CommonSpec.Source.Git.Ref = webServer.Spec.WebImageStream.WebSources.SourceRepositoryRef
+		if buildConfig.Spec.Source.Git.Ref != webServer.Spec.WebImageStream.WebSources.SourceRepositoryRef {
+			buildConfig.Spec.Source.Git.Ref = webServer.Spec.WebImageStream.WebSources.SourceRepositoryRef
 			updateBuildConfig = true
 			startNewBuild = true
 		}
 
-		if buildConfig.Spec.CommonSpec.Source.ContextDir != webServer.Spec.WebImageStream.WebSources.ContextDir {
-			buildConfig.Spec.CommonSpec.Source.ContextDir = webServer.Spec.WebImageStream.WebSources.ContextDir
+		if buildConfig.Spec.Source.ContextDir != webServer.Spec.WebImageStream.WebSources.ContextDir {
+			buildConfig.Spec.Source.ContextDir = webServer.Spec.WebImageStream.WebSources.ContextDir
 			updateBuildConfig = true
 			startNewBuild = true
 		}
 
-		if buildConfig.Spec.CommonSpec.Strategy.SourceStrategy != nil && buildConfig.Spec.CommonSpec.Strategy.SourceStrategy.From.Namespace != webServer.Spec.WebImageStream.ImageStreamNamespace {
-			buildConfig.Spec.CommonSpec.Strategy.SourceStrategy.From.Namespace = webServer.Spec.WebImageStream.ImageStreamNamespace
+		if buildConfig.Spec.Strategy.SourceStrategy != nil && buildConfig.Spec.Strategy.SourceStrategy.From.Namespace != webServer.Spec.WebImageStream.ImageStreamNamespace {
+			buildConfig.Spec.Strategy.SourceStrategy.From.Namespace = webServer.Spec.WebImageStream.ImageStreamNamespace
 			updateBuildConfig = true
 			startNewBuild = true
 		}
 
-		if buildConfig.Spec.CommonSpec.Strategy.SourceStrategy != nil && buildConfig.Spec.CommonSpec.Strategy.SourceStrategy.From.Name != webServer.Spec.WebImageStream.ImageStreamName+":latest" {
-			buildConfig.Spec.CommonSpec.Strategy.SourceStrategy.From.Name = webServer.Spec.WebImageStream.ImageStreamName + ":latest"
+		if buildConfig.Spec.Strategy.SourceStrategy != nil && buildConfig.Spec.Strategy.SourceStrategy.From.Name != webServer.Spec.WebImageStream.ImageStreamName+":latest" {
+			buildConfig.Spec.Strategy.SourceStrategy.From.Name = webServer.Spec.WebImageStream.ImageStreamName + ":latest"
 			updateBuildConfig = true
 			startNewBuild = true
 		}
@@ -559,7 +494,7 @@ func (r *WebServerReconciler) webImageSourceConfiguration(ctx context.Context, w
 			artifactDir := webServer.Spec.WebImageStream.WebSources.WebSourcesParams.ArtifactDir
 
 			if artifactDir != "" {
-				env := buildConfig.Spec.CommonSpec.Strategy.SourceStrategy.Env
+				env := buildConfig.Spec.Strategy.SourceStrategy.Env
 				found := false
 
 				for i := 0; i < len(env); i++ {
@@ -577,7 +512,7 @@ func (r *WebServerReconciler) webImageSourceConfiguration(ctx context.Context, w
 				}
 
 				if !found {
-					buildConfig.Spec.CommonSpec.Strategy.SourceStrategy.Env = append(env, corev1.EnvVar{
+					buildConfig.Spec.Strategy.SourceStrategy.Env = append(env, corev1.EnvVar{
 						Name:  "ARTIFACT_DIR",
 						Value: artifactDir,
 					})
@@ -586,11 +521,11 @@ func (r *WebServerReconciler) webImageSourceConfiguration(ctx context.Context, w
 					startNewBuild = true
 				}
 			} else {
-				env := buildConfig.Spec.CommonSpec.Strategy.SourceStrategy.Env
+				env := buildConfig.Spec.Strategy.SourceStrategy.Env
 
 				for i := 0; i < len(env); i++ {
 					if env[i].Name == "ARTIFACT_DIR" {
-						buildConfig.Spec.CommonSpec.Strategy.SourceStrategy.Env = append(env[:i], env[i+1:]...)
+						buildConfig.Spec.Strategy.SourceStrategy.Env = append(env[:i], env[i+1:]...)
 						updateBuildConfig = true
 						startNewBuild = true
 						break
@@ -601,7 +536,7 @@ func (r *WebServerReconciler) webImageSourceConfiguration(ctx context.Context, w
 			mavenUrl := webServer.Spec.WebImageStream.WebSources.WebSourcesParams.MavenMirrorURL
 
 			if mavenUrl != "" {
-				env := buildConfig.Spec.CommonSpec.Strategy.SourceStrategy.Env
+				env := buildConfig.Spec.Strategy.SourceStrategy.Env
 				found := false
 
 				for i := 0; i < len(env); i++ {
@@ -619,7 +554,7 @@ func (r *WebServerReconciler) webImageSourceConfiguration(ctx context.Context, w
 				}
 
 				if !found {
-					buildConfig.Spec.CommonSpec.Strategy.SourceStrategy.Env = append(env, corev1.EnvVar{
+					buildConfig.Spec.Strategy.SourceStrategy.Env = append(env, corev1.EnvVar{
 						Name:  "MAVEN_MIRROR_URL",
 						Value: mavenUrl,
 					})
@@ -628,11 +563,11 @@ func (r *WebServerReconciler) webImageSourceConfiguration(ctx context.Context, w
 					startNewBuild = true
 				}
 			} else {
-				env := buildConfig.Spec.CommonSpec.Strategy.SourceStrategy.Env
+				env := buildConfig.Spec.Strategy.SourceStrategy.Env
 
 				for i := 0; i < len(env); i++ {
 					if env[i].Name == "MAVEN_MIRROR_URL" {
-						buildConfig.Spec.CommonSpec.Strategy.SourceStrategy.Env = append(env[:i], env[i+1:]...)
+						buildConfig.Spec.Strategy.SourceStrategy.Env = append(env[:i], env[i+1:]...)
 						updateBuildConfig = true
 						startNewBuild = true
 						break
@@ -640,8 +575,8 @@ func (r *WebServerReconciler) webImageSourceConfiguration(ctx context.Context, w
 				}
 			}
 		} else {
-			if len(buildConfig.Spec.CommonSpec.Strategy.SourceStrategy.Env) != 0 {
-				buildConfig.Spec.CommonSpec.Strategy.SourceStrategy.Env = []corev1.EnvVar{}
+			if len(buildConfig.Spec.Strategy.SourceStrategy.Env) != 0 {
+				buildConfig.Spec.Strategy.SourceStrategy.Env = []corev1.EnvVar{}
 				updateBuildConfig = true
 				startNewBuild = true
 			}
@@ -701,7 +636,7 @@ func (r *WebServerReconciler) webImageSourceConfiguration(ctx context.Context, w
 				return reconcile.Result{}, err
 			}
 
-			err = r.Client.Create(ctx, build)
+			err = r.Create(ctx, build)
 			if err != nil {
 				if errors.IsAlreadyExists(err) {
 					// Build already exists, do nothing
@@ -744,7 +679,11 @@ func (r *WebServerReconciler) webImageSourceConfiguration(ctx context.Context, w
 		err = r.Get(ctx, types.NamespacedName{Name: webServer.Spec.ApplicationName, Namespace: webServer.Namespace}, buildConfig)
 
 		if err == nil {
-			r.Delete(ctx, buildConfig)
+			err = r.Delete(ctx, buildConfig)
+
+			if err != nil {
+				log.Error(err, "BuildConfig was not properly deleted")
+			}
 		}
 	}
 
@@ -811,7 +750,7 @@ func (r *WebServerReconciler) useSessionClusteringConfig(ctx context.Context, we
 
 		// Check if a Service for DNSPing already exists, and if not create a new one
 		dnsService := r.generateServiceForDNS(webServer)
-		result, err = r.createService(ctx, webServer, dnsService, dnsService.Name, dnsService.Namespace)
+		result, err = r.createService(ctx, dnsService, dnsService.Name, dnsService.Namespace)
 		if err != nil || result != (ctrl.Result{}) {
 			return result, err
 		}
@@ -820,15 +759,15 @@ func (r *WebServerReconciler) useSessionClusteringConfig(ctx context.Context, we
 	return result, err
 }
 
-func (r *WebServerReconciler) createService(ctx context.Context, webServer *webserversv1alpha1.WebServer, resource *corev1.Service, resourceName string, resourceNamespace string) (ctrl.Result, error) {
-	err := r.Client.Get(ctx, client.ObjectKey{
+func (r *WebServerReconciler) createService(ctx context.Context, resource *corev1.Service, resourceName, resourceNamespace string) (ctrl.Result, error) {
+	err := r.Get(ctx, client.ObjectKey{
 		Namespace: resourceNamespace,
 		Name:      resourceName,
 	}, resource)
 	if err != nil && errors.IsNotFound(err) {
 		// Create a new resource
 		log.Info("Creating a new Service: " + resourceName + " Namespace: " + resourceNamespace)
-		err = r.Client.Create(ctx, resource)
+		err = r.Create(ctx, resource)
 		if err != nil && !errors.IsAlreadyExists(err) {
 			log.Error(err, "Failed to create a new Service: "+resourceName+" Namespace: "+resourceNamespace)
 			return reconcile.Result{}, err
@@ -849,12 +788,12 @@ func (r *WebServerReconciler) checkRoleBinding(ctx context.Context, webServer *w
 	listOpts := []client.ListOption{
 		client.InNamespace(webServer.Namespace),
 	}
-	err := r.Client.List(ctx, roleBindingList, listOpts...)
+	err := r.List(ctx, roleBindingList, listOpts...)
 	if err != nil {
 		log.Error(err, "checkRoleBinding")
 		return false
 	}
-	var roleBindings []rbac.RoleBinding = roleBindingList.Items
+	var roleBindings = roleBindingList.Items
 	for _, rolebinding := range roleBindings {
 		// Look for ServiceAccount / default in subjects:
 		for _, subject := range rolebinding.Subjects {
@@ -883,7 +822,8 @@ func (r *WebServerReconciler) checkRoleBinding(ctx context.Context, webServer *w
 // Test for the "view" RoleBinding and if not existing try to create it, if that fails we can't use useKUBEPing
 // first bool = Role Binding exist
 // second bool = We need to requeue or not...
-
+//
+//nolint:unparam
 func (r *WebServerReconciler) createRoleBinding(ctx context.Context, webServer *webserversv1alpha1.WebServer, resource *rbac.RoleBinding, resourceName string, resourceNamespace string) (bool, bool, error) {
 	// First try to check if there is a roleBinding that allows KUBEPing
 	checked := r.checkRoleBinding(ctx, webServer)
@@ -892,14 +832,14 @@ func (r *WebServerReconciler) createRoleBinding(ctx context.Context, webServer *
 	}
 
 	// Then try to create it.
-	err := r.Client.Get(ctx, client.ObjectKey{
+	err := r.Get(ctx, client.ObjectKey{
 		Namespace: resourceNamespace,
 		Name:      resourceName,
 	}, resource)
 	if err != nil && errors.IsNotFound(err) {
 		// Create a new resource
 		log.Info("Creating a new RoleBinding: " + resourceName + " Namespace: " + resourceNamespace)
-		err = r.Client.Create(ctx, resource)
+		err = r.Create(ctx, resource)
 		if err != nil && !errors.IsAlreadyExists(err) {
 			if errors.IsForbidden(err) {
 				log.Info("No permission to create a new RoleBinding: " + resourceName + " Namespace: " + resourceNamespace)
@@ -919,15 +859,15 @@ func (r *WebServerReconciler) createRoleBinding(ctx context.Context, webServer *
 	return true, false, nil
 }
 
-func (r *WebServerReconciler) createConfigMap(ctx context.Context, webServer *webserversv1alpha1.WebServer, resource *corev1.ConfigMap, resourceName string, resourceNamespace string) (ctrl.Result, error) {
-	err := r.Client.Get(ctx, client.ObjectKey{
+func (r *WebServerReconciler) createConfigMap(ctx context.Context, resource *corev1.ConfigMap, resourceName, resourceNamespace string) (ctrl.Result, error) {
+	err := r.Get(ctx, client.ObjectKey{
 		Namespace: resourceNamespace,
 		Name:      resourceName,
 	}, resource)
 	if err != nil && errors.IsNotFound(err) {
 		// Create a new resource
 		log.Info("Creating a new ConfigMap: " + resourceName + " Namespace: " + resourceNamespace)
-		err = r.Client.Create(ctx, resource)
+		err = r.Create(ctx, resource)
 		if err != nil && !errors.IsAlreadyExists(err) {
 			log.Error(err, "Failed to create a new ConfigMap: "+resourceName+" Namespace: "+resourceNamespace)
 			return reconcile.Result{}, err
@@ -941,15 +881,15 @@ func (r *WebServerReconciler) createConfigMap(ctx context.Context, webServer *we
 	return reconcile.Result{}, err
 }
 
-func (r *WebServerReconciler) createPersistentVolumeClaim(ctx context.Context, webServer *webserversv1alpha1.WebServer, resource *corev1.PersistentVolumeClaim, resourceName string, resourceNamespace string) (ctrl.Result, error) {
-	err := r.Client.Get(ctx, client.ObjectKey{
+func (r *WebServerReconciler) createPersistentVolumeClaim(ctx context.Context, resource *corev1.PersistentVolumeClaim, resourceName, resourceNamespace string) (ctrl.Result, error) {
+	err := r.Get(ctx, client.ObjectKey{
 		Namespace: resourceNamespace,
 		Name:      resourceName,
 	}, resource)
 	if err != nil && errors.IsNotFound(err) {
 		// Create a new resource
 		log.Info("Creating a new PersistentVolumeClaim: " + resourceName + " Namespace: " + resourceNamespace)
-		err = r.Client.Create(ctx, resource)
+		err = r.Create(ctx, resource)
 		if err != nil && !errors.IsAlreadyExists(err) {
 			log.Error(err, "Failed to create a new PersistentVolumeClaim: "+resourceName+" Namespace: "+resourceNamespace)
 			return reconcile.Result{}, err
@@ -963,15 +903,15 @@ func (r *WebServerReconciler) createPersistentVolumeClaim(ctx context.Context, w
 	return reconcile.Result{}, err
 }
 
-func (r *WebServerReconciler) createBuildPod(ctx context.Context, webServer *webserversv1alpha1.WebServer, resource *corev1.Pod, resourceName string, resourceNamespace string) (ctrl.Result, error) {
-	err := r.Client.Get(ctx, client.ObjectKey{
+func (r *WebServerReconciler) createBuildPod(ctx context.Context, resource *corev1.Pod, resourceName, resourceNamespace string) (ctrl.Result, error) {
+	err := r.Get(ctx, client.ObjectKey{
 		Namespace: resourceNamespace,
 		Name:      resourceName,
 	}, resource)
 	if err != nil && errors.IsNotFound(err) {
 		// Create a new resource
 		log.Info("Creating a new Build Pod: " + resourceName + " Namespace: " + resourceNamespace)
-		err = r.Client.Create(ctx, resource)
+		err = r.Create(ctx, resource)
 		if err != nil && !errors.IsAlreadyExists(err) {
 			log.Error(err, "Failed to create a new Pod: "+resourceName+" Namespace: "+resourceNamespace)
 			return reconcile.Result{}, err
@@ -988,13 +928,13 @@ func (r *WebServerReconciler) createBuildPod(ctx context.Context, webServer *web
 }
 
 func (r *WebServerReconciler) createDeployment(ctx context.Context, webServer *webserversv1alpha1.WebServer, resource *kbappsv1.Deployment, resourceName string, resourceNamespace string) (ctrl.Result, error) {
-	err := r.Client.Get(ctx, types.NamespacedName{Name: resourceName, Namespace: resourceNamespace}, resource)
+	err := r.Get(ctx, types.NamespacedName{Name: resourceName, Namespace: resourceNamespace}, resource)
 
 	if err != nil && errors.IsNotFound(err) {
 		// Create a new resource
 		log.Info("Creating a new Deployment: " + resourceName + " Namespace: " + resourceNamespace)
-		resource.ObjectMeta.Labels["webserver-hash"] = r.getWebServerHash(webServer)
-		err = r.Client.Create(ctx, resource)
+		resource.Labels["webserver-hash"] = r.getWebServerHash(webServer)
+		err = r.Create(ctx, resource)
 		if err != nil && !errors.IsAlreadyExists(err) {
 			log.Error(err, "Failed to create a new Deployment: "+resourceName+" Namespace: "+resourceNamespace)
 			return reconcile.Result{}, err
@@ -1012,13 +952,13 @@ func (r *WebServerReconciler) createStatefulSet(ctx context.Context, webServer *
 	name := resource.Name
 	namespace := resource.Namespace
 
-	err := r.Client.Get(ctx, types.NamespacedName{Name: name, Namespace: namespace}, resource)
+	err := r.Get(ctx, types.NamespacedName{Name: name, Namespace: namespace}, resource)
 
 	if err != nil && errors.IsNotFound(err) {
 		// Create a new resource
 		log.Info("Creating a new StatefulSet: " + name + " Namespace: " + namespace)
-		resource.ObjectMeta.Labels["webserver-hash"] = r.getWebServerHash(webServer)
-		err = r.Client.Create(ctx, resource)
+		resource.Labels["webserver-hash"] = r.getWebServerHash(webServer)
+		err = r.Create(ctx, resource)
 		if err != nil && !errors.IsAlreadyExists(err) {
 			log.Error(err, "Failed to create a new StatefulSet: "+name+" Namespace: "+namespace)
 			return reconcile.Result{}, err
@@ -1032,15 +972,15 @@ func (r *WebServerReconciler) createStatefulSet(ctx context.Context, webServer *
 	return reconcile.Result{}, err
 }
 
-func (r *WebServerReconciler) createImageStream(ctx context.Context, webServer *webserversv1alpha1.WebServer, resource *imagestreamv1.ImageStream, resourceName string, resourceNamespace string) (ctrl.Result, error) {
-	err := r.Client.Get(ctx, client.ObjectKey{
+func (r *WebServerReconciler) createImageStream(ctx context.Context, resource *imagestreamv1.ImageStream, resourceName, resourceNamespace string) (ctrl.Result, error) {
+	err := r.Get(ctx, client.ObjectKey{
 		Namespace: resourceNamespace,
 		Name:      resourceName,
 	}, resource)
 	if err != nil && errors.IsNotFound(err) {
 		// Create a new resource
 		log.Info("Creating a new ImageStream: " + resourceName + " Namespace: " + resourceNamespace)
-		err = r.Client.Create(ctx, resource)
+		err = r.Create(ctx, resource)
 		if err != nil && !errors.IsAlreadyExists(err) {
 			log.Error(err, "Failed to create a new ImageStream: "+resourceName+" Namespace: "+resourceNamespace)
 			return reconcile.Result{}, err
@@ -1054,15 +994,15 @@ func (r *WebServerReconciler) createImageStream(ctx context.Context, webServer *
 	return reconcile.Result{}, err
 }
 
-func (r *WebServerReconciler) createBuildConfig(ctx context.Context, webServer *webserversv1alpha1.WebServer, resource *buildv1.BuildConfig, resourceName string, resourceNamespace string) (ctrl.Result, error) {
-	err := r.Client.Get(ctx, client.ObjectKey{
+func (r *WebServerReconciler) createBuildConfig(ctx context.Context, resource *buildv1.BuildConfig, resourceName, resourceNamespace string) (ctrl.Result, error) {
+	err := r.Get(ctx, client.ObjectKey{
 		Namespace: resourceNamespace,
 		Name:      resourceName,
 	}, resource)
 	if err != nil && errors.IsNotFound(err) {
 		// Create a new resource
 		log.Info("Creating a new BuildConfig: " + resourceName + " Namespace: " + resourceNamespace)
-		err = r.Client.Create(ctx, resource)
+		err = r.Create(ctx, resource)
 		if err != nil && !errors.IsAlreadyExists(err) {
 			log.Error(err, "Failed to create a new BuildConfig: "+resourceName+" Namespace: "+resourceNamespace)
 			return reconcile.Result{}, err
@@ -1076,15 +1016,15 @@ func (r *WebServerReconciler) createBuildConfig(ctx context.Context, webServer *
 	return reconcile.Result{}, err
 }
 
-func (r *WebServerReconciler) createRoute(ctx context.Context, webServer *webserversv1alpha1.WebServer, resource *routev1.Route, resourceName string, resourceNamespace string) (ctrl.Result, error) {
-	err := r.Client.Get(ctx, client.ObjectKey{
+func (r *WebServerReconciler) createRoute(ctx context.Context, resource *routev1.Route, resourceName, resourceNamespace string) (ctrl.Result, error) {
+	err := r.Get(ctx, client.ObjectKey{
 		Namespace: resourceNamespace,
 		Name:      resourceName,
 	}, resource)
 	if err != nil && errors.IsNotFound(err) {
 		// Create a new resource
 		log.Info("Creating a new Route: " + resourceName + " Namespace: " + resourceNamespace)
-		err = r.Client.Create(ctx, resource)
+		err = r.Create(ctx, resource)
 		if err != nil && !errors.IsAlreadyExists(err) {
 			log.Error(err, "Failed to create a new Route: "+resourceName+" Namespace: "+resourceNamespace)
 			return reconcile.Result{}, err
@@ -1098,7 +1038,7 @@ func (r *WebServerReconciler) createRoute(ctx context.Context, webServer *webser
 	return reconcile.Result{}, err
 }
 
-func (r *WebServerReconciler) checkBuildPodPhase(buildPod *corev1.Pod) (reconcile.Result, error) {
+func (r *WebServerReconciler) checkBuildPodPhase(buildPod *corev1.Pod) reconcile.Result {
 	if buildPod.Status.Phase != corev1.PodSucceeded {
 		switch buildPod.Status.Phase {
 		case corev1.PodFailed:
@@ -1110,9 +1050,9 @@ func (r *WebServerReconciler) checkBuildPodPhase(buildPod *corev1.Pod) (reconcil
 		default:
 			log.Info("Unknown build pod status")
 		}
-		return reconcile.Result{RequeueAfter: (5 * time.Second)}, nil
+		return reconcile.Result{RequeueAfter: (5 * time.Second)}
 	}
-	return reconcile.Result{}, nil
+	return reconcile.Result{}
 }
 
 // getPodList lists pods which belongs to the Web server
@@ -1124,7 +1064,7 @@ func (r *WebServerReconciler) getPodList(ctx context.Context, webServer *webserv
 		client.InNamespace(webServer.Namespace),
 		client.MatchingLabels(r.generateLabelsForWeb(webServer)),
 	}
-	err := r.Client.List(ctx, podList, listOpts...)
+	err := r.List(ctx, podList, listOpts...)
 
 	if err == nil {
 		// sorting pods by number in the name
@@ -1187,7 +1127,7 @@ func (r *WebServerReconciler) generateSelectorLabelsForWeb(webServer *webservers
 //	expecting the format which the StatefulSet works with which is `<podname>-<number>`
 func (r *WebServerReconciler) sortPodListByName(podList *corev1.PodList) *corev1.PodList {
 	sort.SliceStable(podList.Items, func(i, j int) bool {
-		return podList.Items[i].ObjectMeta.Name < podList.Items[j].ObjectMeta.Name
+		return podList.Items[i].Name < podList.Items[j].Name
 	})
 	return podList
 }
@@ -1232,10 +1172,10 @@ func (r *WebServerReconciler) getWebServerHash(webServer *webserversv1alpha1.Web
 	h.Write([]byte("IsNotJWS:" + fmt.Sprint(webServer.Spec.IsNotJWS)))
 
 	/* add the labels */
-	if webServer.ObjectMeta.Labels != nil {
-		keys := make([]string, len(webServer.ObjectMeta.Labels))
+	if webServer.Labels != nil {
+		keys := make([]string, len(webServer.Labels))
 		i := 0
-		for k := range webServer.ObjectMeta.Labels {
+		for k := range webServer.Labels {
 			keys[i] = k
 			i++
 		}
@@ -1243,7 +1183,7 @@ func (r *WebServerReconciler) getWebServerHash(webServer *webserversv1alpha1.Web
 
 		// To perform the opertion you want
 		for _, k := range keys {
-			h.Write([]byte(k + ":" + webServer.ObjectMeta.Labels[k]))
+			h.Write([]byte(k + ":" + webServer.Labels[k]))
 		}
 
 	}
@@ -1307,7 +1247,7 @@ func (r *WebServerReconciler) getWebServerHash(webServer *webserversv1alpha1.Web
 func (r *WebServerReconciler) getReplicaStatus(ctx context.Context, webServer *webserversv1alpha1.WebServer) int32 {
 	if webServer.Spec.Volume != nil && len(webServer.Spec.Volume.VolumeClaimTemplates) > 0 {
 		statefulset := &kbappsv1.StatefulSet{}
-		err := r.Client.Get(ctx, types.NamespacedName{Name: webServer.Spec.ApplicationName, Namespace: webServer.Namespace}, statefulset)
+		err := r.Get(ctx, types.NamespacedName{Name: webServer.Spec.ApplicationName, Namespace: webServer.Namespace}, statefulset)
 
 		if err != nil {
 			log.Error(err, "Failed to get StatefulSet: "+webServer.Spec.ApplicationName)
@@ -1317,7 +1257,7 @@ func (r *WebServerReconciler) getReplicaStatus(ctx context.Context, webServer *w
 		return statefulset.Status.Replicas
 	} else {
 		deployment := &kbappsv1.Deployment{}
-		err := r.Client.Get(ctx, types.NamespacedName{Name: webServer.Spec.ApplicationName, Namespace: webServer.Namespace}, deployment)
+		err := r.Get(ctx, types.NamespacedName{Name: webServer.Spec.ApplicationName, Namespace: webServer.Namespace}, deployment)
 		if err != nil {
 			log.Error(err, "Failed to get Deployment: "+webServer.Spec.ApplicationName)
 			return 0
@@ -1349,7 +1289,7 @@ func (r *WebServerReconciler) setUseKUBEPing(ctx context.Context, webServer *web
 	}
 	if needUpdate {
 		log.Info("The UseKUBEPing annotation is being updated")
-		err := r.Client.Update(ctx, webServer)
+		err := r.Update(ctx, webServer)
 		if err != nil {
 			if errors.IsConflict(err) {
 				log.Info("setUseKUBEPing needs webServer UPDATE!!!")
@@ -1392,11 +1332,11 @@ func (r *WebServerReconciler) needgetUseKUBEPing(webServer *webserversv1alpha1.W
 // CustomResourceDefinitionExists returns true if the CRD exists in the cluster
 func CustomResourceDefinitionExists(gvk schema.GroupVersionKind, c *rest.Config) bool {
 
-	client, err := discovery.NewDiscoveryClientForConfig(c)
+	discoveryClient, err := discovery.NewDiscoveryClientForConfig(c)
 	if err != nil {
 		return false
 	}
-	api, err := client.ServerResourcesForGroupVersion(gvk.GroupVersion().String())
+	api, err := discoveryClient.ServerResourcesForGroupVersion(gvk.GroupVersion().String())
 	if err != nil {
 		return false
 	}
@@ -1434,7 +1374,7 @@ func (r *WebServerReconciler) checkOwnedObjects(ctx context.Context, webServer *
 	if webServer.Spec.Volume != nil && len(webServer.Spec.Volume.VolumeClaimTemplates) > 0 {
 		log.Info("CheckOwnedObjects: statefulset case")
 		for _, deployment := range ownedDeployments.Items {
-			err = r.Client.Delete(ctx, &deployment)
+			err = r.Delete(ctx, &deployment)
 			if err != nil {
 				log.Error(err, "Failed to delete Deployment.", "Deployment.Namespace", deployment.Namespace, "Deployment.Name", deployment.Name)
 				return err
@@ -1442,7 +1382,7 @@ func (r *WebServerReconciler) checkOwnedObjects(ctx context.Context, webServer *
 		}
 		for _, statefulset := range ownedStatefulSets.Items {
 			if statefulset.Name != webServer.Spec.ApplicationName {
-				err = r.Client.Delete(ctx, &statefulset)
+				err = r.Delete(ctx, &statefulset)
 				if err != nil {
 					log.Error(err, "Failed to delete StatefulSet.", "StatefulSet.Namespace", statefulset.Namespace, "StatefulSet.Name", statefulset.Name)
 					return err
@@ -1452,7 +1392,7 @@ func (r *WebServerReconciler) checkOwnedObjects(ctx context.Context, webServer *
 	} else {
 		log.Info("CheckOwnedObjects: deployment case")
 		for _, statefulset := range ownedStatefulSets.Items {
-			err = r.Client.Delete(ctx, &statefulset)
+			err = r.Delete(ctx, &statefulset)
 			if err != nil {
 				log.Error(err, "Failed to delete StatefulSet.", "StatefulSet.Namespace", statefulset.Namespace, "StatefulSet.Name", statefulset.Name)
 				return err
@@ -1460,7 +1400,7 @@ func (r *WebServerReconciler) checkOwnedObjects(ctx context.Context, webServer *
 		}
 		for _, deployment := range ownedDeployments.Items {
 			if deployment.Name != webServer.Spec.ApplicationName {
-				err = r.Client.Delete(ctx, &deployment)
+				err = r.Delete(ctx, &deployment)
 				if err != nil {
 					log.Error(err, "Failed to delete Deployment.", "Deployment.Namespace", deployment.Namespace, "Deployment.Name", deployment.Name)
 					return err
