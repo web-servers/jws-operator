@@ -122,10 +122,7 @@ STORAGE_DRIVER=vfs buildah push --authfile /auth/.dockerconfigjson ${webAppWarIm
 			createdWebserver := &webserversv1alpha1.WebServer{}
 			Eventually(func() bool {
 				err := k8sClient.Get(ctx, types.NamespacedName{Name: name, Namespace: namespace}, createdWebserver)
-				if err != nil {
-					return false
-				}
-				return true
+				return err == nil
 			}, time.Second*10, time.Millisecond*250).Should(BeTrue())
 
 			createdWebserver.Spec.WebImage.WebApp.Builder.ApplicationBuildScript = `#!/bin/sh

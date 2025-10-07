@@ -156,10 +156,10 @@ type TLSConfig struct {
 }
 
 type PersistentLogs struct {
-	//If true operator will log tomcat's catalina logs
+	// If true operator will log tomcat's catalina logs
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Catalina Logs",order=1,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:booleanSwitch"}
 	CatalinaLogs bool `json:"catalinaLogs,omitempty"`
-	//If true operator will log tomcat's access logs
+	// If true operator will log tomcat's access logs
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Access Logs",order=2,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:booleanSwitch"}
 	AccessLogs bool `json:"enableAccessLogs,omitempty"`
 	// VolumeName is the name of pv we eant to bound

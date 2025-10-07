@@ -21,11 +21,11 @@ func createWebServer(webServer *webserversv1alpha1.WebServer) {
 	// create the webserver
 	Expect(k8sClient.Create(ctx, webServer)).Should(Succeed())
 	createdWebserver := getWebServer(webServer.Name)
-	fmt.Printf("new WebServer Name: %s Namespace: %s\n", createdWebserver.ObjectMeta.Name, createdWebserver.ObjectMeta.Namespace)
+	fmt.Printf("new WebServer Name: %s Namespace: %s\n", createdWebserver.Name, createdWebserver.Namespace)
 }
 
 func deleteWebServer(webServer *webserversv1alpha1.WebServer) {
-	k8sClient.Delete(ctx, webServer)
+	Expect(k8sClient.Delete(ctx, webServer)).Should(Succeed())
 	webserverLookupKey := types.NamespacedName{Name: webServer.Name, Namespace: namespace}
 
 	Eventually(func() bool {
@@ -40,10 +40,7 @@ func getWebServer(name string) *webserversv1alpha1.WebServer {
 
 	Eventually(func() bool {
 		err := k8sClient.Get(ctx, webserverLookupKey, createdWebserver)
-		if err != nil {
-			return false
-		}
-		return true
+		return err == nil
 	}, time.Second*10, time.Millisecond*250).Should(BeTrue())
 
 	return createdWebserver
@@ -62,7 +59,7 @@ func createImageStream(imgStream *imagev1.ImageStream) {
 }
 
 func deleteImageStream(imgStream *imagev1.ImageStream) {
-	k8sClient.Delete(ctx, imgStream)
+	Expect(k8sClient.Delete(ctx, imgStream)).Should(Succeed())
 	imgStreamLookupKey := types.NamespacedName{Name: imgStream.Name, Namespace: namespace}
 
 	Eventually(func() bool {
@@ -77,10 +74,7 @@ func getPod(name string) *corev1.Pod {
 
 	Eventually(func() bool {
 		err := k8sClient.Get(ctx, webserverLookupKey, pod)
-		if err != nil {
-			return false
-		}
-		return true
+		return err == nil
 	}, time.Second*10, time.Millisecond*250).Should(BeTrue())
 
 	return pod

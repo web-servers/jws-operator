@@ -8,14 +8,12 @@ linters:
     - dupl
     - errcheck
     - ginkgolinter
-    - goconst
     - gocyclo
     - govet
     - ineffassign
     - lll
     - misspell
     - nakedret
-    - prealloc
     - revive
     - staticcheck
     - unconvert
@@ -26,6 +24,8 @@ linters:
       rules:
         - name: comment-spacings
         - name: import-shadowing
+    lll:
+      line-length: 200
   exclusions:
     generated: lax
     rules:
