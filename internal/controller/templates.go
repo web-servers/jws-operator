@@ -53,10 +53,13 @@ func (r *WebServerReconciler) generateRoutingService(webServer *webserversv1alph
 		service.Spec.ClusterIP = "None"
 	}
 
-	controllerutil.SetControllerReference(webServer, service, r.Scheme)
+	err := controllerutil.SetControllerReference(webServer, service, r.Scheme)
+	if err != nil {
+		log.Error(err, "SetControllerReference was not successful")
+	}
 
-	//serviceYaml, _ := yaml.Marshal(service)
-	//log.Info("service object: " + string(serviceYaml))
+	// serviceYaml, _ := yaml.Marshal(service)
+	// log.Info("service object: " + string(serviceYaml))
 	return service
 
 }
@@ -93,7 +96,11 @@ func (r *WebServerReconciler) generateRoleBinding(webServer *webserversv1alpha1.
 		}},
 	}
 
-	controllerutil.SetControllerReference(webServer, rolebinding, r.Scheme)
+	err := controllerutil.SetControllerReference(webServer, rolebinding, r.Scheme)
+	if err != nil {
+		log.Error(err, "SetControllerReference was not successful")
+	}
+
 	return rolebinding
 }
 
@@ -114,7 +121,11 @@ func (r *WebServerReconciler) generateServiceForDNS(webServer *webserversv1alpha
 		},
 	}
 
-	controllerutil.SetControllerReference(webServer, service, r.Scheme)
+	err := controllerutil.SetControllerReference(webServer, service, r.Scheme)
+	if err != nil {
+		log.Error(err, "SetControllerReference was not successful")
+	}
+
 	return service
 }
 
@@ -126,7 +137,11 @@ func (r *WebServerReconciler) generateConfigMapForDNSTLS(webServer *webserversv1
 		Data:       r.generateCommandForServerXml(webServer),
 	}
 
-	controllerutil.SetControllerReference(webServer, cmap, r.Scheme)
+	err := controllerutil.SetControllerReference(webServer, cmap, r.Scheme)
+	if err != nil {
+		log.Error(err, "SetControllerReference was not successful")
+	}
+
 	return cmap
 }
 
@@ -138,7 +153,11 @@ func (r *WebServerReconciler) generateConfigMapForASFStart(webServer *webservers
 		Data:       r.generateCommandForASFStart(webServer),
 	}
 
-	controllerutil.SetControllerReference(webServer, cmap, r.Scheme)
+	err := controllerutil.SetControllerReference(webServer, cmap, r.Scheme)
+	if err != nil {
+		log.Error(err, "SetControllerReference was not successful")
+	}
+
 	return cmap
 }
 
@@ -149,7 +168,11 @@ func (r *WebServerReconciler) generateConfigMapForReadinessProbe(webServer *webs
 		Data:       r.generateReadinessProbeScript(webServer),
 	}
 
-	controllerutil.SetControllerReference(webServer, cmap, r.Scheme)
+	err := controllerutil.SetControllerReference(webServer, cmap, r.Scheme)
+	if err != nil {
+		log.Error(err, "SetControllerReference was not successful")
+	}
+
 	return cmap
 }
 
@@ -160,7 +183,11 @@ func (r *WebServerReconciler) generateConfigMapForLivenessProbe(webServer *webse
 		Data:       r.generateLivenessProbeScript(webServer),
 	}
 
-	controllerutil.SetControllerReference(webServer, cmap, r.Scheme)
+	err := controllerutil.SetControllerReference(webServer, cmap, r.Scheme)
+	if err != nil {
+		log.Error(err, "SetControllerReference was not successful")
+	}
+
 	return cmap
 }
 
@@ -169,10 +196,14 @@ func (r *WebServerReconciler) generateConfigMapForLoggingProperties(webServer *w
 
 	cmap := &corev1.ConfigMap{
 		ObjectMeta: r.generateObjectMeta(webServer, "config-volume"),
-		Data:       r.generateLoggingProperties(webServer),
+		Data:       r.generateLoggingProperties(),
 	}
 
-	controllerutil.SetControllerReference(webServer, cmap, r.Scheme)
+	err := controllerutil.SetControllerReference(webServer, cmap, r.Scheme)
+	if err != nil {
+		log.Error(err, "SetControllerReference was not successful")
+	}
+
 	return cmap
 }
 
@@ -189,7 +220,7 @@ func (r *WebServerReconciler) generateConfigMapForPrometheus(webServer *webserve
 			Namespace: "openshift-monitoring",
 		},
 	}
-	//tricky workaround to make the yaml as needed
+	// tricky workaround to make the yaml as needed
 	value := map[string]interface{}{
 		"enableUserWorkload": true,
 	}
@@ -198,7 +229,11 @@ func (r *WebServerReconciler) generateConfigMapForPrometheus(webServer *webserve
 		"config.yaml": string(marshaled),
 	}
 
-	controllerutil.SetControllerReference(webServer, cmap, r.Scheme)
+	err := controllerutil.SetControllerReference(webServer, cmap, r.Scheme)
+	if err != nil {
+		log.Error(err, "SetControllerReference was not successful")
+	}
+
 	return cmap
 }
 
@@ -208,10 +243,10 @@ func (r *WebServerReconciler) generatePersistentVolumeClaimForLogging(webServer 
 	pvc := &corev1.PersistentVolumeClaim{
 		ObjectMeta: r.generateObjectMeta(webServer, "volume-pvc-"+webServer.Name),
 		Spec: corev1.PersistentVolumeClaimSpec{
-			AccessModes: []corev1.PersistentVolumeAccessMode{corev1.ReadWriteMany}, //works only if you remove "default" from StorageClass
+			AccessModes: []corev1.PersistentVolumeAccessMode{corev1.ReadWriteMany}, // works only if you remove "default" from StorageClass
 			Resources: corev1.VolumeResourceRequirements{
 				Requests: corev1.ResourceList{
-					corev1.ResourceName(corev1.ResourceStorage): resource.MustParse("1Gi"),
+					corev1.ResourceStorage: resource.MustParse("1Gi"),
 				},
 			},
 		},
@@ -225,7 +260,11 @@ func (r *WebServerReconciler) generatePersistentVolumeClaimForLogging(webServer 
 		pvc.Spec.StorageClassName = &webServer.Spec.PersistentLogsConfig.StorageClass
 	}
 
-	controllerutil.SetControllerReference(webServer, pvc, r.Scheme)
+	err := controllerutil.SetControllerReference(webServer, pvc, r.Scheme)
+	if err != nil {
+		log.Error(err, "SetControllerReference was not successful")
+	}
+
 	return pvc
 }
 
@@ -237,7 +276,11 @@ func (r *WebServerReconciler) generateConfigMapForCustomBuildScript(webServer *w
 		Data:       r.generateCommandForBuider(webServer.Spec.WebImage.WebApp.Builder.ApplicationBuildScript),
 	}
 
-	controllerutil.SetControllerReference(webServer, cmap, r.Scheme)
+	err := controllerutil.SetControllerReference(webServer, cmap, r.Scheme)
+	if err != nil {
+		log.Error(err, "SetControllerReference was not successful")
+	}
+
 	return cmap
 }
 
@@ -332,7 +375,11 @@ func (r *WebServerReconciler) generateBuildPod(webServer *webserversv1alpha1.Web
 		},
 	}
 
-	controllerutil.SetControllerReference(webServer, pod, r.Scheme)
+	err := controllerutil.SetControllerReference(webServer, pod, r.Scheme)
+	if err != nil {
+		log.Error(err, "SetControllerReference was not successful")
+	}
+
 	return pod
 }
 
@@ -347,7 +394,7 @@ func (r *WebServerReconciler) generateAnnotationsDeployment(webServer *webserver
 }
 
 func (r *WebServerReconciler) generateStatefulSet(webServer *webserversv1alpha1.WebServer, applicationImage string) *kbappsv1.StatefulSet {
-	replicas := int32(webServer.Spec.Replicas)
+	replicas := webServer.Spec.Replicas
 	objectMeta := r.generateObjectMeta(webServer, webServer.Spec.ApplicationName)
 	objectMeta.Labels = r.generateLabelsForWeb(webServer)
 
@@ -367,13 +414,17 @@ func (r *WebServerReconciler) generateStatefulSet(webServer *webserversv1alpha1.
 		},
 	}
 
-	controllerutil.SetControllerReference(webServer, statefulset, r.Scheme)
+	err := controllerutil.SetControllerReference(webServer, statefulset, r.Scheme)
+	if err != nil {
+		log.Error(err, "SetControllerReference was not successful")
+	}
+
 	return statefulset
 }
 
 func (r *WebServerReconciler) generateDeployment(webServer *webserversv1alpha1.WebServer, applicationImage string) *kbappsv1.Deployment {
 
-	replicas := int32(webServer.Spec.Replicas)
+	replicas := webServer.Spec.Replicas
 	objectMeta := r.generateObjectMeta(webServer, webServer.Spec.ApplicationName)
 	objectMeta.Labels = r.generateLabelsForWeb(webServer)
 
@@ -396,13 +447,17 @@ func (r *WebServerReconciler) generateDeployment(webServer *webserversv1alpha1.W
 		},
 	}
 
-	controllerutil.SetControllerReference(webServer, deployment, r.Scheme)
+	err := controllerutil.SetControllerReference(webServer, deployment, r.Scheme)
+	if err != nil {
+		log.Error(err, "SetControllerReference was not successful")
+	}
+
 	return deployment
 }
 
 func (r *WebServerReconciler) generateUpdatedDeployment(webServer *webserversv1alpha1.WebServer, deployment *kbappsv1.Deployment, applicationImage string) {
 
-	replicas := int32(webServer.Spec.Replicas)
+	replicas := webServer.Spec.Replicas
 	objectMeta := r.generateObjectMeta(webServer, webServer.Spec.ApplicationName)
 	objectMeta.Labels = r.generateLabelsForWeb(webServer)
 
@@ -424,12 +479,15 @@ func (r *WebServerReconciler) generateUpdatedDeployment(webServer *webserversv1a
 		Template: podTemplateSpec,
 	}
 	deployment.Spec = spec
-	controllerutil.SetControllerReference(webServer, deployment, r.Scheme)
+	err := controllerutil.SetControllerReference(webServer, deployment, r.Scheme)
+	if err != nil {
+		log.Error(err, "SetControllerReference was not successful")
+	}
 }
 
 func (r *WebServerReconciler) generateUpdatedStatefulSet(webServer *webserversv1alpha1.WebServer, statefulset *kbappsv1.StatefulSet, applicationImage string) {
 
-	replicas := int32(webServer.Spec.Replicas)
+	replicas := webServer.Spec.Replicas
 	objectMeta := r.generateObjectMeta(webServer, webServer.Spec.ApplicationName)
 	objectMeta.Labels = r.generateLabelsForWeb(webServer)
 
@@ -453,7 +511,10 @@ func (r *WebServerReconciler) generateUpdatedStatefulSet(webServer *webserversv1
 		VolumeClaimTemplates: r.generatePersistentVolumeClaims(webServer),
 	}
 	statefulset.Spec = spec
-	controllerutil.SetControllerReference(webServer, statefulset, r.Scheme)
+	err := controllerutil.SetControllerReference(webServer, statefulset, r.Scheme)
+	if err != nil {
+		log.Error(err, "SetControllerReference was not successful")
+	}
 }
 
 func (r *WebServerReconciler) generateImageStream(webServer *webserversv1alpha1.WebServer) *imagev1.ImageStream {
@@ -462,7 +523,11 @@ func (r *WebServerReconciler) generateImageStream(webServer *webserversv1alpha1.
 		ObjectMeta: r.generateObjectMeta(webServer, webServer.Spec.ApplicationName),
 	}
 
-	controllerutil.SetControllerReference(webServer, imageStream, r.Scheme)
+	err := controllerutil.SetControllerReference(webServer, imageStream, r.Scheme)
+	if err != nil {
+		log.Error(err, "SetControllerReference was not successful")
+	}
+
 	return imageStream
 }
 
@@ -503,7 +568,11 @@ func (r *WebServerReconciler) generateBuildConfig(webServer *webserversv1alpha1.
 		},
 	}
 
-	controllerutil.SetControllerReference(webServer, buildConfig, r.Scheme)
+	err := controllerutil.SetControllerReference(webServer, buildConfig, r.Scheme)
+	if err != nil {
+		log.Error(err, "SetControllerReference was not successful")
+	}
+
 	return buildConfig
 }
 
@@ -656,7 +725,7 @@ func (r *WebServerReconciler) generateRoute(webServer *webserversv1alpha1.WebSer
 	objectMeta.Annotations = map[string]string{
 		"description": "Route for application's http service.",
 	}
-	route := &routev1.Route{}
+	var route *routev1.Route
 	if webServer.Spec.TLSConfig.RouteHostname == "" {
 		route = &routev1.Route{
 			ObjectMeta: objectMeta,
@@ -679,7 +748,11 @@ func (r *WebServerReconciler) generateRoute(webServer *webserversv1alpha1.WebSer
 		}
 	}
 
-	controllerutil.SetControllerReference(webServer, route, r.Scheme)
+	err := controllerutil.SetControllerReference(webServer, route, r.Scheme)
+	if err != nil {
+		log.Error(err, "SetControllerReference was not successful")
+	}
+
 	return route
 }
 
@@ -688,7 +761,8 @@ func (r *WebServerReconciler) generateSecureRoute(webServer *webserversv1alpha1.
 	objectMeta.Annotations = map[string]string{
 		"description": "Route for application's https service.",
 	}
-	route := &routev1.Route{}
+
+	var route *routev1.Route
 	if len(webServer.Spec.TLSConfig.RouteHostname) <= 3 {
 		route = &routev1.Route{
 			ObjectMeta: objectMeta,
@@ -716,7 +790,11 @@ func (r *WebServerReconciler) generateSecureRoute(webServer *webserversv1alpha1.
 		}
 	}
 
-	controllerutil.SetControllerReference(webServer, route, r.Scheme)
+	err := controllerutil.SetControllerReference(webServer, route, r.Scheme)
+	if err != nil {
+		log.Error(err, "SetControllerReference was not successful")
+	}
+
 	return route
 }
 
@@ -743,7 +821,11 @@ func (r *WebServerReconciler) generateLoadBalancer(webServer *webserversv1alpha1
 		},
 	}
 
-	controllerutil.SetControllerReference(webServer, service, r.Scheme)
+	err := controllerutil.SetControllerReference(webServer, service, r.Scheme)
+	if err != nil {
+		log.Error(err, "SetControllerReference was not successful")
+	}
+
 	return service
 }
 
@@ -753,7 +835,7 @@ func (r *WebServerReconciler) generatePodTemplate(webServer *webserversv1alpha1.
 	objectMeta := r.generateObjectMeta(webServer, webServer.Spec.ApplicationName)
 	objectMeta.Labels = r.generateLabelsForWeb(webServer)
 	objectMeta.Labels["webserver-hash"] = r.getWebServerHash(webServer)
-	var health *webserversv1alpha1.WebServerHealthCheckSpec = &webserversv1alpha1.WebServerHealthCheckSpec{}
+	var health *webserversv1alpha1.WebServerHealthCheckSpec
 	if webServer.Spec.WebImage != nil {
 		health = webServer.Spec.WebImage.WebServerHealthCheck
 	} else {
@@ -774,8 +856,8 @@ func (r *WebServerReconciler) generatePodTemplate(webServer *webserversv1alpha1.
 				Name:            webServer.Spec.ApplicationName,
 				Image:           image,
 				ImagePullPolicy: "Always",
-				ReadinessProbe:  r.generateReadinessProbe(webServer, health),
-				LivenessProbe:   r.generateLivenessProbe(webServer, health),
+				ReadinessProbe:  r.generateReadinessProbe(health),
+				LivenessProbe:   r.generateLivenessProbe(health),
 				Resources:       webServer.Spec.PodResources,
 				Ports: []corev1.ContainerPort{{
 					Name:          "jolokia",
@@ -828,13 +910,13 @@ func (r *WebServerReconciler) generateimagePullSecrets(webServer *webserversv1al
 // If defined, serverLivenessScript must be a shell script that
 // complies to the Kubernetes probes requirements and use the following format
 // shell -c "command"
-func (r *WebServerReconciler) generateLivenessProbe(webServer *webserversv1alpha1.WebServer, health *webserversv1alpha1.WebServerHealthCheckSpec) *corev1.Probe {
+func (r *WebServerReconciler) generateLivenessProbe(health *webserversv1alpha1.WebServerHealthCheckSpec) *corev1.Probe {
 	livenessProbeScript := ""
 	if health != nil {
 		livenessProbeScript = health.ServerLivenessScript
 	}
 	if livenessProbeScript != "" {
-		return r.generateCustomProbe(webServer, "livenessProbeScript")
+		return r.generateCustomProbe("livenessProbeScript")
 	} else {
 		/* Use the default one */
 		return &corev1.Probe{
@@ -854,13 +936,13 @@ func (r *WebServerReconciler) generateLivenessProbe(webServer *webserversv1alpha
 // If defined, serverReadinessScript must be a shell script that
 // complies to the Kubernetes probes requirements and use the following format
 // shell -c "command"
-func (r *WebServerReconciler) generateReadinessProbe(webServer *webserversv1alpha1.WebServer, health *webserversv1alpha1.WebServerHealthCheckSpec) *corev1.Probe {
+func (r *WebServerReconciler) generateReadinessProbe(health *webserversv1alpha1.WebServerHealthCheckSpec) *corev1.Probe {
 	readinessProbeScript := ""
 	if health != nil {
 		readinessProbeScript = health.ServerReadinessScript
 	}
 	if readinessProbeScript != "" {
-		return r.generateCustomProbe(webServer, "readinessProbeScript")
+		return r.generateCustomProbe("readinessProbeScript")
 	} else {
 		/* Use the default one */
 		return &corev1.Probe{
@@ -874,7 +956,7 @@ func (r *WebServerReconciler) generateReadinessProbe(webServer *webserversv1alph
 	}
 }
 
-func (r *WebServerReconciler) generateCustomProbe(webServer *webserversv1alpha1.WebServer, probeType string) *corev1.Probe {
+func (r *WebServerReconciler) generateCustomProbe(probeType string) *corev1.Probe {
 	// If the script has the following format: shell -c "command"
 	// we create the slice ["shell", "-c", "command"]
 	probeScriptSlice := []string{"/bin/bash", "/opt/probe/" + probeType + ".sh"}
@@ -912,7 +994,7 @@ func (r *WebServerReconciler) generateEnvVars(webServer *webserversv1alpha1.WebS
 		})
 	}
 	if webServer.Spec.PersistentLogsConfig.CatalinaLogs {
-		//custum logging.properties path
+		// custum logging.properties path
 		env = append(env, corev1.EnvVar{
 			Name:  "CATALINA_LOGGING_CONFIG",
 			Value: "-Djava.util.logging.config.file=/opt/operator_conf/logging.properties",
@@ -1002,7 +1084,7 @@ func (r *WebServerReconciler) generateVolumeMounts(webServer *webserversv1alpha1
 		})
 	}
 
-	var health *webserversv1alpha1.WebServerHealthCheckSpec = &webserversv1alpha1.WebServerHealthCheckSpec{}
+	var health = &webserversv1alpha1.WebServerHealthCheckSpec{}
 	if webServer.Spec.WebImage != nil {
 		health = webServer.Spec.WebImage.WebServerHealthCheck
 	} else {
@@ -1122,7 +1204,7 @@ func (r *WebServerReconciler) generateVolumes(webServer *webserversv1alpha1.WebS
 		})
 	}
 
-	var health *webserversv1alpha1.WebServerHealthCheckSpec = &webserversv1alpha1.WebServerHealthCheckSpec{}
+	var health = &webserversv1alpha1.WebServerHealthCheckSpec{}
 	if webServer.Spec.WebImage != nil {
 		health = webServer.Spec.WebImage.WebServerHealthCheck
 	} else {
@@ -1293,7 +1375,7 @@ func (r *WebServerReconciler) generateCommandForASFStart(webServer *webserversv1
 func (r *WebServerReconciler) generateReadinessProbeScript(webServer *webserversv1alpha1.WebServer) map[string]string {
 	cmd := make(map[string]string)
 	cmd["readinessProbeScript.sh"] = "#!/bin/sh\n"
-	var health *webserversv1alpha1.WebServerHealthCheckSpec = &webserversv1alpha1.WebServerHealthCheckSpec{}
+	var health = &webserversv1alpha1.WebServerHealthCheckSpec{}
 	if webServer.Spec.WebImage != nil {
 		health = webServer.Spec.WebImage.WebServerHealthCheck
 	} else {
@@ -1306,7 +1388,7 @@ func (r *WebServerReconciler) generateReadinessProbeScript(webServer *webservers
 func (r *WebServerReconciler) generateLivenessProbeScript(webServer *webserversv1alpha1.WebServer) map[string]string {
 	cmd := make(map[string]string)
 	cmd["livenessProbeScript.sh"] = "#!/bin/sh\n"
-	var health *webserversv1alpha1.WebServerHealthCheckSpec = &webserversv1alpha1.WebServerHealthCheckSpec{}
+	var health = &webserversv1alpha1.WebServerHealthCheckSpec{}
 	if webServer.Spec.WebImage != nil {
 		health = webServer.Spec.WebImage.WebServerHealthCheck
 	} else {
@@ -1406,7 +1488,7 @@ func (r *WebServerReconciler) generateCommandForBuider(script string) map[string
 	return cmd
 }
 
-func (r *WebServerReconciler) generateLoggingProperties(webServer *webserversv1alpha1.WebServer) map[string]string {
+func (r *WebServerReconciler) generateLoggingProperties() map[string]string {
 	cmd := make(map[string]string)
 	cmd["logging.properties"] = "handlers = java.util.logging.ConsoleHandler, 1catalina.org.apache.juli.AsyncFileHandler\n" +
 

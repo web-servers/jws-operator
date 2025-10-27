@@ -66,10 +66,7 @@ var _ = Describe("WebServerControllerTest", Ordered, func() {
 
 			Eventually(func() bool {
 				err := utils.WaitUntilReady(k8sClient, ctx, thetest, createdWebserver)
-				if err != nil {
-					return false
-				}
-				return true
+				return err == nil
 			}, timeout, retryInterval).Should(BeTrue())
 		})
 	})

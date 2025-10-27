@@ -107,14 +107,11 @@ var _ = Describe("WebServerControllerTest", Ordered, func() {
 			foundDeployment := &kbappsv1.Deployment{}
 			Eventually(func() bool {
 				err := k8sClient.Get(ctx, types.NamespacedName{Name: appName, Namespace: namespace}, foundDeployment)
-				if err != nil {
-					return false
-				}
-				return true
+				return err == nil
 			}, time.Second*10, time.Millisecond*250).Should(BeTrue())
 
 			foundImage := foundDeployment.Spec.Template.Spec.Containers[0].Image
-			Expect(foundImage == newImage).Should(BeTrue(), "Image Update Test: image check failed")
+			Expect(foundImage).Should(Equal(newImage), "Image Update Test: image check failed")
 
 			// Wait until the replicas are available
 			Eventually(func() bool {
@@ -124,7 +121,7 @@ var _ = Describe("WebServerControllerTest", Ordered, func() {
 					return false
 				}
 
-				if int32(createdWebserver.Spec.Replicas) == int32(foundDeployment.Status.AvailableReplicas) {
+				if createdWebserver.Spec.Replicas == foundDeployment.Status.AvailableReplicas {
 					return true
 				} else {
 					return false

@@ -131,10 +131,7 @@ var _ = Describe("WebServerControllerTest", Ordered, func() {
 		foundService := &corev1.Service{}
 		Eventually(func() bool {
 			err := k8sClient.Get(ctx, types.NamespacedName{Name: serviceName, Namespace: namespace}, foundService)
-			if err != nil {
-				return false
-			}
-			return true
+			return err == nil
 		}, "1m", "1s").Should(BeTrue())
 
 		// create route
@@ -143,10 +140,7 @@ var _ = Describe("WebServerControllerTest", Ordered, func() {
 		foundRoute := &routev1.Route{}
 		Eventually(func() bool {
 			err := k8sClient.Get(ctx, types.NamespacedName{Name: routeName, Namespace: namespace}, foundRoute)
-			if err != nil {
-				return false
-			}
-			return true
+			return err == nil
 		}, "1m", "1s").Should(BeTrue())
 
 		Eventually(func() string {
@@ -163,7 +157,7 @@ var _ = Describe("WebServerControllerTest", Ordered, func() {
 	AfterAll(func() {
 		deleteWebServer(webserver)
 
-		k8sClient.Delete(ctx, route)
+		Expect(k8sClient.Delete(ctx, route)).Should(Succeed())
 		routeLookupKey := types.NamespacedName{Name: routeName, Namespace: namespace}
 
 		Eventually(func() bool {
@@ -171,7 +165,7 @@ var _ = Describe("WebServerControllerTest", Ordered, func() {
 			return apierrors.IsNotFound(err)
 		}, "2m", "5s").Should(BeTrue(), "the route should be deleted")
 
-		k8sClient.Delete(ctx, service)
+		Expect(k8sClient.Delete(ctx, service)).Should(Succeed())
 		serviceLookupKey := types.NamespacedName{Name: serviceName, Namespace: namespace}
 
 		Eventually(func() bool {
@@ -197,7 +191,7 @@ var _ = Describe("WebServerControllerTest", Ordered, func() {
 					thetest.Logf("can't read Deployment")
 					return false
 				}
-				Expect(int32(webserver.Spec.Replicas) == int32(foundDeployment.Status.AvailableReplicas)).Should(BeTrue())
+				Expect(webserver.Spec.Replicas).Should(Equal(foundDeployment.Status.AvailableReplicas))
 				return true
 			}, "5m", "10s").Should(BeTrue())
 		})
