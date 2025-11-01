@@ -265,14 +265,14 @@ func (r *WebServerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 	if webServer.Spec.WebImage != nil {
 		result, err = r.webImageConfiguration(ctx, webServer)
 
-		if err != nil {
+		if err != nil || result != (ctrl.Result{}) {
 			return result, err
 		}
 
 	} else if webServer.Spec.WebImageStream != nil {
 		result, err = r.webImageSourceConfiguration(ctx, webServer)
 
-		if err != nil {
+		if err != nil || result != (ctrl.Result{}) {
 			return result, err
 		}
 	}
