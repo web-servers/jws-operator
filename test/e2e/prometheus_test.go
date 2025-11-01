@@ -58,7 +58,7 @@ var _ = Describe("WebServerControllerTest", Ordered, func() {
 
 	BeforeAll(func() {
 		crd := &apiextensionsv1.CustomResourceDefinition{}
-		Expect(k8sClient.Get(ctx, types.NamespacedName{Name: "servicemonitors.monitoring.coreos.com", Namespace: "openshift-monitoring"}, crd)).Should(Succeed(), "Servicemonitor CRD not found")
+		Expect(k8sClient.Get(ctx, types.NamespacedName{Name: "servicemonitors.monitoring.coreos.com", Namespace: ""}, crd)).Should(Succeed(), "Servicemonitor CRD not found")
 
 		cm := &corev1.ConfigMap{}
 		Expect(k8sClient.Get(ctx, types.NamespacedName{Name: "cluster-monitoring-config", Namespace: "openshift-monitoring"}, cm)).Should(Succeed(), "Configmap cluster-monitoring-config not found")

@@ -104,14 +104,11 @@ func PrometheusTest(clt client.Client, ctx context.Context, t *testing.T, namesp
 	var unixTimeStart = unixTime
 	var unixTimeEnd = unixTime + 3600
 
-	cookie, err := WebServerRouteTest(clt, ctx, t, webServer, testURI, false, nil, false)
+	_, err = WebServerRouteTest(clt, ctx, t, webServer, testURI, false, nil, false)
 	if err != nil {
 		t.Logf("PrometheusTest: WebServerRouteTest failed")
 		return err
 	}
-	_ = cookie
-	// waiting for some queries from healh check...
-	time.Sleep(time.Second * 120)
 
 	// create a http request to Prometheus server
 	req, err := http.NewRequest("GET", url+"/api/v1/query_range?query=tomcat_bytesreceived_total&start="+strconv.FormatInt(unixTimeStart, 10)+"&end="+strconv.FormatInt(unixTimeEnd, 10)+"&step=14", nil)
@@ -149,44 +146,39 @@ func PrometheusTest(clt client.Client, ctx context.Context, t *testing.T, namesp
 
 	// send the request
 	t.Logf("GET: host *%s* URI *%s*\n", req.Host, req.URL.RequestURI())
-	res, err := httpClient.Do(req)
-	for i := 0; i < 60; i++ {
-		if err == nil {
-			break
+
+	for i := 0; i < 300; i++ {
+		res, err := httpClient.Do(req)
+
+		if err != nil {
+			t.Errorf("request to %s failed Error: %s", url, err)
+			time.Sleep(1 * time.Second)
 		}
-		t.Errorf("request to %s failed Error: %s", url, err)
-		time.Sleep(1000 * time.Millisecond)
-	}
-	if err != nil {
-		t.Errorf("request to %s failed Error: %s", url, err)
-		t.Fatal(err)
-	}
 
-	// check the response status code
-	if res.StatusCode != http.StatusOK {
-		t.Errorf("unexpected status code: %d", res.StatusCode)
-		t.Errorf("unexpected from: %s", url)
-		t.Errorf("unexpected token: %s", s)
-	}
+		// check the response status code
+		if res.StatusCode != http.StatusOK {
+			t.Errorf("unexpected status code: %d", res.StatusCode)
+			t.Errorf("unexpected from: %s", url)
+			t.Errorf("unexpected token: %s", s)
+		}
 
-	// read the response body
-	body, err := io.ReadAll(res.Body)
-	if err != nil {
-		t.Fatal(err)
-	}
+		// read the response body
+		body, err := io.ReadAll(res.Body)
+		if err != nil {
+			t.Fatal(err)
+		}
 
-	// print the response body
-	t.Logf("Response body: %s", string(body))
+		// print the response body
+		t.Logf("Response body: %s", string(body))
 
-	if strings.Contains(string(body), webServer.Name) && strings.Contains(string(body), "tomcat_bytesreceived_total") {
-		t.Logf("Response body contains the expected message")
-		return nil
-	} else {
-		//		t.Logf("Failed using: " + url + "/api/v1/query_range?query=tomcat_bytesreceived_total&start=" + strconv.FormatInt(unixTimeStart, 10) + "&end=" + strconv.FormatInt(unixTimeEnd, 10) + "&step=14")
-		t.Fatal("Response body does not contain expected message")
+		if strings.Contains(string(body), webServer.Spec.ApplicationName) && strings.Contains(string(body), "tomcat_bytesreceived_total") {
+			t.Logf("Response body contains the expected message")
+			return nil
+		}
+		time.Sleep(2 * time.Second)
 	}
 
-	return errors.New("Response body does not contain expected message")
+	return errors.New("response body does not contain expected message")
 }
 
 func GetThanos(clt client.Client, ctx context.Context, t *testing.T) (thanos string) {
