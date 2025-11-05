@@ -191,7 +191,10 @@ var _ = Describe("WebServerControllerTest", Ordered, func() {
 					thetest.Logf("can't read Deployment")
 					return false
 				}
-				Expect(webserver.Spec.Replicas).Should(Equal(foundDeployment.Status.AvailableReplicas))
+				if webserver.Spec.Replicas != foundDeployment.Status.AvailableReplicas {
+					return false
+				}
+
 				return true
 			}, "5m", "10s").Should(BeTrue())
 		})

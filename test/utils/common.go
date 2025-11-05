@@ -355,9 +355,6 @@ func WebServerRouteTest(clt client.Client, ctx context.Context, t *testing.T, we
 		}
 	}
 
-	// Wait a little to avoid 503 codes.
-	time.Sleep(60 * time.Second)
-
 	req, err := http.NewRequest("GET", URL, nil)
 	if err != nil {
 		t.Logf("GET: (%s) FAILED\n", URL)
@@ -377,13 +374,13 @@ func WebServerRouteTest(clt client.Client, ctx context.Context, t *testing.T, we
 		httpClient = &http.Client{Transport: tr}
 	}
 	res, err := httpClient.Do(req)
-	if err != nil {
+	if err != nil || res.StatusCode != http.StatusOK {
 		// Probably the  dns information needs more time.
 		t.Logf("GET: (%s) FAILED\n", URL)
 		for i := 1; i < 60; i++ {
 			time.Sleep(10 * time.Second)
 			res, err = httpClient.Do(req)
-			if err == nil {
+			if err == nil && res.StatusCode == http.StatusOK {
 				break
 			}
 		}
@@ -392,6 +389,7 @@ func WebServerRouteTest(clt client.Client, ctx context.Context, t *testing.T, we
 			return nil, err
 		}
 	}
+
 	body, err := io.ReadAll(res.Body)
 	Expect(res.Body.Close()).Should(Succeed())
 	if err != nil {
