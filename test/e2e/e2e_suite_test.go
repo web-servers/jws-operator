@@ -40,6 +40,7 @@ import (
 	webserversv1alpha1 "github.com/web-servers/jws-operator/api/v1alpha1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 
 	"github.com/web-servers/jws-operator/test/utils"
 )
@@ -98,6 +99,10 @@ var _ = BeforeSuite(func() {
 
 	// BuildConfig
 	err = buildv1.AddToScheme(scheme.Scheme)
+	Expect(err).NotTo(HaveOccurred())
+
+	// CRD
+	err = apiextensionsv1.AddToScheme(scheme.Scheme)
 	Expect(err).NotTo(HaveOccurred())
 
 	kubeconfigPath := os.Getenv("KUBECONFIG")
