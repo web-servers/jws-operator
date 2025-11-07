@@ -70,7 +70,7 @@ type WebServerReconciler struct {
 
 // It seems we shouldn't mess up directly in role.yaml...
 // and it is probably needing a _very_ careful check here too !!
-// +kubebuilder:rbac:groups="core",resources=configmaps,verbs=create;get;list;delete;watch
+// +kubebuilder:rbac:groups="core",resources=configmaps,verbs=create;get;list;delete;watch;update
 // +kubebuilder:rbac:groups="core",resources=pods,verbs=create;get;list;delete;watch
 // +kubebuilder:rbac:groups="core",resources=services,verbs=create;get;list;delete;watch
 // +kubebuilder:rbac:groups="core",resources=persistentvolumeclaims,verbs=create;get;list;delete;watch
@@ -145,6 +145,7 @@ func (r *WebServerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		if err != nil || result != (ctrl.Result{}) {
 			return result, err
 		}
+
 		if serviceMonitor, err := r.GetOrCreateNewServiceMonitor(webServer, ctx, r.generateLabelsForWeb(webServer)); err != nil {
 			return reconcile.Result{}, err
 		} else if serviceMonitor == nil {
@@ -199,7 +200,7 @@ func (r *WebServerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 	}
 
 	// Check if exists a ConfigMap for the server.xml <Cluster/> definition otherwise create it.
-	if strings.HasPrefix(webServer.Spec.TLSConfig.RouteHostname, "tls") || webServer.Spec.UseSessionClustering || webServer.Spec.PersistentLogsConfig.AccessLogs {
+	if strings.HasPrefix(webServer.Spec.TLSConfig.RouteHostname, "tls") || webServer.Spec.UseSessionClustering || webServer.Spec.PersistentLogsConfig.AccessLogs || webServer.Spec.PersistentLogsConfig.CatalinaLogs {
 		configMap := r.generateConfigMapForDNSTLS(webServer)
 		result, err = r.createConfigMap(ctx, configMap, configMap.Name, configMap.Namespace)
 		if err != nil || result != (ctrl.Result{}) {

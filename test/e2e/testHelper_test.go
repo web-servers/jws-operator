@@ -68,19 +68,7 @@ func deleteImageStream(imgStream *imagev1.ImageStream) {
 	}, "2m", "5s").Should(BeTrue(), "the webserver should be deleted")
 }
 
-func getPod(name string) *corev1.Pod {
-	pod := &corev1.Pod{}
-	webserverLookupKey := types.NamespacedName{Name: name, Namespace: namespace}
-
-	Eventually(func() bool {
-		err := k8sClient.Get(ctx, webserverLookupKey, pod)
-		return err == nil
-	}, time.Second*10, time.Millisecond*250).Should(BeTrue())
-
-	return pod
-}
-
-func executeCommandOnPod(podName string, containerName string, command []string) (string, string) {
+func executeCommandOnPod(podName string, containerName string, command []string) (string, string, error) {
 	var stdout, stderr bytes.Buffer
 
 	req := restClient.
@@ -100,7 +88,7 @@ func executeCommandOnPod(podName string, containerName string, command []string)
 
 	executor, err := remotecommand.NewSPDYExecutor(cfg, "POST", req.URL())
 	if err != nil {
-		panic(err.Error())
+		return "", "", err
 	}
 
 	err = executor.StreamWithContext(ctx, remotecommand.StreamOptions{
@@ -110,9 +98,8 @@ func executeCommandOnPod(podName string, containerName string, command []string)
 	})
 
 	if err != nil {
-		fmt.Printf("Error executing command: %v\nStderr: %s\n", err, stderr.String())
-		panic(err.Error())
+		return "", "", err
 	}
 
-	return stdout.String(), stderr.String()
+	return stdout.String(), stderr.String(), nil
 }

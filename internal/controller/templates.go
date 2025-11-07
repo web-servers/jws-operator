@@ -987,7 +987,7 @@ func (r *WebServerReconciler) generateEnvVars(webServer *webserversv1alpha1.WebS
 			Value: "true",
 		})
 	}
-	if strings.HasPrefix(webServer.Spec.TLSConfig.RouteHostname, "tls") || webServer.Spec.UseSessionClustering || webServer.Spec.PersistentLogsConfig.AccessLogs {
+	if strings.HasPrefix(webServer.Spec.TLSConfig.RouteHostname, "tls") || webServer.Spec.UseSessionClustering || webServer.Spec.PersistentLogsConfig.AccessLogs || webServer.Spec.PersistentLogsConfig.CatalinaLogs {
 		env = append(env, corev1.EnvVar{
 			Name:  "ENV_FILES",
 			Value: "/env/my-files/test.sh",
@@ -1070,7 +1070,7 @@ func (r *WebServerReconciler) generateVolumeMounts(webServer *webserversv1alpha1
 		})
 	}
 
-	if strings.HasPrefix(webServer.Spec.TLSConfig.RouteHostname, "tls") || webServer.Spec.UseSessionClustering || webServer.Spec.PersistentLogsConfig.AccessLogs {
+	if strings.HasPrefix(webServer.Spec.TLSConfig.RouteHostname, "tls") || webServer.Spec.UseSessionClustering || webServer.Spec.PersistentLogsConfig.AccessLogs || webServer.Spec.PersistentLogsConfig.CatalinaLogs {
 		volm = append(volm, corev1.VolumeMount{
 			Name:      "webserver-" + webServer.Name,
 			MountPath: "/env/my-files",
@@ -1175,7 +1175,7 @@ func (r *WebServerReconciler) generateVolumes(webServer *webserversv1alpha1.WebS
 		})
 	}
 
-	if strings.HasPrefix(webServer.Spec.TLSConfig.RouteHostname, "tls") || webServer.Spec.UseSessionClustering || webServer.Spec.PersistentLogsConfig.AccessLogs {
+	if strings.HasPrefix(webServer.Spec.TLSConfig.RouteHostname, "tls") || webServer.Spec.UseSessionClustering || webServer.Spec.PersistentLogsConfig.AccessLogs || webServer.Spec.PersistentLogsConfig.CatalinaLogs {
 		vol = append(vol, corev1.Volume{
 			Name: "webserver-" + webServer.Name,
 			VolumeSource: corev1.VolumeSource{

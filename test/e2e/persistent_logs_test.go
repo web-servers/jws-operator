@@ -18,6 +18,7 @@ package e2e
 
 import (
 	"context"
+	"errors"
 	"strings"
 	"time"
 
@@ -25,8 +26,9 @@ import (
 	. "github.com/onsi/gomega"
 
 	webserversv1alpha1 "github.com/web-servers/jws-operator/api/v1alpha1"
-	"github.com/web-servers/jws-operator/test/utils"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 )
 
 var _ = Describe("WebServerControllerTest", Ordered, func() {
@@ -36,9 +38,6 @@ var _ = Describe("WebServerControllerTest", Ordered, func() {
 	ctx := context.Background()
 	name := "persistent-logs-test"
 	appName := "jws-img"
-	appImage := "registry.redhat.io/jboss-webserver-5/jws58-openjdk11-openshift-rhel8:latest"
-	pullSecret := "secretfortests"
-	testURI := "/health"
 
 	webserver := &webserversv1alpha1.WebServer{
 		ObjectMeta: metav1.ObjectMeta{
@@ -49,18 +48,14 @@ var _ = Describe("WebServerControllerTest", Ordered, func() {
 			ApplicationName: appName,
 			Replicas:        int32(2),
 			WebImage: &webserversv1alpha1.WebImageSpec{
-				ApplicationImage: appImage,
-				ImagePullSecret:  pullSecret,
-				WebServerHealthCheck: &webserversv1alpha1.WebServerHealthCheckSpec{
-					ServerReadinessScript: "if [ $(ls /opt/tomcat_logs |grep -c .log) != 4 ];then exit 1;fi",
-				},
+				ApplicationImage: testImg,
 			},
 			PersistentLogsConfig: webserversv1alpha1.PersistentLogs{
-				CatalinaLogs: true,
-				AccessLogs:   true,
-				VolumeName:   "pv0002",
+				CatalinaLogs: false,
+				AccessLogs:   false,
+
+				VolumeName: "pv0002",
 			},
-			UseSessionClustering: true,
 		},
 	}
 
@@ -74,28 +69,118 @@ var _ = Describe("WebServerControllerTest", Ordered, func() {
 
 	Context("PersistentLogsTest", func() {
 
-		It("CheckLogsAvailability", func() {
-			_, err := utils.WebServerRouteTest(k8sClient, ctx, thetest, webserver, testURI, false, nil, false)
-			Expect(err).Should(Succeed())
-
+		It("CatalinaLogsAvailability", func() {
 			createdWebserver := getWebServer(name)
 
-			statusPod := createdWebserver.Status.Pods[0]
-			Expect(statusPod).ShouldNot(BeNil())
+			createdWebserver.Spec.PersistentLogsConfig.AccessLogs = false
+			createdWebserver.Spec.PersistentLogsConfig.CatalinaLogs = true
 
-			pod := getPod(statusPod.Name)
-			container := pod.Spec.Containers[0]
-			Expect(container).ShouldNot(BeNil())
+			Expect(k8sClient.Update(ctx, createdWebserver)).Should(Succeed())
 
-			command := []string{"ls", "/opt/tomcat_logs"}
-			stdout, stderr := executeCommandOnPod(pod.Name, container.Name, command)
+			Eventually(func() bool {
+				createdWebserver = getWebServer(name)
+				stdout, stderr, err := getLogFiles(createdWebserver)
 
-			Expect(stderr).Should(BeEmpty())
+				if err != nil || stderr != "" {
+					return false
+				}
 
-			for _, pod := range createdWebserver.Status.Pods {
-				Expect(strings.Contains(stdout, "access-"+pod.Name+".log")).Should(BeTrue())
-				Expect(strings.Contains(stdout, "catalina-"+pod.Name)).Should(BeTrue())
-			}
+				for _, pod := range createdWebserver.Status.Pods {
+					if !strings.Contains(stdout, "catalina-"+pod.Name) || strings.Contains(stdout, "access-"+pod.Name+".log") {
+						return false
+					}
+				}
+
+				return true
+			}, time.Second*120, time.Millisecond*500).Should(BeTrue())
+
 		})
+
+		It("AccessLogsAvailability", func() {
+			createdWebserver := getWebServer(name)
+
+			createdWebserver.Spec.PersistentLogsConfig.AccessLogs = true
+			createdWebserver.Spec.PersistentLogsConfig.CatalinaLogs = false
+
+			Expect(k8sClient.Update(ctx, createdWebserver)).Should(Succeed())
+
+			Eventually(func() bool {
+				createdWebserver = getWebServer(name)
+				stdout, stderr, err := getLogFiles(createdWebserver)
+
+				if err != nil || stderr != "" {
+					thetest.Log("error: " + err.Error() + "\n")
+					thetest.Log("stderr: " + stderr + "\n")
+					return false
+				}
+
+				thetest.Log("stdout: " + stdout + "\n")
+
+				for _, pod := range createdWebserver.Status.Pods {
+					thetest.Log("pod: " + pod.Name + "\n")
+					if !strings.Contains(stdout, "access-"+pod.Name+".log") || strings.Contains(stdout, "catalina-"+pod.Name) {
+						return false
+					}
+				}
+				return true
+			}, time.Second*120, time.Millisecond*500).Should(BeTrue())
+		})
+
+		It("BothLogsAvailability", func() {
+			createdWebserver := getWebServer(name)
+
+			createdWebserver.Spec.PersistentLogsConfig.AccessLogs = true
+			createdWebserver.Spec.PersistentLogsConfig.CatalinaLogs = true
+
+			Expect(k8sClient.Update(ctx, createdWebserver)).Should(Succeed())
+
+			Eventually(func() bool {
+				createdWebserver = getWebServer(name)
+				stdout, stderr, err := getLogFiles(createdWebserver)
+
+				if err != nil || stderr != "" {
+					return false
+				}
+
+				for _, pod := range createdWebserver.Status.Pods {
+					if strings.Contains(stdout, "catalina-"+pod.Name) && strings.Contains(stdout, "access-"+pod.Name+".log") {
+						return false
+					}
+				}
+
+				return true
+			}, time.Second*120, time.Millisecond*500).Should(BeTrue())
+		})
+
 	})
 })
+
+func getLogFiles(createdWebserver *webserversv1alpha1.WebServer) (string, string, error) {
+	if len(createdWebserver.Status.Pods) == 0 {
+		return "", "", errors.New("Unexpected number of pods")
+	}
+
+	statusPod := createdWebserver.Status.Pods[0]
+
+	pod := &corev1.Pod{}
+	err := k8sClient.Get(ctx, types.NamespacedName{Name: statusPod.Name, Namespace: namespace}, pod)
+
+	if err != nil {
+		return "", "", errors.New("Not able to find pod")
+	}
+
+	if len(pod.Spec.Containers) == 0 {
+		return "", "", errors.New("Unexpected number of pods")
+	}
+
+	container := pod.Spec.Containers[0]
+
+	command := []string{"ls", "/opt/tomcat_logs"}
+	stdout, stderr, err := executeCommandOnPod(pod.Name, container.Name, command)
+
+	if err != nil || stderr != "" {
+		return stdout, stderr, err
+	}
+
+	return stdout, stderr, nil
+}

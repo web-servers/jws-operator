@@ -860,10 +860,7 @@ func (r *WebServerReconciler) createRoleBinding(ctx context.Context, webServer *
 }
 
 func (r *WebServerReconciler) createConfigMap(ctx context.Context, resource *corev1.ConfigMap, resourceName, resourceNamespace string) (ctrl.Result, error) {
-	err := r.Get(ctx, client.ObjectKey{
-		Namespace: resourceNamespace,
-		Name:      resourceName,
-	}, resource)
+	err := r.Update(ctx, resource)
 	if err != nil && errors.IsNotFound(err) {
 		// Create a new resource
 		log.Info("Creating a new ConfigMap: " + resourceName + " Namespace: " + resourceNamespace)
@@ -878,6 +875,8 @@ func (r *WebServerReconciler) createConfigMap(ctx context.Context, resource *cor
 		log.Error(err, "Failed to get ConfigMap "+resourceName)
 		return reconcile.Result{}, err
 	}
+
+	log.Info("ConfigMap updated")
 	return reconcile.Result{}, err
 }
 
