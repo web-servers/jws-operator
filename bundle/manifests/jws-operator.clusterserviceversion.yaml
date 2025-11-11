@@ -18,7 +18,7 @@ metadata:
         }
       ]
     capabilities: Seamless Upgrades
-    createdAt: "2025-09-03T09:53:39Z"
+    createdAt: "2025-11-07T12:11:11Z"
     operators.operatorframework.io/builder: operator-sdk-v1.41.1
     operators.operatorframework.io/project_layout: go.kubebuilder.io/v4
   name: jws-operator.v0.0.2
@@ -260,6 +260,22 @@ spec:
           - ""
           resources:
           - configmaps
+          verbs:
+          - create
+          - delete
+          - get
+          - list
+          - update
+          - watch
+        - apiGroups:
+          - ""
+          resources:
+          - namespaces
+          verbs:
+          - get
+        - apiGroups:
+          - ""
+          resources:
           - persistentvolumeclaims
           - pods
           - services
@@ -269,12 +285,6 @@ spec:
           - get
           - list
           - watch
-        - apiGroups:
-          - ""
-          resources:
-          - namespaces
-          verbs:
-          - get
         - apiGroups:
           - ""
           resources:
@@ -437,7 +447,7 @@ spec:
                         fieldPath: metadata.namespace
                   - name: INSIGHTS_ENABLED
                     value: "true"
-                image: quay.io/mmadzin/jws-operator:2.2.x
+                image: quay.io/mmadzin/jws-operator:latest
                 livenessProbe:
                   httpGet:
                     path: /healthz
