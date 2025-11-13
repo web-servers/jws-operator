@@ -104,11 +104,10 @@ var _ = Describe("WebServerControllerTest", Ordered, func() {
 		})
 
 		It("Update Test", func() {
-			createdWebServer := getWebServer(name)
-
-			createdWebServer.Spec.WebImageStream.WebSources.SourceRepositoryRef = sourceRepositoryRefUpdated
-
 			Eventually(func() bool {
+				createdWebServer := getWebServer(name)
+				createdWebServer.Spec.WebImageStream.WebSources.SourceRepositoryRef = sourceRepositoryRefUpdated
+
 				return k8sClient.Update(ctx, createdWebServer) == nil
 			}, time.Second*30, time.Millisecond*250).Should(BeTrue(), "Update failed")
 
