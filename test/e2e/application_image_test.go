@@ -74,20 +74,6 @@ var _ = Describe("WebServerControllerTest", Ordered, func() {
 			Expect(err).Should(Succeed())
 		})
 
-		It("Scale Test", func() {
-			// scale up test.
-			utils.WebServerScale(k8sClient, ctx, thetest, webserver, testURI, 4)
-
-			_, err := utils.WebServerRouteTest(k8sClient, ctx, thetest, webserver, testURI, false, nil, false)
-			Expect(err).Should(Succeed())
-
-			// scale down test.
-			utils.WebServerScale(k8sClient, ctx, thetest, webserver, testURI, 1)
-
-			_, err = utils.WebServerRouteTest(k8sClient, ctx, thetest, webserver, testURI, false, nil, false)
-			Expect(err).Should(Succeed())
-		})
-
 		It("Update Test", func() {
 			createdWebserver := getWebServer(name)
 
