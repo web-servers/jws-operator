@@ -17,8 +17,10 @@ limitations under the License.
 package e2e
 
 import (
+	"bytes"
 	"context"
 	"fmt"
+	"io"
 	"net/http"
 	"strings"
 	"time"
@@ -103,6 +105,57 @@ var _ = Describe("WebServerControllerTest", Ordered, func() {
 	Context("LivenessReadinessTest", func() {
 		It("ArtifactAndContextDirTest", func() {
 			getURL(name, "/ocp-app/MainApp")
+		})
+
+		It("MavenMirrorTest", func() {
+			mavenMirrorURL := "https://maven-central-eu.storage-download.googleapis.com/maven2/"
+
+			Eventually(func() bool {
+				createdWebServer := getWebServer(name)
+				createdWebServer.Spec.WebImageStream.WebSources.WebSourcesParams.MavenMirrorURL = mavenMirrorURL
+
+				return k8sClient.Update(ctx, createdWebServer) == nil
+			}, time.Second*30, time.Millisecond*250).Should(BeTrue(), "Update failed")
+
+			getURL(name, "/ocp-app/MainApp")
+
+			podList := &corev1.PodList{}
+			listOpts := []client.ListOption{
+				client.InNamespace(webserver.Namespace),
+			}
+
+			Expect(k8sClient.List(ctx, podList, listOpts...)).Should(Succeed())
+
+			found := false
+
+			for _, pod := range podList.Items {
+				if strings.Contains(pod.Name, appName) && strings.Contains(pod.Name, "build") {
+					result := restClient.Get().
+						Namespace(namespace).
+						Resource("pods").
+						Name(pod.Name).
+						SubResource("log").
+						Param("container", "sti-build")
+
+					rc, err := result.Stream(ctx)
+					if err != nil {
+						continue
+					}
+
+					defer rc.Close()
+
+					data, err := io.ReadAll(rc)
+					if err != nil {
+						continue
+					}
+
+					if bytes.Contains(data, []byte(mavenMirrorURL)) {
+						found = true
+					}
+				}
+			}
+
+			Expect(found).Should(BeTrue())
 		})
 
 		It("ArtifactAndContextDirUpdateTest", func() {
