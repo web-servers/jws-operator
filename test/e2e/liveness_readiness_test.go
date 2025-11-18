@@ -19,9 +19,7 @@ package e2e
 import (
 	"bytes"
 	"context"
-	"fmt"
 	"io"
-	"net/http"
 	"strings"
 	"time"
 
@@ -104,7 +102,7 @@ var _ = Describe("WebServerControllerTest", Ordered, func() {
 
 	Context("LivenessReadinessTest", func() {
 		It("ArtifactAndContextDirTest", func() {
-			getURL(name, "/ocp-app/MainApp")
+			getURL(name, "/ocp-app/MainApp", []byte{})
 		})
 
 		It("MavenMirrorTest", func() {
@@ -117,7 +115,7 @@ var _ = Describe("WebServerControllerTest", Ordered, func() {
 				return k8sClient.Update(ctx, createdWebServer) == nil
 			}, time.Second*30, time.Millisecond*250).Should(BeTrue(), "Update failed")
 
-			getURL(name, "/ocp-app/MainApp")
+			getURL(name, "/ocp-app/MainApp", []byte{})
 
 			podList := &corev1.PodList{}
 			listOpts := []client.ListOption{
@@ -142,9 +140,9 @@ var _ = Describe("WebServerControllerTest", Ordered, func() {
 						continue
 					}
 
-					defer rc.Close()
-
 					data, err := io.ReadAll(rc)
+					Expect(rc.Close()).Should(Succeed())
+
 					if err != nil {
 						continue
 					}
@@ -167,7 +165,7 @@ var _ = Describe("WebServerControllerTest", Ordered, func() {
 				return k8sClient.Update(ctx, createdWebServer) == nil
 			}, time.Second*30, time.Millisecond*250).Should(BeTrue(), "Update failed")
 
-			getURL(name, "/ocp-subapp")
+			_ = getURL(name, "/ocp-subapp", []byte{})
 		})
 
 		It("ReadinessScriptTest", func() {
@@ -184,9 +182,9 @@ var _ = Describe("WebServerControllerTest", Ordered, func() {
 				return k8sClient.Update(ctx, createdWebServer) == nil
 			}, time.Second*30, time.Millisecond*250).Should(BeTrue(), "Update failed")
 
-			getURL(name, "/ocp-app/MainApp")
-			cutoffTime := createdWebServer.ObjectMeta.CreationTimestamp.Time
-			getURL(name, "/ocp-app/MainApp?readiness=delete")
+			_ = getURL(name, "/ocp-app/MainApp", []byte{})
+			cutoffTime := createdWebServer.CreationTimestamp.Time
+			_ = getURL(name, "/ocp-app/MainApp?readiness=delete", []byte{})
 
 			eventList := &corev1.EventList{}
 			listOpts := []client.ListOption{
@@ -224,9 +222,9 @@ var _ = Describe("WebServerControllerTest", Ordered, func() {
 				return k8sClient.Update(ctx, createdWebServer) == nil
 			}, time.Second*30, time.Millisecond*250).Should(BeTrue(), "Update failed")
 
-			getURL(name, "/ocp-app/MainApp")
-			cutoffTime := createdWebServer.ObjectMeta.CreationTimestamp.Time
-			getURL(name, "/ocp-app/MainApp?liveness=delete")
+			_ = getURL(name, "/ocp-app/MainApp", []byte{})
+			cutoffTime := createdWebServer.CreationTimestamp.Time
+			_ = getURL(name, "/ocp-app/MainApp?liveness=delete", []byte{})
 
 			eventList := &corev1.EventList{}
 			listOpts := []client.ListOption{
@@ -251,36 +249,3 @@ var _ = Describe("WebServerControllerTest", Ordered, func() {
 		})
 	})
 })
-
-func getURL(name string, testURI string) {
-	Eventually(func() bool {
-		createdWebServer := getWebServer(name)
-
-		if len(createdWebServer.Status.Hosts) == 0 {
-			return false
-		}
-
-		URL := "http://" + createdWebServer.Status.Hosts[0] + testURI
-
-		fmt.Printf("GET request: %s \n", URL)
-		req, err := http.NewRequest("GET", URL, nil)
-		if err != nil {
-			return false
-		}
-
-		httpClient := &http.Client{}
-		res, err := httpClient.Do(req)
-
-		if err != nil {
-			fmt.Printf("Error: %s; \n", err.Error())
-			return false
-		}
-
-		if res.StatusCode != http.StatusOK {
-			fmt.Printf("StatusCode: %d \n", res.StatusCode)
-			return false
-		}
-
-		return true
-	}, time.Minute*5, time.Second*1).Should(BeTrue(), "URL testing failed")
-}

@@ -20,8 +20,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
-	"net/http"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -119,35 +117,11 @@ var _ = Describe("WebServerControllerTest", Ordered, func() {
 func testURL(name string, testURI string, updated bool) {
 
 	Eventually(func() bool {
-		createdWebServer := getWebServer(name)
-
-		if len(createdWebServer.Status.Hosts) == 0 {
-			return false
-		}
-
-		URL := "http://" + createdWebServer.Status.Hosts[0] + testURI
-
-		req, err := http.NewRequest("GET", URL, nil)
-		if err != nil {
-			return false
-		}
-
-		httpClient := &http.Client{}
-		res, err := httpClient.Do(req)
-
-		if err != nil || res.StatusCode != http.StatusOK {
-			return false
-		}
-
-		body, err := io.ReadAll(res.Body)
-		Expect(res.Body.Close()).Should(Succeed())
-		if err != nil {
-			return false
-		}
+		body := getURL(name, testURI, []byte{})
 
 		var result map[string]interface{}
 
-		err = json.Unmarshal(body, &result)
+		err := json.Unmarshal(body, &result)
 
 		if err != nil {
 			fmt.Println("Error unmarshaling JSON:", err)
@@ -162,5 +136,5 @@ func testURL(name string, testURI string, updated bool) {
 		} else {
 			return ok
 		}
-	}, time.Minute*5, time.Millisecond*250).Should(BeTrue(), "URL testing failed")
+	}, time.Minute*5, time.Second*1).Should(BeTrue(), "URL testing failed")
 }
