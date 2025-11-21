@@ -18,6 +18,10 @@ package e2e
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
+	"io"
+	"net/http"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -25,7 +29,6 @@ import (
 
 	imagev1 "github.com/openshift/api/image/v1"
 	webserversv1alpha1 "github.com/web-servers/jws-operator/api/v1alpha1"
-	"github.com/web-servers/jws-operator/test/utils"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -37,11 +40,12 @@ var _ = Describe("WebServerControllerTest", Ordered, func() {
 	ctx := context.Background()
 	name := "app-img-stream-source-test"
 	appName := "image-stream-source-test"
-	testURI := "/health"
+	testURI := "/demo-1.0/demo"
 	imageStreamName := "my-img-stream"
 	imageStreamNamespace := namespace
 	sourceRepositoryURL := "https://github.com/web-servers/demo-webapp"
-	sourceRepositoryRef := ""
+	sourceRepositoryRef := "main"
+	sourceRepositoryRefUpdated := "main-updated"
 
 	imgStream := &imagev1.ImageStream{
 		ObjectMeta: metav1.ObjectMeta{
@@ -96,8 +100,67 @@ var _ = Describe("WebServerControllerTest", Ordered, func() {
 
 	Context("ImageStreamSourceTest", func() {
 		It("Basic Test", func() {
-			_, err := utils.WebServerRouteTest(k8sClient, ctx, thetest, webserver, testURI, false, nil, false)
-			Expect(err).Should(Succeed())
+			testURL(name, testURI, false)
+		})
+
+		It("Update Test", func() {
+			Eventually(func() bool {
+				createdWebServer := getWebServer(name)
+				createdWebServer.Spec.WebImageStream.WebSources.SourceRepositoryRef = sourceRepositoryRefUpdated
+
+				return k8sClient.Update(ctx, createdWebServer) == nil
+			}, time.Second*30, time.Millisecond*250).Should(BeTrue(), "Update failed")
+
+			testURL(name, testURI, true)
 		})
 	})
 })
+
+func testURL(name string, testURI string, updated bool) {
+
+	Eventually(func() bool {
+		createdWebServer := getWebServer(name)
+
+		if len(createdWebServer.Status.Hosts) == 0 {
+			return false
+		}
+
+		URL := "http://" + createdWebServer.Status.Hosts[0] + testURI
+
+		req, err := http.NewRequest("GET", URL, nil)
+		if err != nil {
+			return false
+		}
+
+		httpClient := &http.Client{}
+		res, err := httpClient.Do(req)
+
+		if err != nil || res.StatusCode != http.StatusOK {
+			return false
+		}
+
+		body, err := io.ReadAll(res.Body)
+		Expect(res.Body.Close()).Should(Succeed())
+		if err != nil {
+			return false
+		}
+
+		var result map[string]interface{}
+
+		err = json.Unmarshal(body, &result)
+
+		if err != nil {
+			fmt.Println("Error unmarshaling JSON:", err)
+			return false
+		}
+
+		_, ok := result["counter"]
+		value_updated, ok_updated := result["branch"]
+
+		if updated {
+			return ok && ok_updated && value_updated == "updated"
+		} else {
+			return ok
+		}
+	}, time.Minute*5, time.Millisecond*250).Should(BeTrue(), "URL testing failed")
+}
