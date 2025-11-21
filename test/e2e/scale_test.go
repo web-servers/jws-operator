@@ -65,6 +65,8 @@ var _ = Describe("WebServerControllerTest", Ordered, func() {
 		deleteWebServer(webserver)
 	})
 
+	//TODO The following tests are testing scaling when Deployment is created.
+	// We need to add aslo tests when StatefullSet is created.
 	Context("ScaleTest", func() {
 		It("ScaleUpDownTest", func() {
 
