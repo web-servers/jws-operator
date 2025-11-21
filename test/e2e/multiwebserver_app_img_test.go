@@ -30,6 +30,7 @@ import (
 
 	webserversv1alpha1 "github.com/web-servers/jws-operator/api/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -106,7 +107,6 @@ var _ = Describe("WebServerControllerTest", Ordered, func() {
 		for i := 0; i < int(numberOfConcurrentWebServers); i++ {
 			deleteWebServer(getWebServer(name + "-" + strconv.Itoa(i)))
 		}
-
 	})
 
 	AfterAll(func() {
@@ -115,6 +115,41 @@ var _ = Describe("WebServerControllerTest", Ordered, func() {
 
 	Context("MultiWebserverTest", func() {
 		It("AppImageTest", func() {
+			for i := 0; i < int(numberOfConcurrentWebServers); i++ {
+				webserver := &webserversv1alpha1.WebServer{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      name + "-" + strconv.Itoa(i),
+						Namespace: namespace,
+					},
+					Spec: webserversv1alpha1.WebServerSpec{
+						ApplicationName: appName + "-" + strconv.Itoa(i),
+						Replicas:        int32(2),
+						WebImage: &webserversv1alpha1.WebImageSpec{
+							ApplicationImage: testImg,
+						},
+					},
+				}
+				createWebServer(webserver)
+			}
+
+			var wg sync.WaitGroup
+
+			for i := 0; i < int(numberOfConcurrentWebServers); i++ {
+				wg.Add(1)
+				go func() {
+					defer wg.Done()
+
+					// Execute the target function
+					concurrentExecution(i)
+				}()
+			}
+
+			wg.Wait()
+		})
+
+		It("AppImageWithVolumeTemplateTest", func() {
+			storageRequest, err := resource.ParseQuantity("1Gi")
+			Expect(err).Should(Succeed())
 
 			for i := 0; i < int(numberOfConcurrentWebServers); i++ {
 				webserver := &webserversv1alpha1.WebServer{
@@ -127,6 +162,20 @@ var _ = Describe("WebServerControllerTest", Ordered, func() {
 						Replicas:        int32(2),
 						WebImage: &webserversv1alpha1.WebImageSpec{
 							ApplicationImage: testImg,
+						},
+						Volume: &webserversv1alpha1.VolumeSpec{
+							VolumeClaimTemplates: []corev1.PersistentVolumeClaimSpec{
+								{
+									AccessModes: []corev1.PersistentVolumeAccessMode{
+										corev1.ReadWriteOnce,
+									},
+									Resources: corev1.VolumeResourceRequirements{
+										Requests: corev1.ResourceList{
+											corev1.ResourceStorage: storageRequest,
+										},
+									},
+								},
+							},
 						},
 					},
 				}
