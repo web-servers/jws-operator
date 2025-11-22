@@ -39,7 +39,6 @@ var _ = Describe("WebServerControllerTest", Ordered, func() {
 	appName := "image-stream-test"
 	testURI := "/health"
 	imageStreamName := "img-stream-test"
-	imageStreamNamespace := namespace
 
 	imgStream := &imagev1.ImageStream{
 		ObjectMeta: metav1.ObjectMeta{
@@ -73,7 +72,7 @@ var _ = Describe("WebServerControllerTest", Ordered, func() {
 			ApplicationName: appName,
 			WebImageStream: &webserversv1alpha1.WebImageStreamSpec{
 				ImageStreamName:      imageStreamName,
-				ImageStreamNamespace: imageStreamNamespace,
+				ImageStreamNamespace: namespace,
 			},
 		},
 	}

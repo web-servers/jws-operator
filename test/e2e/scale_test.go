@@ -27,6 +27,7 @@ import (
 	webserversv1alpha1 "github.com/web-servers/jws-operator/api/v1alpha1"
 	"github.com/web-servers/jws-operator/test/utils"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -67,6 +68,50 @@ var _ = Describe("WebServerControllerTest", Ordered, func() {
 
 	Context("ScaleTest", func() {
 		It("ScaleUpDownTest", func() {
+
+			// scale up to 4
+			scaleTo(name, 4)
+			_, err := utils.WebServerRouteTest(k8sClient, ctx, thetest, webserver, testURI, false, nil, false)
+			Expect(err).Should(Succeed())
+
+			// scale down to 1
+			scaleTo(name, 1)
+			_, err = utils.WebServerRouteTest(k8sClient, ctx, thetest, webserver, testURI, false, nil, false)
+			Expect(err).Should(Succeed())
+
+			// scale down to 0
+			scaleTo(name, 0)
+
+			// scale up to 2
+			scaleTo(name, 2)
+			_, err = utils.WebServerRouteTest(k8sClient, ctx, thetest, webserver, testURI, false, nil, false)
+			Expect(err).Should(Succeed())
+		})
+
+		It("ScaleUpDownVolumeTemplateTest", func() {
+			Eventually(func() bool {
+				createdWebServer := getWebServer(name)
+				storageRequest, err := resource.ParseQuantity("1Gi")
+				Expect(err).Should(Succeed())
+
+				volume := &webserversv1alpha1.VolumeSpec{
+					VolumeClaimTemplates: []corev1.PersistentVolumeClaimSpec{
+						{
+							AccessModes: []corev1.PersistentVolumeAccessMode{
+								corev1.ReadWriteOnce,
+							},
+							Resources: corev1.VolumeResourceRequirements{
+								Requests: corev1.ResourceList{
+									corev1.ResourceStorage: storageRequest,
+								},
+							},
+						},
+					},
+				}
+				createdWebServer.Spec.Volume = volume
+
+				return k8sClient.Update(ctx, createdWebServer) == nil
+			}, time.Second*30, time.Millisecond*250).Should(BeTrue(), "Update failed")
 
 			// scale up to 4
 			scaleTo(name, 4)
