@@ -3,6 +3,8 @@ package e2e
 import (
 	"bytes"
 	"fmt"
+	"io"
+	"net/http"
 	"time"
 
 	"k8s.io/client-go/kubernetes/scheme"
@@ -102,4 +104,54 @@ func executeCommandOnPod(podName string, containerName string, command []string)
 	}
 
 	return stdout.String(), stderr.String(), nil
+}
+
+func getURL(name string, testURI string, expectedOutput []byte) []byte {
+	var body []byte
+	var res *http.Response
+
+	Eventually(func() bool {
+		createdWebServer := getWebServer(name)
+
+		if len(createdWebServer.Status.Hosts) == 0 {
+			return false
+		}
+
+		URL := "http://" + createdWebServer.Status.Hosts[0] + testURI
+
+		fmt.Printf("GET request: %s \n", URL)
+		req, err := http.NewRequest("GET", URL, nil)
+		if err != nil {
+			return false
+		}
+
+		httpClient := &http.Client{}
+		res, err = httpClient.Do(req)
+
+		if err != nil {
+			fmt.Printf("Error: %s; \n", err.Error())
+			return false
+		}
+
+		if res.StatusCode != http.StatusOK {
+			fmt.Printf("StatusCode: %d \n", res.StatusCode)
+			return false
+		}
+
+		body, err = io.ReadAll(res.Body)
+		Expect(res.Body.Close()).Should(Succeed())
+
+		if err != nil {
+			fmt.Printf("BodyError: %s\n", err.Error())
+			return false
+		}
+
+		if len(expectedOutput) > 0 {
+			return bytes.Contains(body, expectedOutput)
+		}
+
+		return true
+	}, time.Minute*5, time.Second*1).Should(BeTrue(), "URL testing failed")
+
+	return body
 }

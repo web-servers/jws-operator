@@ -257,27 +257,6 @@ func (r *WebServerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 
 	}
 
-	err = r.checkOwnedObjects(ctx, webServer)
-
-	if err != nil {
-		return ctrl.Result{}, err
-	}
-
-	if webServer.Spec.WebImage != nil {
-		result, err = r.webImageConfiguration(ctx, webServer)
-
-		if err != nil || result != (ctrl.Result{}) {
-			return result, err
-		}
-
-	} else if webServer.Spec.WebImageStream != nil {
-		result, err = r.webImageSourceConfiguration(ctx, webServer)
-
-		if err != nil || result != (ctrl.Result{}) {
-			return result, err
-		}
-	}
-
 	if r.isOpenShift {
 
 		if webServer.Spec.TLSConfig.RouteHostname != "NONE" && !strings.HasPrefix(webServer.Spec.TLSConfig.RouteHostname, "tls") {
@@ -344,6 +323,27 @@ func (r *WebServerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 			webServer.Status.Hosts = hosts
 			log.Info("Status.Hosts update scheduled")
 		}
+	}
+
+	if webServer.Spec.WebImage != nil {
+		result, err = r.webImageConfiguration(ctx, webServer)
+
+		if err != nil || result != (ctrl.Result{}) {
+			return result, err
+		}
+
+	} else if webServer.Spec.WebImageStream != nil {
+		result, err = r.webImageSourceConfiguration(ctx, webServer)
+
+		if err != nil || result != (ctrl.Result{}) {
+			return result, err
+		}
+	}
+
+	err = r.checkOwnedObjects(ctx, webServer)
+
+	if err != nil {
+		return ctrl.Result{}, err
 	}
 
 	// List of pods which belongs under this webServer instance

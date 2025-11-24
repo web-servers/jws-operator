@@ -62,13 +62,15 @@ var _ = Describe("WebServerControllerTest", Ordered, func() {
 				pods := createdWebserver.Status.Pods
 
 				for _, status := range pods {
-					if status.Name == "" || status.PodIP == "" || status.State == "" {
+					if status.Name == "" || status.PodIP == "" || status.State != "ACTIVE" {
 						return false
 					}
 				}
 
+				_ = getURL(name, "", []byte{})
+
 				return true
-			}, time.Second*30, time.Millisecond*250).Should(BeTrue())
+			}, time.Second*60, time.Millisecond*250).Should(BeTrue())
 		})
 
 		It("UpdateTest", func() {

@@ -1194,9 +1194,9 @@ func (r *WebServerReconciler) getWebServerHash(webServer *webserversv1alpha1.Web
 	}
 	h.Write(data)
 
-	data, err = json.Marshal(webServer.Spec.EnvironmentVariables)
+	data, err = json.Marshal(webServer.Spec.WebImageStream)
 	if err != nil {
-		log.Error(err, "WebServer hash sum calculation failed - EnvironmentVariables")
+		log.Error(err, "WebServer hash sum calculation failed - WebImage")
 		return ""
 	}
 	h.Write(data)
@@ -1204,6 +1204,13 @@ func (r *WebServerReconciler) getWebServerHash(webServer *webserversv1alpha1.Web
 	data, err = json.Marshal(webServer.Spec.TLSConfig)
 	if err != nil {
 		log.Error(err, "WebServer hash sum calculation failed - TLSConfig")
+		return ""
+	}
+	h.Write(data)
+
+	data, err = json.Marshal(webServer.Spec.EnvironmentVariables)
+	if err != nil {
+		log.Error(err, "WebServer hash sum calculation failed - EnvironmentVariables")
 		return ""
 	}
 	h.Write(data)
