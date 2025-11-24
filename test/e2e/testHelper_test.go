@@ -67,7 +67,29 @@ func deleteImageStream(imgStream *imagev1.ImageStream) {
 	Eventually(func() bool {
 		err := k8sClient.Get(ctx, imgStreamLookupKey, &imagev1.ImageStream{})
 		return apierrors.IsNotFound(err)
-	}, "2m", "5s").Should(BeTrue(), "the webserver should be deleted")
+	}, "2m", "5s").Should(BeTrue(), "the image stream should be deleted")
+}
+
+func createSecret(secret *corev1.Secret) {
+	Eventually(func() bool {
+		err := k8sClient.Create(ctx, secret)
+		if err != nil {
+			thetest.Logf("Error: %s", err)
+			return false
+		}
+		thetest.Logf("Secret %s was created\n", secret.Name)
+		return true
+	}, time.Second*30, time.Millisecond*250).Should(BeTrue())
+}
+
+func deleteSecret(secret *corev1.Secret) {
+	Expect(k8sClient.Delete(ctx, secret)).Should(Succeed())
+	imgStreamLookupKey := types.NamespacedName{Name: secret.Name, Namespace: namespace}
+
+	Eventually(func() bool {
+		err := k8sClient.Get(ctx, imgStreamLookupKey, &corev1.Secret{})
+		return apierrors.IsNotFound(err)
+	}, "2m", "5s").Should(BeTrue(), "the secret should be deleted")
 }
 
 func executeCommandOnPod(podName string, containerName string, command []string) (string, string, error) {
