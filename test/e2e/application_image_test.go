@@ -117,5 +117,9 @@ var _ = Describe("WebServerControllerTest", Ordered, func() {
 			_, err := utils.WebServerRouteTest(k8sClient, ctx, thetest, webserver, testURI, false, nil, false)
 			Expect(err).Should(Succeed())
 		})
+
+		It("Operator Log Test", func() {
+			checkOperatorLogs()
+		})
 	})
 })
