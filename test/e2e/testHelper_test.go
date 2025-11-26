@@ -9,6 +9,7 @@ import (
 
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/tools/remotecommand"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	. "github.com/onsi/gomega"
 	imagev1 "github.com/openshift/api/image/v1"
@@ -176,4 +177,36 @@ func getURL(name string, testURI string, expectedOutput []byte) []byte {
 	}, time.Minute*5, time.Second*1).Should(BeTrue(), "URL testing failed")
 
 	return body
+}
+
+func checkOperatorLogs() {
+	container := "manager"
+	podList := &corev1.PodList{}
+
+	labels := map[string]string{
+		"app.kubernetes.io/name": "jws-operator",
+		"control-plane":          "controller-manager",
+	}
+
+	listOpts := []client.ListOption{
+		client.MatchingLabels(labels),
+	}
+	Expect(k8sClient.List(ctx, podList, listOpts...)).Should(Succeed())
+	Expect(podList.Items).Should(HaveLen(1), "Not able to find operator pod.")
+
+	operatorPod := podList.Items[0]
+	podLogOptions := &corev1.PodLogOptions{
+		Container: container,
+	}
+
+	podLogs, err := clientset.CoreV1().Pods(operatorPod.Namespace).GetLogs(operatorPod.Name, podLogOptions).Stream(ctx)
+	Expect(err).ShouldNot(HaveOccurred())
+
+	var buffer bytes.Buffer
+	_, err = io.Copy(&buffer, podLogs)
+
+	Expect(err).ShouldNot(HaveOccurred())
+	Expect(podLogs.Close()).ShouldNot(HaveOccurred())
+	Expect(buffer.Bytes()).ShouldNot(BeEmpty(), "Not able to read controller-manager's logs.")
+	Expect(bytes.Contains(bytes.ToLower(buffer.Bytes()), []byte("error"))).Should(BeFalse(), "Error message occurred in controller-manager's logs.")
 }

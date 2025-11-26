@@ -27,6 +27,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
@@ -58,6 +59,7 @@ var (
 	cfg        *rest.Config
 	k8sClient  client.Client
 	restClient *rest.RESTClient
+	clientset  *kubernetes.Clientset
 	ctx        context.Context
 	thetest    *testing.T
 	testImg    = os.Getenv("TEST_IMG")
@@ -132,6 +134,10 @@ var _ = BeforeSuite(func() {
 	restClient, err = rest.RESTClientFor(cfg)
 	Expect(err).NotTo(HaveOccurred())
 	Expect(restClient).NotTo(BeNil())
+
+	clientset, err = kubernetes.NewForConfig(cfg)
+	Expect(err).NotTo(HaveOccurred())
+	Expect(clientset).NotTo(BeNil())
 
 	// The tests-e2e are intended to run on a temporary cluster that is created and destroyed for testing.
 	// To prevent errors when tests run in environments with CertManager already installed,
