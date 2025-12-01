@@ -49,7 +49,9 @@ var _ = Describe("WebServerControllerTest", Ordered, func() {
 	contextDir := "/"
 	artifactDir := "my-target"
 	secretName := "webhook-secret"
+	secretNameUpdate := "webhook-secret-update"
 	password := "qwerty"
+	passwordUpdate := "asdfg"
 
 	imgStream := &imagev1.ImageStream{
 		ObjectMeta: metav1.ObjectMeta{
@@ -76,6 +78,16 @@ var _ = Describe("WebServerControllerTest", Ordered, func() {
 		},
 		Data: map[string][]byte{
 			"WebHookSecretKey": []byte(password),
+		},
+	}
+
+	secretUpdate := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      secretNameUpdate,
+			Namespace: namespace,
+		},
+		Data: map[string][]byte{
+			"WebHookSecretKey": []byte(passwordUpdate),
 		},
 	}
 
@@ -107,6 +119,7 @@ var _ = Describe("WebServerControllerTest", Ordered, func() {
 
 	BeforeAll(func() {
 		createSecret(secret)
+		createSecret(secretUpdate)
 		createImageStream(imgStream)
 		createWebServer(webserver)
 	})
@@ -114,6 +127,7 @@ var _ = Describe("WebServerControllerTest", Ordered, func() {
 	AfterAll(func() {
 		deleteWebServer(webserver)
 		deleteImageStream(imgStream)
+		deleteSecret(secretUpdate)
 		deleteSecret(secret)
 	})
 
@@ -137,6 +151,47 @@ var _ = Describe("WebServerControllerTest", Ordered, func() {
 			}
 
 			webhookRequest(name, password)
+
+			Eventually(func() bool {
+				Expect(k8sClient.List(ctx, podList, listOpts...)).Should(Succeed())
+
+				new_count := 0
+
+				for _, pod := range podList.Items {
+					if strings.Contains(pod.Name, appName) && strings.Contains(pod.Name, "build") {
+						new_count++
+					}
+				}
+
+				return new_count > original_count
+			}, time.Second*30, time.Second*1).Should(BeTrue(), "no new build pod was recognized.")
+		})
+
+		It("GenericUpdateTest", func() {
+			Eventually(func() bool {
+				createdWebserver := getWebServer(name)
+				createdWebserver.Spec.WebImageStream.WebSources.WebhookSecrets.Generic = secretNameUpdate
+				return k8sClient.Update(ctx, createdWebserver) == nil
+			}, time.Second*30, time.Second*1).Should(BeTrue(), "not able to update the webserver.")
+
+			getURL(name, "/ocp-app/MainApp", []byte{})
+
+			podList := &corev1.PodList{}
+			listOpts := []client.ListOption{
+				client.InNamespace(webserver.Namespace),
+			}
+
+			Expect(k8sClient.List(ctx, podList, listOpts...)).Should(Succeed())
+
+			original_count := 0
+
+			for _, pod := range podList.Items {
+				if strings.Contains(pod.Name, appName) && strings.Contains(pod.Name, "build") {
+					original_count++
+				}
+			}
+
+			webhookRequest(name, passwordUpdate)
 
 			Eventually(func() bool {
 				Expect(k8sClient.List(ctx, podList, listOpts...)).Should(Succeed())
