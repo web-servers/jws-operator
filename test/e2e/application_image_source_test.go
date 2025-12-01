@@ -17,7 +17,9 @@ limitations under the License.
 package e2e
 
 import (
+	"bytes"
 	"context"
+	"io"
 	"os"
 	"time"
 
@@ -28,6 +30,8 @@ import (
 	"github.com/web-servers/jws-operator/test/utils"
 
 	//	kbappsv1 "k8s.io/api/apps/v1"
+
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -46,7 +50,7 @@ var _ = Describe("WebServerControllerTest", Ordered, func() {
 	pushsecret := "secretfortests"
 	pushedimage := "quay.io/" + os.Getenv("USER") + "/test"
 	imagebuilder := "quay.io/web-servers/tomcat10-buildah"
-	//	newImage := "quay.io/web-servers/tomcat10update:latest"
+	newImage := "quay.io/web-servers/tomcat10update:latest"
 
 	webserver := &webserversv1alpha1.WebServer{
 		TypeMeta: metav1.TypeMeta{
@@ -89,58 +93,48 @@ var _ = Describe("WebServerControllerTest", Ordered, func() {
 			_, err := utils.WebServerRouteTest(k8sClient, ctx, thetest, webserver, testURI, false, nil, false)
 			Expect(err).Should(Succeed())
 		})
-		/*
-			It("Update Test", func() {
-				createdWebserver := &webserversv1alpha1.WebServer{}
-				Eventually(func() bool {
-					err := k8sClient.Get(ctx, types.NamespacedName{Name: name, Namespace: namespace}, createdWebserver)
-					if err != nil {
-						return false
-					}
-					return true
-				}, time.Second*10, time.Millisecond*250).Should(BeTrue())
 
+		It("Update Test", func() {
+			var createdWebserver *webserversv1alpha1.WebServer
+
+			Eventually(func() bool {
+				createdWebserver = getWebServer(name)
 				createdWebserver.Spec.WebImage.ApplicationImage = newImage
 
-				Eventually(func() bool {
-					err := k8sClient.Update(ctx, createdWebserver)
-					if err != nil {
-						return false
-					}
-					thetest.Logf("WebServer %s updated\n", name)
-					return true
-				}, time.Second*10, time.Millisecond*250).Should(BeTrue())
+				return k8sClient.Update(ctx, createdWebserver) == nil
+			}, time.Second*30, time.Millisecond*250).Should(BeTrue())
 
-				foundDeployment := &kbappsv1.Deployment{}
-				Eventually(func() bool {
-					err := k8sClient.Get(ctx, types.NamespacedName{Name: appName, Namespace: namespace}, foundDeployment)
-					if err != nil {
-						return false
-					}
-					return true
-				}, time.Second*10, time.Millisecond*250).Should(BeTrue())
+			builderPodLogCheck(appName+"-build", newImage)
 
-				foundImage := foundDeployment.Spec.Template.Spec.Containers[0].Image
-				Expect(foundImage == newImage).Should(BeTrue(), "Image Update Test: image check failed")
+			_, err := utils.WebServerRouteTest(k8sClient, ctx, thetest, webserver, testURI, false, nil, false)
+			Expect(err).Should(Succeed())
+		})
 
-				// Wait until the replicas are available
-				Eventually(func() bool {
-					err := k8sClient.Get(ctx, types.NamespacedName{Name: appName, Namespace: namespace}, foundDeployment)
-					if err != nil {
-						thetest.Fatalf("can't read Deployment")
-						return false
-					}
-
-					if int32(createdWebserver.Spec.Replicas) == int32(foundDeployment.Status.AvailableReplicas) {
-						return true
-					} else {
-						return false
-					}
-				}, time.Second*420, time.Second*30).Should(BeTrue(), "Image Update Test: Required amount of replicas were not achieved")
-
-				_, err := utils.WebServerRouteTest(k8sClient, ctx, thetest, webserver, testURI, false, nil, false)
-				Expect(err).Should(Succeed())
-			})
-		*/
 	})
 })
+
+func builderPodLogCheck(podName string, expectedString string) {
+	container := "war"
+
+	Eventually(func() bool {
+		podLogOptions := &corev1.PodLogOptions{
+			Container: container,
+		}
+
+		podLogs, err := clientset.CoreV1().Pods(namespace).GetLogs(podName, podLogOptions).Stream(ctx)
+
+		if err != nil {
+			return false
+		}
+
+		var buffer bytes.Buffer
+		_, err = io.Copy(&buffer, podLogs)
+
+		if err != nil {
+			return false
+		}
+
+		Expect(podLogs.Close()).ShouldNot(HaveOccurred())
+		return bytes.Contains(bytes.ToLower(buffer.Bytes()), []byte(expectedString))
+	}, time.Minute*10, time.Second*1).Should(BeTrue(), "Build Pod: Expected log was not found.")
+}
