@@ -20,6 +20,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -89,6 +90,11 @@ var _ = Describe("WebServerControllerTest", Ordered, func() {
 	BeforeAll(func() {
 		createImageStream(imgStream)
 		createWebServer(webserver)
+
+		// The block skips tests only, not AfterAll section. That's why webserver and image streams needs to be created.
+		if !strings.Contains(testImg, "jboss") || !strings.Contains(testImg, "webserver") {
+			Skip("The test requires production webserver image.")
+		}
 	})
 
 	AfterAll(func() {
