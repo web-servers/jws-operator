@@ -522,7 +522,7 @@ spec:
                           fieldPath: metadata.namespace
                     - name: INSIGHTS_ENABLED
                       value: "true"
-                  image: registry.redhat.io/insights-runtimes-tech-preview/runtimes-inventory-rhel8-operator:latest
+                  image: registry.redhat.io/rh-lightspeed-runtimes/runtimes-inventory-rhel9-operator:latest
                   livenessProbe:
                     httpGet:
                       path: /healthz
