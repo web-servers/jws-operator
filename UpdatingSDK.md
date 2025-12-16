@@ -48,6 +48,11 @@ Update bundle files:
 Build the bundle
 make bundle-build bundle-push BUNDLE_IMG=quay.io/mmadzin/jws-operator-bundle:new-sdk
 
+Generate webhook for input validation:
+Remove "group: webservers" from PROJECT file
+operator-sdk create webhook --version v1alpha1 --kind WebServer --programmatic-validation
+Add "group: webservers" back to PROJECT file
+Copy original version of "internal/webhook/v1alpha1/webserver_webhook.go" file
 
 Troubleshooting
 1. If you see problems with kind e.g. ERROR webserver_controller Failed to get Route: jws-app {"error": "no kind is registered for the type v1.Route in scheme \"pkg/runtime/scheme.go:110\""}
