@@ -505,7 +505,7 @@ spec:
                     - --leader-elect
                   env:
                     - name: RELATED_IMAGE_INSIGHTS_PROXY
-                      value: registry.redhat.io/3scale-amp2/apicast-gateway-rhel8:3scale2.15
+                      value: registry.redhat.io/3scale-amp2/apicast-gateway-rhel8:3scale2.16
                     - name: INSIGHTS_BACKEND_DOMAIN
                       value: console.redhat.com
                     - name: USER_AGENT_PREFIX
@@ -522,7 +522,7 @@ spec:
                           fieldPath: metadata.namespace
                     - name: INSIGHTS_ENABLED
                       value: "true"
-                  image: registry.redhat.io/insights-runtimes-tech-preview/runtimes-inventory-rhel8-operator:latest
+                  image: registry.redhat.io/rh-lightspeed-runtimes/runtimes-inventory-rhel9-operator:latest
                   livenessProbe:
                     httpGet:
                       path: /healthz
@@ -665,6 +665,6 @@ spec:
   provider:
     name: WebServer community
   relatedImages:
-  - image: registry.redhat.io/3scale-amp2/apicast-gateway-rhel8:3scale2.15
+  - image: registry.redhat.io/3scale-amp2/apicast-gateway-rhel8:3scale2.16
     name: insights-proxy
   version: 0.0.2
