@@ -969,6 +969,9 @@ func (r *WebServerReconciler) generateCustomProbe(probeType string) *corev1.Prob
 	}
 }
 
+// 128-bit FNV-1 hash of "jws-operator-insights", the name of the Insights deployment
+const deployHashSuffix = "20b02fd04fded82dcd706406391af9ba"
+
 // Create the env for the pods we are starting.
 func (r *WebServerReconciler) generateEnvVars(webServer *webserversv1alpha1.WebServer) []corev1.EnvVar {
 	value := "webserver-" + webServer.Name
@@ -1014,7 +1017,7 @@ func (r *WebServerReconciler) generateEnvVars(webServer *webserversv1alpha1.WebS
 
 		javaToolOptions := " -javaagent:/opt/runtimes-agent.jar=name=" + webServer.Spec.ApplicationName
 		javaToolOptions = javaToolOptions + ";is_ocp=true;token=dummy;debug=" + insightsDebug + ";base_url="
-		javaToolOptions = javaToolOptions + "http://insights-proxy." + os.Getenv("OPERATOR_NAMESPACE") + ".svc.cluster.local:8080"
+		javaToolOptions = javaToolOptions + "http://insights-proxy-" + deployHashSuffix + "." + os.Getenv("OPERATOR_NAMESPACE") + ".svc:8080"
 		updated := false
 
 		for i := 0; i < len(env); i++ {
