@@ -20,4 +20,7 @@ resources:
   kind: WebServer
   path: github.com/web-servers/jws-operator/api/v1alpha1
   version: v1alpha1
+  webhooks:
+    validation: true
+    webhookVersion: v1
 version: "3"
