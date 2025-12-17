@@ -147,6 +147,37 @@ var _ = Describe("WebServerControllerTest", Ordered, func() {
 				}
 			}, time.Second*300, time.Millisecond*500).Should(BeTrue())
 		})
+
+		It("MeteringLabelsPresenceTest", func() {
+			labels := map[string]string{
+				"com.company":   "Red_Hat",
+				"rht.prod_name": "Red_Hat_Runtimes",
+				"rht.prod_ver":  "2022-Q1",
+				"rht.comp":      "JBoss_Web_Server",
+				"rht.comp_ver":  "5.8.4",
+				"rht.subcomp":   "Tomcat_9",
+				"rht.subcomp_t": "application",
+			}
+
+			Eventually(func() bool {
+				createdWebserver := getWebServer(name)
+				createdWebserver.Labels = labels
+
+				return k8sClient.Update(ctx, createdWebserver) == nil
+			}, time.Second*30, time.Millisecond*250).Should(BeTrue())
+
+			Eventually(func() bool {
+				podList := &corev1.PodList{}
+
+				listOpts := []client.ListOption{
+					client.InNamespace(webserver.Namespace),
+					client.MatchingLabels(labels),
+				}
+				Expect(k8sClient.List(ctx, podList, listOpts...)).Should(Succeed())
+
+				return webserver.Spec.Replicas != int32(len(podList.Items))
+			}, time.Second*300, time.Millisecond*500).Should(BeTrue(), "The number of deployed pods with metering labels does not match the WebServer specification podList.")
+		})
 	})
 })
 
