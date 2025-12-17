@@ -78,6 +78,8 @@ operator-sdk cleanup jws-operator
 
 ## Install the operator from sources.
 
+**Note** Only for development purposes, some operator features might not work
+
 The operator is pre-built and containerized in a docker image. By default, the deployment has been configured to utilize that image. Therefore, deploying the operator can be done by following these simple steps:
 
 ```bash
