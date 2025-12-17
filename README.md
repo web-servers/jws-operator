@@ -283,10 +283,9 @@ You also need to be able to push to:
 ```
 quay.io/${USER}/test
 ```
-When on openshift the 'jboss-webserver56-openjdk8-tomcat9-ubi8' ImageStream is used by the tests, to create it
+To be able to pull container images, make the 'secretfortests' secret to be a default for pulling:
 ```
 oc secrets link default secretfortests --for=pull
-oc create -f xpaas-streams/jws56-tomcat9-image-stream.json
 ```
 
 To test the routes created by the operator for tls we need a secret to mount to the pod containing the certificates for tomcat.
