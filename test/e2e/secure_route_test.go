@@ -199,6 +199,44 @@ var _ = Describe("WebServerControllerTest", Ordered, func() {
 			}, "5m", "10s").Should(BeTrue())
 		})
 
+		It("SecretUpdateTest", func() {
+			createdWebserver := getWebServer(name)
+			original_secret := createdWebserver.Spec.TLSConfig.TLSSecret
+			new_secret := "my-nonexisting-secret"
+
+			Eventually(func() bool {
+				createdWebserver = getWebServer(name)
+				createdWebserver.Spec.TLSConfig.TLSSecret = new_secret
+
+				err := k8sClient.Update(ctx, createdWebserver)
+
+				if err != nil {
+					return false
+				}
+
+				foundDeployment := &kbappsv1.Deployment{}
+				err = k8sClient.Get(ctx, types.NamespacedName{Name: appName, Namespace: namespace}, foundDeployment)
+				if err != nil {
+					return false
+				}
+
+				for _, volume := range foundDeployment.Spec.Template.Spec.Volumes {
+					if volume.Secret != nil && volume.Secret.SecretName == new_secret {
+						return true
+					}
+				}
+				return false
+
+			}, time.Second*60, time.Millisecond*250).Should(BeTrue())
+
+			createdWebserver = getWebServer(name)
+			createdWebserver.Spec.TLSConfig.TLSSecret = original_secret
+			Expect(k8sClient.Update(ctx, createdWebserver)).Should(Succeed())
+
+			_, err := utils.WebServerRouteTest(k8sClient, ctx, thetest, webserver, testURI, false, nil, true)
+			Expect(err).Should(Succeed())
+		})
+
 		It("SessionClusteringTest", func() {
 			Eventually(func() error {
 				createdWebserver := getWebServer(name)
@@ -218,31 +256,5 @@ var _ = Describe("WebServerControllerTest", Ordered, func() {
 			}, time.Second*60, time.Millisecond*250).Should(Succeed())
 
 		})
-
-		/*
-		   		It("SessionClustering Test", func() {
-		   			createdWebserver := &webserversv1alpha1.WebServer{}
-		   	                Eventually(func() bool {
-		           	                err := k8sClient.Get(ctx, types.NamespacedName{Name: name, Namespace: namespace}, createdWebserver)
-		                   	        if err != nil {
-		                           	        return false
-		   	                        }
-		           	                return true
-		                   	}, time.Second*10, time.Millisecond*250).Should(BeTrue())
-
-		   			createdWebserver.Spec.UseSessionClustering = true
-
-		   			Eventually(func() bool {
-		                                   err := k8sClient.Update(ctx, createdWebserver)
-		                                   if err != nil {
-		                                           return false
-		                                   }
-		                                   return true
-		                           }, time.Second*10, time.Millisecond*250).Should(BeTrue())
-
-		   			_, err := utils.WebServerRouteTest(k8sClient, ctx, thetest, webserver, testURI, false, nil, true)
-		                           Expect(err).Should(Succeed())
-		   		})
-		*/
 	})
 })

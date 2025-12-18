@@ -39,10 +39,29 @@ var _ = Describe("WebServerControllerTest", Ordered, func() {
 	appName := "image-stream-test"
 	testURI := "/health"
 	imageStreamName := "img-stream-test"
+	imageStreamNameUpdate := imageStreamName + "-update"
 
 	imgStream := &imagev1.ImageStream{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      imageStreamName,
+			Namespace: namespace,
+		},
+		Spec: imagev1.ImageStreamSpec{
+			Tags: []imagev1.TagReference{
+				{
+					Name: "latest",
+					From: &corev1.ObjectReference{
+						Kind: "DockerImage",
+						Name: testImg,
+					},
+				},
+			},
+		},
+	}
+
+	imgStreamUpdate := &imagev1.ImageStream{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      imageStreamNameUpdate,
 			Namespace: namespace,
 		},
 		Spec: imagev1.ImageStreamSpec{
@@ -79,16 +98,28 @@ var _ = Describe("WebServerControllerTest", Ordered, func() {
 
 	BeforeAll(func() {
 		createImageStream(imgStream)
+		createImageStream(imgStreamUpdate)
 		createWebServer(webserver)
 	})
 
 	AfterAll(func() {
 		deleteWebServer(webserver)
+		deleteImageStream(imgStreamUpdate)
 		deleteImageStream(imgStream)
 	})
 
 	Context("ImageStreamTest", func() {
 		It("Basic Test", func() {
+			_, err := utils.WebServerRouteTest(k8sClient, ctx, thetest, webserver, testURI, false, nil, false)
+			Expect(err).Should(Succeed())
+		})
+
+		It("Update Test", func() {
+			createdWebserver := getWebServer(name)
+
+			createdWebserver.Spec.WebImageStream.ImageStreamName = imageStreamNameUpdate
+			Expect(k8sClient.Update(ctx, createdWebserver)).Should(Succeed())
+
 			_, err := utils.WebServerRouteTest(k8sClient, ctx, thetest, webserver, testURI, false, nil, false)
 			Expect(err).Should(Succeed())
 		})

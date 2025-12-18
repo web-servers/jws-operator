@@ -22,7 +22,6 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
-	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -64,9 +63,6 @@ var (
 	thetest    *testing.T
 	testImg    = os.Getenv("TEST_IMG")
 	namespace  = os.Getenv("NAMESPACE_FOR_TESTING")
-
-	retryInterval = time.Second * 5
-	timeout       = time.Minute * 10
 )
 
 // TestE2E runs the end-to-end (e2e) test suite for the project. These tests execute in an isolated,
