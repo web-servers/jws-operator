@@ -5,7 +5,6 @@ import (
 	"strconv"
 	"strings"
 
-	"gopkg.in/yaml.v2"
 	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/util/intstr"
 
@@ -197,36 +196,6 @@ func (r *WebServerReconciler) generateConfigMapForLoggingProperties(webServer *w
 	cmap := &corev1.ConfigMap{
 		ObjectMeta: r.generateObjectMeta(webServer, "config-volume"),
 		Data:       r.generateLoggingProperties(),
-	}
-
-	err := controllerutil.SetControllerReference(webServer, cmap, r.Scheme)
-	if err != nil {
-		log.Error(err, "SetControllerReference was not successful")
-	}
-
-	return cmap
-}
-
-// configMap for Prometheus
-func (r *WebServerReconciler) generateConfigMapForPrometheus(webServer *webserversv1alpha1.WebServer) *corev1.ConfigMap {
-
-	cmap := &corev1.ConfigMap{
-		TypeMeta: metav1.TypeMeta{
-			Kind:       "ConfigMap",
-			APIVersion: "v1",
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "cluster-monitoring-config",
-			Namespace: "openshift-monitoring",
-		},
-	}
-	// tricky workaround to make the yaml as needed
-	value := map[string]interface{}{
-		"enableUserWorkload": true,
-	}
-	marshaled, _ := yaml.Marshal(value)
-	cmap.Data = map[string]string{
-		"config.yaml": string(marshaled),
 	}
 
 	err := controllerutil.SetControllerReference(webServer, cmap, r.Scheme)
