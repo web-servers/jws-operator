@@ -70,15 +70,17 @@ var _ = Describe("WebServerControllerTest", Ordered, func() {
 	Context("PersistentLogsTest", func() {
 
 		It("CatalinaLogsAvailability", func() {
-			createdWebserver := getWebServer(name)
+			Eventually(func() bool {
+				createdWebserver := getWebServer(name)
 
-			createdWebserver.Spec.PersistentLogsConfig.AccessLogs = false
-			createdWebserver.Spec.PersistentLogsConfig.CatalinaLogs = true
+				createdWebserver.Spec.PersistentLogsConfig.AccessLogs = false
+				createdWebserver.Spec.PersistentLogsConfig.CatalinaLogs = true
 
-			Expect(k8sClient.Update(ctx, createdWebserver)).Should(Succeed())
+				return k8sClient.Update(ctx, createdWebserver) == nil
+			}, time.Second*30, time.Millisecond*500).Should(BeTrue())
 
 			Eventually(func() bool {
-				createdWebserver = getWebServer(name)
+				createdWebserver := getWebServer(name)
 				stdout, stderr, err := getLogFiles(createdWebserver)
 
 				if err != nil || stderr != "" {
@@ -97,15 +99,17 @@ var _ = Describe("WebServerControllerTest", Ordered, func() {
 		})
 
 		It("AccessLogsAvailability", func() {
-			createdWebserver := getWebServer(name)
+			Eventually(func() bool {
+				createdWebserver := getWebServer(name)
 
-			createdWebserver.Spec.PersistentLogsConfig.AccessLogs = true
-			createdWebserver.Spec.PersistentLogsConfig.CatalinaLogs = false
+				createdWebserver.Spec.PersistentLogsConfig.AccessLogs = true
+				createdWebserver.Spec.PersistentLogsConfig.CatalinaLogs = false
 
-			Expect(k8sClient.Update(ctx, createdWebserver)).Should(Succeed())
+				return k8sClient.Update(ctx, createdWebserver) == nil
+			}, time.Second*30, time.Millisecond*500).Should(BeTrue())
 
 			Eventually(func() bool {
-				createdWebserver = getWebServer(name)
+				createdWebserver := getWebServer(name)
 				stdout, stderr, err := getLogFiles(createdWebserver)
 
 				if err != nil || stderr != "" {
@@ -127,15 +131,17 @@ var _ = Describe("WebServerControllerTest", Ordered, func() {
 		})
 
 		It("BothLogsAvailability", func() {
-			createdWebserver := getWebServer(name)
+			Eventually(func() bool {
+				createdWebserver := getWebServer(name)
 
-			createdWebserver.Spec.PersistentLogsConfig.AccessLogs = true
-			createdWebserver.Spec.PersistentLogsConfig.CatalinaLogs = true
+				createdWebserver.Spec.PersistentLogsConfig.AccessLogs = true
+				createdWebserver.Spec.PersistentLogsConfig.CatalinaLogs = true
 
-			Expect(k8sClient.Update(ctx, createdWebserver)).Should(Succeed())
+				return k8sClient.Update(ctx, createdWebserver) == nil
+			}, time.Second*30, time.Millisecond*500).Should(BeTrue())
 
 			Eventually(func() bool {
-				createdWebserver = getWebServer(name)
+				createdWebserver := getWebServer(name)
 				stdout, stderr, err := getLogFiles(createdWebserver)
 
 				if err != nil || stderr != "" {
