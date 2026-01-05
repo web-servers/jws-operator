@@ -60,10 +60,20 @@ var _ = Describe("WebServerControllerTest", Ordered, func() {
 	}
 
 	BeforeAll(func() {
+		// Skip the tests
+		if !strings.Contains(testImg, "jboss") || !strings.Contains(testImg, "webserver") {
+			Skip("The test requires production webserver image.")
+		}
+
 		createWebServer(webserver)
 	})
 
 	AfterAll(func() {
+		// When the tests were skipped
+		if !strings.Contains(testImg, "jboss") || !strings.Contains(testImg, "webserver") {
+			return
+		}
+
 		deleteWebServer(webserver)
 	})
 
