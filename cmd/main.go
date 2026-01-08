@@ -48,6 +48,7 @@ import (
 	routev1 "github.com/openshift/api/route/v1"
 	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 
+	buildclient "github.com/openshift/client-go/build/clientset/versioned"
 	"github.com/web-servers/jws-operator/internal/controller"
 	webhookv1alpha1 "github.com/web-servers/jws-operator/internal/webhook/v1alpha1"
 	// +kubebuilder:scaffold:imports
@@ -246,9 +247,16 @@ func main() {
 		os.Exit(1)
 	}
 
+	ocBuildClient, err := buildclient.NewForConfig(mgr.GetConfig())
+	if err != nil {
+		setupLog.Error(err, "unable to create OpenShift build client")
+		os.Exit(1)
+	}
+
 	if err := (&controller.WebServerReconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
+		Client:      mgr.GetClient(),
+		Scheme:      mgr.GetScheme(),
+		BuildClient: ocBuildClient,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "WebServer")
 		os.Exit(1)
