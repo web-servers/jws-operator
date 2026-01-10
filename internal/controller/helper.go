@@ -7,7 +7,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"sort"
-	"strconv"
 	"strings"
 	"time"
 
@@ -315,7 +314,7 @@ func (r *WebServerReconciler) continueWithStatefulSet(ctx context.Context, webSe
 //nolint:gocyclo
 func (r *WebServerReconciler) webImageSourceConfiguration(ctx context.Context, webServer *webserversv1alpha1.WebServer) (ctrl.Result, error) {
 	var result ctrl.Result
-	var err error = nil
+	var err error
 
 	imageStreamName := webServer.Spec.WebImageStream.ImageStreamName
 	imageStreamNamespace := webServer.Spec.WebImageStream.ImageStreamNamespace
@@ -350,328 +349,9 @@ func (r *WebServerReconciler) webImageSourceConfiguration(ctx context.Context, w
 
 		// Check if a BuildConfig already exists, and if not create a new one
 		buildConfig := r.generateBuildConfig(webServer)
-		result, err = r.createBuildConfig(ctx, buildConfig, buildConfig.Name, buildConfig.Namespace)
+		result, err = r.createUpdateBuildConfig(ctx, buildConfig, buildConfig.Name, buildConfig.Namespace)
 		if err != nil || result != (ctrl.Result{}) {
 			return result, err
-		}
-
-		updateBuildConfig := false
-		startNewBuild := false
-
-		if buildConfig.Spec.Source.Git.URI != webServer.Spec.WebImageStream.WebSources.SourceRepositoryURL {
-			buildConfig.Spec.Source.Git.URI = webServer.Spec.WebImageStream.WebSources.SourceRepositoryURL
-			updateBuildConfig = true
-			startNewBuild = true
-		}
-
-		if buildConfig.Spec.Source.Git.Ref != webServer.Spec.WebImageStream.WebSources.SourceRepositoryRef {
-			buildConfig.Spec.Source.Git.Ref = webServer.Spec.WebImageStream.WebSources.SourceRepositoryRef
-			updateBuildConfig = true
-			startNewBuild = true
-		}
-
-		if buildConfig.Spec.Source.ContextDir != webServer.Spec.WebImageStream.WebSources.ContextDir {
-			buildConfig.Spec.Source.ContextDir = webServer.Spec.WebImageStream.WebSources.ContextDir
-			updateBuildConfig = true
-			startNewBuild = true
-		}
-
-		if buildConfig.Spec.Strategy.SourceStrategy != nil && buildConfig.Spec.Strategy.SourceStrategy.From.Namespace != webServer.Spec.WebImageStream.ImageStreamNamespace {
-			buildConfig.Spec.Strategy.SourceStrategy.From.Namespace = webServer.Spec.WebImageStream.ImageStreamNamespace
-			updateBuildConfig = true
-			startNewBuild = true
-		}
-
-		if buildConfig.Spec.Strategy.SourceStrategy != nil && buildConfig.Spec.Strategy.SourceStrategy.From.Name != webServer.Spec.WebImageStream.ImageStreamName+":latest" {
-			buildConfig.Spec.Strategy.SourceStrategy.From.Name = webServer.Spec.WebImageStream.ImageStreamName + ":latest"
-			updateBuildConfig = true
-			startNewBuild = true
-		}
-
-		if webServer.Spec.WebImageStream.WebSources.WebhookSecrets != nil && webServer.Spec.WebImageStream.WebSources.WebhookSecrets.Generic != "" {
-			triggers := buildConfig.Spec.Triggers
-			found := false
-
-			for i := 0; i < len(triggers); i++ {
-				if triggers[i].GenericWebHook != nil && triggers[i].GenericWebHook.SecretReference != nil {
-					found = true
-
-					if triggers[i].GenericWebHook.SecretReference.Name != webServer.Spec.WebImageStream.WebSources.WebhookSecrets.Generic {
-						triggers[i].GenericWebHook.SecretReference.Name = webServer.Spec.WebImageStream.WebSources.WebhookSecrets.Generic
-						updateBuildConfig = true
-					}
-				}
-			}
-
-			if !found {
-				buildConfig.Spec.Triggers = append(triggers, buildv1.BuildTriggerPolicy{
-					GenericWebHook: &buildv1.WebHookTrigger{
-						Secret: webServer.Spec.WebImageStream.WebSources.WebhookSecrets.Generic,
-					},
-				})
-				updateBuildConfig = true
-			}
-		} else {
-			triggers := buildConfig.Spec.Triggers
-
-			for i := 0; i < len(triggers); i++ {
-				if triggers[i].GenericWebHook != nil && triggers[i].GenericWebHook.SecretReference != nil {
-					buildConfig.Spec.Triggers = append(triggers[:i], triggers[i+1:]...)
-					updateBuildConfig = true
-				}
-			}
-
-		}
-
-		if webServer.Spec.WebImageStream.WebSources.WebhookSecrets != nil && webServer.Spec.WebImageStream.WebSources.WebhookSecrets.Github != "" {
-			triggers := buildConfig.Spec.Triggers
-			found := false
-
-			for i := 0; i < len(triggers); i++ {
-				if triggers[i].GitHubWebHook != nil && triggers[i].GitHubWebHook.SecretReference != nil {
-					found = true
-					if triggers[i].GitHubWebHook.SecretReference.Name != webServer.Spec.WebImageStream.WebSources.WebhookSecrets.Github {
-						triggers[i].GitHubWebHook.SecretReference.Name = webServer.Spec.WebImageStream.WebSources.WebhookSecrets.Github
-						updateBuildConfig = true
-					}
-				}
-			}
-
-			if !found {
-				buildConfig.Spec.Triggers = append(triggers, buildv1.BuildTriggerPolicy{
-					GitHubWebHook: &buildv1.WebHookTrigger{
-						Secret: webServer.Spec.WebImageStream.WebSources.WebhookSecrets.Github,
-					},
-				})
-				updateBuildConfig = true
-			}
-		} else {
-			triggers := buildConfig.Spec.Triggers
-
-			for i := 0; i < len(triggers); i++ {
-				if triggers[i].GitHubWebHook != nil && triggers[i].GitHubWebHook.SecretReference != nil {
-					buildConfig.Spec.Triggers = append(triggers[:i], triggers[i+1:]...)
-					updateBuildConfig = true
-				}
-			}
-		}
-
-		if webServer.Spec.WebImageStream.WebSources.WebhookSecrets != nil && webServer.Spec.WebImageStream.WebSources.WebhookSecrets.Gitlab != "" {
-			triggers := buildConfig.Spec.Triggers
-			found := false
-
-			for i := 0; i < len(triggers); i++ {
-				if triggers[i].GitLabWebHook != nil && triggers[i].GitLabWebHook.SecretReference != nil {
-					found = true
-
-					if triggers[i].GitLabWebHook.SecretReference.Name != webServer.Spec.WebImageStream.WebSources.WebhookSecrets.Gitlab {
-						triggers[i].GitLabWebHook.SecretReference.Name = webServer.Spec.WebImageStream.WebSources.WebhookSecrets.Gitlab
-						updateBuildConfig = true
-					}
-				}
-			}
-
-			if !found {
-				buildConfig.Spec.Triggers = append(triggers, buildv1.BuildTriggerPolicy{
-					GitLabWebHook: &buildv1.WebHookTrigger{
-						Secret: webServer.Spec.WebImageStream.WebSources.WebhookSecrets.Gitlab,
-					},
-				})
-				updateBuildConfig = true
-			}
-		} else {
-			triggers := buildConfig.Spec.Triggers
-
-			for i := 0; i < len(triggers); i++ {
-				if triggers[i].GitLabWebHook != nil && triggers[i].GitLabWebHook.SecretReference != nil {
-					buildConfig.Spec.Triggers = append(triggers[:i], triggers[i+1:]...)
-					updateBuildConfig = true
-				}
-			}
-		}
-
-		if webServer.Spec.WebImageStream.WebSources.WebSourcesParams != nil {
-			artifactDir := webServer.Spec.WebImageStream.WebSources.WebSourcesParams.ArtifactDir
-
-			if artifactDir != "" {
-				env := buildConfig.Spec.Strategy.SourceStrategy.Env
-				found := false
-
-				for i := 0; i < len(env); i++ {
-					if env[i].Name == "ARTIFACT_DIR" {
-						found = true
-
-						if env[i].Value != artifactDir {
-							env[i].Value = artifactDir
-							updateBuildConfig = true
-							startNewBuild = true
-						}
-
-						break
-					}
-				}
-
-				if !found {
-					buildConfig.Spec.Strategy.SourceStrategy.Env = append(env, corev1.EnvVar{
-						Name:  "ARTIFACT_DIR",
-						Value: artifactDir,
-					})
-
-					updateBuildConfig = true
-					startNewBuild = true
-				}
-			} else {
-				env := buildConfig.Spec.Strategy.SourceStrategy.Env
-
-				for i := 0; i < len(env); i++ {
-					if env[i].Name == "ARTIFACT_DIR" {
-						buildConfig.Spec.Strategy.SourceStrategy.Env = append(env[:i], env[i+1:]...)
-						updateBuildConfig = true
-						startNewBuild = true
-						break
-					}
-				}
-			}
-
-			mavenUrl := webServer.Spec.WebImageStream.WebSources.WebSourcesParams.MavenMirrorURL
-
-			if mavenUrl != "" {
-				env := buildConfig.Spec.Strategy.SourceStrategy.Env
-				found := false
-
-				for i := 0; i < len(env); i++ {
-					if env[i].Name == "MAVEN_MIRROR_URL" {
-						found = true
-
-						if env[i].Value != mavenUrl {
-							env[i].Value = mavenUrl
-							updateBuildConfig = true
-							startNewBuild = true
-						}
-
-						break
-					}
-				}
-
-				if !found {
-					buildConfig.Spec.Strategy.SourceStrategy.Env = append(env, corev1.EnvVar{
-						Name:  "MAVEN_MIRROR_URL",
-						Value: mavenUrl,
-					})
-
-					updateBuildConfig = true
-					startNewBuild = true
-				}
-			} else {
-				env := buildConfig.Spec.Strategy.SourceStrategy.Env
-
-				for i := 0; i < len(env); i++ {
-					if env[i].Name == "MAVEN_MIRROR_URL" {
-						buildConfig.Spec.Strategy.SourceStrategy.Env = append(env[:i], env[i+1:]...)
-						updateBuildConfig = true
-						startNewBuild = true
-						break
-					}
-				}
-			}
-		} else {
-			if len(buildConfig.Spec.Strategy.SourceStrategy.Env) != 0 {
-				buildConfig.Spec.Strategy.SourceStrategy.Env = []corev1.EnvVar{}
-				updateBuildConfig = true
-				startNewBuild = true
-			}
-		}
-
-		if startNewBuild {
-			buildVersion := buildConfig.Status.LastVersion + 1
-			buildConfig.Status.LastVersion = buildVersion
-		}
-
-		if updateBuildConfig {
-			log.Info("Update Build Config")
-			err = r.Update(ctx, buildConfig)
-			if err != nil {
-				log.Error(err, "Failed to update BuildConfig.", "BuildConfig.Namespace", buildConfig.Namespace, "BuildConfig.Name", buildConfig.Name)
-				if errors.IsConflict(err) {
-					log.V(1).Info(err.Error())
-				} else {
-					return ctrl.Result{}, err
-				}
-			}
-		}
-
-		// Check if a Build has been created by the BuildConfig
-		log.Info("Checking build version - " + strconv.FormatInt(buildConfig.Status.LastVersion, 10))
-		buildVersion := strconv.FormatInt(buildConfig.Status.LastVersion, 10)
-
-		build := &buildv1.Build{}
-		err = r.Get(ctx, types.NamespacedName{Name: webServer.Spec.ApplicationName + "-" + buildVersion, Namespace: webServer.Namespace}, build)
-
-		if err != nil && errors.IsNotFound(err) {
-			log.Info("Creating new build")
-
-			build := &buildv1.Build{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      buildConfig.Name + "-" + buildVersion,
-					Namespace: buildConfig.Namespace,
-					Labels: map[string]string{
-						"buildconfig":                     buildConfig.Name,
-						"openshift.io/build-config.name":  buildConfig.Name,
-						"openshift.io/build.start-policy": "Serial",
-					},
-					Annotations: map[string]string{
-						"openshift.io/build-config.name": buildConfig.Name,
-						"openshift.io/build.number":      buildVersion,
-						"openshift.io/build.pod-name":    buildConfig.Name + "-" + buildVersion + "-build",
-					},
-				},
-				Spec: buildv1.BuildSpec{
-					CommonSpec: buildConfig.Spec.CommonSpec, // Copy the common spec from the BuildConfig
-				},
-			}
-
-			err = ctrl.SetControllerReference(webServer, build, r.Scheme)
-			if err != nil {
-				log.Error(err, "Failed to set owner reference")
-				return reconcile.Result{}, err
-			}
-
-			err = r.Create(ctx, build)
-			if err != nil {
-				if errors.IsAlreadyExists(err) {
-					// Build already exists, do nothing
-					return reconcile.Result{}, nil
-				}
-
-				log.Error(err, "Failed to create build")
-				return reconcile.Result{}, err
-			}
-		} else if err != nil && !errors.IsNotFound(err) {
-			log.Info("Failed to get the Build")
-			return ctrl.Result{}, err
-		}
-
-		// If the Build was unsuccessful, stop the operator
-		switch build.Status.Phase {
-
-		case buildv1.BuildPhaseFailed:
-			log.Info("Application build failed: " + build.Status.Message)
-			return ctrl.Result{}, nil
-		case buildv1.BuildPhaseError:
-			log.Info("Application build failed: " + build.Status.Message)
-			return ctrl.Result{}, nil
-		case buildv1.BuildPhaseCancelled:
-			log.Info("Application build canceled")
-			return ctrl.Result{}, nil
-		case buildv1.BuildPhaseRunning:
-			log.Info("Waiting for build to be completed: requeue reconciliation")
-			return ctrl.Result{Requeue: true}, nil
-		case buildv1.BuildPhasePending:
-			log.Info("Waiting for build to be completed: requeue reconciliation")
-			return ctrl.Result{Requeue: true}, nil
-		case buildv1.BuildPhaseNew:
-			log.Info("Waiting for build to be completed: requeue reconciliation")
-			return ctrl.Result{Requeue: true}, nil
 		}
 	} else {
 		buildConfig := &buildv1.BuildConfig{}
@@ -993,11 +673,14 @@ func (r *WebServerReconciler) createImageStream(ctx context.Context, resource *i
 	return reconcile.Result{}, err
 }
 
-func (r *WebServerReconciler) createBuildConfig(ctx context.Context, resource *buildv1.BuildConfig, resourceName, resourceNamespace string) (ctrl.Result, error) {
+func (r *WebServerReconciler) createUpdateBuildConfig(ctx context.Context, resource *buildv1.BuildConfig, resourceName, resourceNamespace string) (ctrl.Result, error) {
+	originalBuildConfig := &buildv1.BuildConfig{}
+
 	err := r.Get(ctx, client.ObjectKey{
 		Namespace: resourceNamespace,
 		Name:      resourceName,
-	}, resource)
+	}, originalBuildConfig)
+
 	if err != nil && errors.IsNotFound(err) {
 		// Create a new resource
 		log.Info("Creating a new BuildConfig: " + resourceName + " Namespace: " + resourceNamespace)
@@ -1012,6 +695,26 @@ func (r *WebServerReconciler) createBuildConfig(ctx context.Context, resource *b
 		log.Error(err, "Failed to get BuildConfig: "+resourceName)
 		return reconcile.Result{}, err
 	}
+
+	if originalBuildConfig.Labels["web-image-source-hash"] != resource.Labels["web-image-source-hash"] {
+		resource.ResourceVersion = originalBuildConfig.ResourceVersion
+		err = r.Update(ctx, resource)
+
+		if err != nil {
+			return reconcile.Result{}, err
+		}
+
+		newBuild, err := r.BuildClient.BuildV1().BuildConfigs(resourceNamespace).
+			Instantiate(ctx, resourceName, &buildv1.BuildRequest{ObjectMeta: metav1.ObjectMeta{Name: resourceName}}, metav1.CreateOptions{})
+
+		if err != nil {
+			log.Error(err, "Failed to trigger build")
+			return ctrl.Result{}, err
+		}
+
+		log.Info("Build started", "BuildName", newBuild.Name)
+	}
+
 	return reconcile.Result{}, err
 }
 
@@ -1159,6 +862,22 @@ func (r *WebServerReconciler) getPodStatus(pods []corev1.Pod) ([]webserversv1alp
 		log.Info("Some pods don't have an IP address yet, reconciliation requeue scheduled")
 	}
 	return podStatuses, requeue
+}
+
+func (r *WebServerReconciler) getWebImageStreamHash(webServer *webserversv1alpha1.WebServer) string {
+	h := sha256.New()
+
+	data, err := json.Marshal(webServer.Spec.WebImageStream)
+	if err != nil {
+		log.Error(err, "WebServer hash sum calculation failed - WebImage")
+		return ""
+	}
+	h.Write(data)
+
+	/* rules for labels: '(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])?')"} */
+	enc := base64.NewEncoding("qwertyuiopasdfghjklzxcvbnmQWERTYUIOPASDFGHJKLZXCVBNM_.0123456789")
+	enc = enc.WithPadding(base64.NoPadding)
+	return "A" + enc.EncodeToString(h.Sum(nil)) + "A"
 }
 
 // Calculate a hash of the Spec (configuration) to redeploy/rebuild if needed.

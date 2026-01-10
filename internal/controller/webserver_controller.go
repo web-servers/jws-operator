@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	buildclient "github.com/openshift/client-go/build/clientset/versioned"
 	webserversv1alpha1 "github.com/web-servers/jws-operator/api/v1alpha1"
 
 	kbappsv1 "k8s.io/api/apps/v1"
@@ -66,6 +67,7 @@ type WebServerReconciler struct {
 	*runtime.Scheme
 	isOpenShift       bool
 	hasServiceMonitor bool
+	BuildClient       *buildclient.Clientset
 }
 
 // It seems we shouldn't mess up directly in role.yaml...
@@ -87,6 +89,7 @@ type WebServerReconciler struct {
 // +kubebuilder:rbac:groups=image.openshift.io,resources=imagestreams,verbs=create;get;list;delete;watch
 
 // +kubebuilder:rbac:groups=build.openshift.io,resources=buildconfigs,verbs=create;get;list;delete;update;watch
+// +kubebuilder:rbac:groups=build.openshift.io,resources=buildconfigs/instantiate,verbs=create;get;list;delete;update;watch
 // +kubebuilder:rbac:groups=build.openshift.io,resources=builds,verbs=create;get;list;delete;watch
 
 // +kubebuilder:rbac:groups=route.openshift.io,resources=routes,verbs=create;get;list;delete;watch

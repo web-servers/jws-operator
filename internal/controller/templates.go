@@ -503,7 +503,13 @@ func (r *WebServerReconciler) generateImageStream(webServer *webserversv1alpha1.
 func (r *WebServerReconciler) generateBuildConfig(webServer *webserversv1alpha1.WebServer) *buildv1.BuildConfig {
 
 	buildConfig := &buildv1.BuildConfig{
-		ObjectMeta: r.generateObjectMeta(webServer, webServer.Spec.ApplicationName),
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      webServer.Spec.ApplicationName,
+			Namespace: webServer.Namespace,
+			Labels: map[string]string{
+				"web-image-source-hash": r.getWebImageStreamHash(webServer),
+			},
+		},
 		Spec: buildv1.BuildConfigSpec{
 			CommonSpec: buildv1.CommonSpec{
 				Source: buildv1.BuildSource{
@@ -535,6 +541,12 @@ func (r *WebServerReconciler) generateBuildConfig(webServer *webserversv1alpha1.
 			},
 			Triggers: r.generateBuildTriggerPolicy(webServer),
 		},
+	}
+
+	if webServer.Spec.WebImageStream.WebSources.SourceRepositorySecret != "" {
+		buildConfig.Spec.Source.SourceSecret = &corev1.LocalObjectReference{
+			Name: webServer.Spec.WebImageStream.WebSources.SourceRepositorySecret,
+		}
 	}
 
 	err := controllerutil.SetControllerReference(webServer, buildConfig, r.Scheme)

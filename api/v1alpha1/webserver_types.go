@@ -175,17 +175,20 @@ type WebSourcesSpec struct {
 	// URL for the repository of the application sources
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Source Repository URL",order=1
 	SourceRepositoryURL string `json:"sourceRepositoryUrl"`
+	// Secret for the repository of the application sources
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Source Repository Secret",order=2
+	SourceRepositorySecret string `json:"sourceRepositorySecret,omitempty"`
 	// Branch in the source repository
-	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Source Repository Reference",order=2
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Source Repository Reference",order=3
 	SourceRepositoryRef string `json:"sourceRepositoryRef,omitempty"`
 	// Subdirectory in the source repository
-	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Context Directory",order=3
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Context Directory",order=4
 	ContextDir string `json:"contextDir,omitempty"`
 	// (Optional) Sources related parameters
-	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Web Sources Parameters",order=4
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Web Sources Parameters",order=5
 	WebSourcesParams *WebSourcesParamsSpec `json:"webSourcesParams,omitempty"`
 	// Webhook secrets configuration
-	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Webhook Secrets",order=5
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Webhook Secrets",order=6
 	WebhookSecrets *WebhookSecrets `json:"webhookSecrets,omitempty"`
 }
 
