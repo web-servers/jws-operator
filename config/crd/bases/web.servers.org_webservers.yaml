@@ -210,6 +210,9 @@ spec:
                   catalinaLogs:
                     description: If true operator will log tomcat's catalina logs
                     type: boolean
+                  deleteClaimOnDeletion:
+                    description: If true operator will delete persistent volume claim
+                    type: boolean
                   enableAccessLogs:
                     description: If true operator will log tomcat's access logs
                     type: boolean
@@ -510,6 +513,10 @@ spec:
                     items:
                       type: string
                     type: array
+                  deleteCreatedClaimsOnDeletion:
+                    description: If true operator will delete persistent volume claim
+                      created from the template
+                    type: boolean
                   persistentVolumeClaims:
                     description: Names of persistent volume claims which will be mounted
                       to /volumes

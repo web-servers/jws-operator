@@ -70,6 +70,9 @@ type VolumeSpec struct {
 	// Volume Claim Templates for stateful applications
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Volume Claim Templates",order=4
 	VolumeClaimTemplates []corev1.PersistentVolumeClaimSpec `json:"volumeClaimTemplates,omitempty"`
+	// If true operator will delete persistent volume claim created from the template
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Delete Persistent Volume Claim Created from Template",order=5,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:booleanSwitch"}
+	DeleteCreatedClaims bool `json:"deleteCreatedClaimsOnDeletion,omitempty"`
 }
 
 // (Deployment method 1) Application image
@@ -168,6 +171,9 @@ type PersistentLogs struct {
 	// StorageClass name of the storage class we want to use for the bound
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Storage Class",order=4
 	StorageClass string `json:"storageClass,omitempty"`
+	// If true operator will delete persistent volume claim
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Delete Persistent Volume Claim",order=5,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:booleanSwitch"}
+	DeleteLogClaims bool `json:"deleteClaimOnDeletion,omitempty"`
 }
 
 // (Optional) Source code information

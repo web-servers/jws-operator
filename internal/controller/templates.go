@@ -229,9 +229,11 @@ func (r *WebServerReconciler) generatePersistentVolumeClaimForLogging(webServer 
 		pvc.Spec.StorageClassName = &webServer.Spec.PersistentLogsConfig.StorageClass
 	}
 
-	err := controllerutil.SetControllerReference(webServer, pvc, r.Scheme)
-	if err != nil {
-		log.Error(err, "SetControllerReference was not successful")
+	if webServer.Spec.PersistentLogsConfig.DeleteLogClaims {
+		err := controllerutil.SetControllerReference(webServer, pvc, r.Scheme)
+		if err != nil {
+			log.Error(err, "SetControllerReference was not successful")
+		}
 	}
 
 	return pvc
@@ -381,6 +383,12 @@ func (r *WebServerReconciler) generateStatefulSet(webServer *webserversv1alpha1.
 			Template:             r.generatePodTemplate(webServer, applicationImage),
 			VolumeClaimTemplates: r.generatePersistentVolumeClaims(webServer),
 		},
+	}
+
+	if webServer.Spec.Volume != nil && webServer.Spec.Volume.DeleteCreatedClaims {
+		statefulset.Spec.PersistentVolumeClaimRetentionPolicy = &kbappsv1.StatefulSetPersistentVolumeClaimRetentionPolicy{
+			WhenDeleted: "Delete",
+		}
 	}
 
 	err := controllerutil.SetControllerReference(webServer, statefulset, r.Scheme)
