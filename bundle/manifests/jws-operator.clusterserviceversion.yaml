@@ -18,7 +18,7 @@ metadata:
         }
       ]
     capabilities: Seamless Upgrades
-    createdAt: "2026-01-08T17:27:46Z"
+    createdAt: "2026-01-12T13:08:31Z"
     operators.operatorframework.io/builder: operator-sdk-v1.41.1
     operators.operatorframework.io/project_layout: go.kubebuilder.io/v4
   name: jws-operator.v0.0.2
@@ -162,6 +162,11 @@ spec:
           bound
         displayName: Storage Class
         path: persistentLogs.storageClass
+      - description: If true operator will delete persistent volume claim
+        displayName: Delete Persistent Volume Claim
+        path: persistentLogs.deleteClaimOnDeletion
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:booleanSwitch
       - description: Route behaviour:[tls]hostname/NONE or empty.
         displayName: Route Hostname
         path: tlsConfig.routeHostname
@@ -173,6 +178,12 @@ spec:
       - description: Volume Claim Template for stateful applications
         displayName: Volume Claim Templates
         path: volumeSpec.volumeClaimTemplates
+      - description: If true operator will delete persistent volume claim created
+          from the template
+        displayName: Delete Created Persistent Volume Claims
+        path: volumeSpec.deleteCreatedClaimsOnDeletion
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:booleanSwitch
       - description: Subdirectory in the source repository
         displayName: Source Repository Context Directory
         path: webImage.webApp.contextDir

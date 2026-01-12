@@ -66,6 +66,9 @@ spec:
       - description: URL for the repository of the application sources
         displayName: Source Repository URL
         path: webImageStream.webSources.sourceRepositoryUrl
+      - description: Secret for the repository of the application sources
+        displayName: Source Repository Secret
+        path: webImageStream.webSources.sourceRepositorySecret
       - description: URL to a maven repository
         displayName: Maven Mirror URL
         path: webImageStream.webSources.webSourcesParams.mavenMirrorUrl
@@ -156,6 +159,11 @@ spec:
           bound
         displayName: Storage Class
         path: persistentLogs.storageClass
+      - description: If true operator will delete persistent volume claim
+        displayName: Delete Persistent Volume Claim
+        path: persistentLogs.deleteClaimOnDeletion
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:booleanSwitch
       - description: Route behaviour:[tls]hostname/NONE or empty.
         displayName: Route Hostname
         path: tlsConfig.routeHostname
@@ -167,6 +175,12 @@ spec:
       - description: Volume Claim Template for stateful applications
         displayName: Volume Claim Templates
         path: volumeSpec.volumeClaimTemplates
+      - description: If true operator will delete persistent volume claim created
+          from the template
+        displayName: Delete Created Persistent Volume Claims
+        path: volumeSpec.deleteCreatedClaimsOnDeletion
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:booleanSwitch
       - description: Subdirectory in the source repository
         displayName: Source Repository Context Directory
         path: webImage.webApp.contextDir
