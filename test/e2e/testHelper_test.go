@@ -2,6 +2,7 @@ package e2e
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"io"
 	"net/http"
@@ -12,7 +13,6 @@ import (
 	webserversv1alpha1 "github.com/web-servers/jws-operator/api/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/tools/remotecommand"
@@ -240,16 +240,98 @@ func getPodLogs(namespace string, podName string) string {
 	return buffer.String()
 }
 
-func deletePod(namespace string, podName string) {
-	pod := &corev1.Pod{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      podName,
-			Namespace: namespace,
-		},
+func forcePodRestart(namespace string, podName string) {
+	oldPod := &corev1.Pod{}
+	key := types.NamespacedName{Name: podName, Namespace: namespace}
+
+	err := k8sClient.Get(context.Background(), key, oldPod)
+	if apierrors.IsNotFound(err) {
+		fmt.Printf("Pod %s already deleted\n", podName)
+		return
+	}
+	oldUID := oldPod.UID
+
+	fmt.Printf("Deleting pod %s (UID: %s)\n", podName, oldUID)
+
+	err = k8sClient.Delete(context.Background(), oldPod)
+	if err != nil && !apierrors.IsNotFound(err) {
+		Expect(err).ToNot(HaveOccurred(), "Failed to trigger pod deletion")
 	}
 
 	Eventually(func() bool {
-		err := k8sClient.Delete(ctx, pod)
-		return apierrors.IsNotFound(err)
-	}, "2m", "5s").Should(BeTrue(), "The pod"+podName+" should be deleted")
+		newPod := &corev1.Pod{}
+		err := k8sClient.Get(context.Background(), key, newPod)
+
+		if apierrors.IsNotFound(err) {
+			return true
+		}
+
+		if err != nil {
+			return false
+		}
+
+		if newPod.UID != oldUID && newPod.Status.Phase == corev1.PodRunning {
+			fmt.Printf("Pod recreated successfully with same name: %s (New UID: %s)\n", podName, newPod.UID)
+			return true
+		}
+
+		return false
+	}, time.Minute*3, time.Second*2).Should(BeTrue(), "Pod did not vanish or restart within timeout")
+}
+
+func createPVC(pvc *corev1.PersistentVolumeClaim) {
+	Expect(k8sClient.Create(ctx, pvc)).Should(Succeed())
+	currentPvc := getPVC(pvc.Name)
+	fmt.Printf("new PVC Name: %s Namespace: %s\n", currentPvc.Name, currentPvc.Namespace)
+}
+
+func getPVC(name string) *corev1.PersistentVolumeClaim {
+	currentPvc := &corev1.PersistentVolumeClaim{}
+	pvcLookupKey := types.NamespacedName{Name: name, Namespace: namespace}
+
+	Eventually(func() bool {
+		err := k8sClient.Get(ctx, pvcLookupKey, currentPvc)
+		return err == nil
+	}, time.Second*10, time.Millisecond*250).Should(BeTrue())
+
+	return currentPvc
+}
+
+func deleteAllPVCs(namespace string) {
+	pvcList := &corev1.PersistentVolumeClaimList{}
+
+	listOpts := []client.ListOption{
+		client.InNamespace(namespace),
+	}
+
+	err := k8sClient.List(context.Background(), pvcList, listOpts...)
+	if err != nil {
+		fmt.Printf("Error listing PVCs for cleanup: %v\n", err)
+		return
+	}
+
+	if len(pvcList.Items) == 0 {
+		fmt.Printf("No PVCs found in namespace %s to clean up.\n", namespace)
+		return
+	}
+
+	fmt.Printf("Cleaning up %d PVC(s) in namespace %s...\n", len(pvcList.Items), namespace)
+
+	for _, pvc := range pvcList.Items {
+		pvcToDelete := pvc
+		err := k8sClient.Delete(context.Background(), &pvcToDelete)
+
+		if err != nil && !apierrors.IsNotFound(err) {
+			fmt.Printf("Failed to delete PVC %s: %v\n", pvcToDelete.Name, err)
+		} else {
+			fmt.Printf("Triggered deletion for PVC: %s\n", pvcToDelete.Name)
+		}
+	}
+}
+
+func getPodContainerName(podName string) string {
+	pod := &corev1.Pod{}
+	Expect(k8sClient.Get(context.Background(), client.ObjectKey{Name: podName, Namespace: namespace}, pod)).To(Succeed())
+	Expect(pod.Spec.Containers).NotTo(BeEmpty())
+	return pod.Spec.Containers[0].Name
 }
