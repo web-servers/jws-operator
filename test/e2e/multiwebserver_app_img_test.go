@@ -176,6 +176,7 @@ var _ = Describe("WebServerControllerTest", Ordered, func() {
 									},
 								},
 							},
+							DeleteCreatedClaims: true,
 						},
 					},
 				}

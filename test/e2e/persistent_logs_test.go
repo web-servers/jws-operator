@@ -51,10 +51,9 @@ var _ = Describe("WebServerControllerTest", Ordered, func() {
 				ApplicationImage: testImg,
 			},
 			PersistentLogsConfig: webserversv1alpha1.PersistentLogs{
-				CatalinaLogs: false,
-				AccessLogs:   false,
-
-				VolumeName: "pv0002",
+				CatalinaLogs:    false,
+				AccessLogs:      false,
+				DeleteLogClaims: true,
 			},
 		},
 	}
@@ -98,12 +97,10 @@ var _ = Describe("WebServerControllerTest", Ordered, func() {
 				}
 
 				for _, pod := range createdWebserver.Status.Pods {
-					if !strings.Contains(stdout, "catalina-"+pod.Name) || strings.Contains(stdout, "access-"+pod.Name+".log") {
-						return false
-					}
+					return strings.Contains(stdout, "catalina-"+pod.Name) && !strings.Contains(stdout, "access-"+pod.Name+".log")
 				}
 
-				return true
+				return false
 			}, time.Second*120, time.Millisecond*500).Should(BeTrue())
 
 		})
@@ -128,15 +125,11 @@ var _ = Describe("WebServerControllerTest", Ordered, func() {
 					return false
 				}
 
-				thetest.Log("stdout: " + stdout + "\n")
-
 				for _, pod := range createdWebserver.Status.Pods {
-					thetest.Log("pod: " + pod.Name + "\n")
-					if !strings.Contains(stdout, "access-"+pod.Name+".log") || strings.Contains(stdout, "catalina-"+pod.Name) {
-						return false
-					}
+					return strings.Contains(stdout, "access-"+pod.Name+".log") && !strings.Contains(stdout, "catalina-"+pod.Name)
 				}
-				return true
+
+				return false
 			}, time.Second*120, time.Millisecond*500).Should(BeTrue())
 		})
 
@@ -159,12 +152,10 @@ var _ = Describe("WebServerControllerTest", Ordered, func() {
 				}
 
 				for _, pod := range createdWebserver.Status.Pods {
-					if strings.Contains(stdout, "catalina-"+pod.Name) && strings.Contains(stdout, "access-"+pod.Name+".log") {
-						return false
-					}
+					return strings.Contains(stdout, "catalina-"+pod.Name) && strings.Contains(stdout, "access-"+pod.Name+".log")
 				}
 
-				return true
+				return false
 			}, time.Second*120, time.Millisecond*500).Should(BeTrue())
 		})
 
