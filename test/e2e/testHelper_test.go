@@ -7,17 +7,16 @@ import (
 	"net/http"
 	"time"
 
+	. "github.com/onsi/gomega"
+	imagev1 "github.com/openshift/api/image/v1"
+	webserversv1alpha1 "github.com/web-servers/jws-operator/api/v1alpha1"
+	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/tools/remotecommand"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-
-	. "github.com/onsi/gomega"
-	imagev1 "github.com/openshift/api/image/v1"
-	corev1 "k8s.io/api/core/v1"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/types"
-
-	webserversv1alpha1 "github.com/web-servers/jws-operator/api/v1alpha1"
 )
 
 func createWebServer(webServer *webserversv1alpha1.WebServer) {
@@ -209,4 +208,48 @@ func checkOperatorLogs() {
 	Expect(podLogs.Close()).ShouldNot(HaveOccurred())
 	Expect(buffer.Bytes()).ShouldNot(BeEmpty(), "Not able to read controller-manager's logs.")
 	Expect(bytes.Contains(bytes.ToLower(buffer.Bytes()), []byte("error"))).Should(BeFalse(), "Error message occurred in controller-manager's logs.")
+}
+
+// getPodLogs returns the feed logs as a string.
+// Returns an empty string in case of an error, so that it can Eventually try again.
+func getPodLogs(namespace string, podName string) string {
+	podLogOptions := &corev1.PodLogOptions{}
+
+	req := clientset.CoreV1().Pods(namespace).GetLogs(podName, podLogOptions)
+
+	stream, err := req.Stream(ctx)
+	if err != nil {
+		fmt.Printf("Warning: failed to open stream for pod %s: %v\n", podName, err)
+		return ""
+	}
+
+	defer func(stream io.ReadCloser) {
+		err := stream.Close()
+		if err != nil {
+			fmt.Printf("Warning: failed to close stream for pod %s: %v\n", podName, err)
+		}
+	}(stream)
+
+	var buffer bytes.Buffer
+	_, err = io.Copy(&buffer, stream)
+	if err != nil {
+		fmt.Printf("Warning: failed to copy logs for pod %s: %v\n", podName, err)
+		return ""
+	}
+
+	return buffer.String()
+}
+
+func deletePod(namespace string, podName string) {
+	pod := &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      podName,
+			Namespace: namespace,
+		},
+	}
+
+	Eventually(func() bool {
+		err := k8sClient.Delete(ctx, pod)
+		return apierrors.IsNotFound(err)
+	}, "2m", "5s").Should(BeTrue(), "The pod"+podName+" should be deleted")
 }
