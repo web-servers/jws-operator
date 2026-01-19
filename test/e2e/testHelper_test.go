@@ -2,6 +2,7 @@ package e2e
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"io"
 	"net/http"
@@ -209,4 +210,94 @@ func checkOperatorLogs() {
 	Expect(podLogs.Close()).ShouldNot(HaveOccurred())
 	Expect(buffer.Bytes()).ShouldNot(BeEmpty(), "Not able to read controller-manager's logs.")
 	Expect(bytes.Contains(bytes.ToLower(buffer.Bytes()), []byte("error"))).Should(BeFalse(), "Error message occurred in controller-manager's logs.")
+}
+
+func deletePod(namespace string, podName string) {
+	oldPod := &corev1.Pod{}
+	key := types.NamespacedName{Name: podName, Namespace: namespace}
+
+	Eventually(func() error {
+		return k8sClient.Get(context.Background(), key, oldPod)
+	}, time.Second*10, time.Second).Should(Succeed(), "Failed to get initial pod info before deletion")
+
+	oldUID := oldPod.UID
+	fmt.Printf("Deleting pod %s (UID: %s)\n", podName, oldUID)
+
+	err := k8sClient.Delete(context.Background(), oldPod)
+	if err != nil && !apierrors.IsNotFound(err) {
+		Expect(err).ToNot(HaveOccurred(), "Failed to trigger pod deletion")
+	}
+
+	Eventually(func() bool {
+		newPod := &corev1.Pod{}
+		err := k8sClient.Get(context.Background(), key, newPod)
+
+		if err != nil {
+			return false
+		}
+
+		if newPod.UID != oldUID && newPod.Status.Phase == corev1.PodRunning {
+			fmt.Printf("Pod recreated successfully: %s (New UID: %s)\n", podName, newPod.UID)
+			return true
+		}
+
+		return false
+	}, time.Minute*2, time.Second*2).Should(BeTrue(), "Pod was not recreated or did not reach Running state")
+}
+
+func createPVC(pvc *corev1.PersistentVolumeClaim) {
+	Expect(k8sClient.Create(ctx, pvc)).Should(Succeed())
+	currentPvc := getPVC(pvc.Name)
+	fmt.Printf("new PVC Name: %s Namespace: %s\n", currentPvc.Name, currentPvc.Namespace)
+}
+
+func getPVC(name string) *corev1.PersistentVolumeClaim {
+	currentPvc := &corev1.PersistentVolumeClaim{}
+	pvcLookupKey := types.NamespacedName{Name: name, Namespace: namespace}
+
+	Eventually(func() bool {
+		err := k8sClient.Get(ctx, pvcLookupKey, currentPvc)
+		return err == nil
+	}, time.Second*10, time.Millisecond*250).Should(BeTrue())
+
+	return currentPvc
+}
+
+func deleteAllPVCs(namespace string) {
+	pvcList := &corev1.PersistentVolumeClaimList{}
+
+	listOpts := []client.ListOption{
+		client.InNamespace(namespace),
+	}
+
+	err := k8sClient.List(context.Background(), pvcList, listOpts...)
+	if err != nil {
+		fmt.Printf("Error listing PVCs for cleanup: %v\n", err)
+		return
+	}
+
+	if len(pvcList.Items) == 0 {
+		fmt.Printf("No PVCs found in namespace %s to clean up.\n", namespace)
+		return
+	}
+
+	fmt.Printf("Cleaning up %d PVC(s) in namespace %s...\n", len(pvcList.Items), namespace)
+
+	for _, pvc := range pvcList.Items {
+		pvcToDelete := pvc
+		err := k8sClient.Delete(context.Background(), &pvcToDelete)
+
+		if err != nil && !apierrors.IsNotFound(err) {
+			fmt.Printf("Failed to delete PVC %s: %v\n", pvcToDelete.Name, err)
+		} else {
+			fmt.Printf("Triggered deletion for PVC: %s\n", pvcToDelete.Name)
+		}
+	}
+}
+
+func getPodContainerName(podName string) string {
+	pod := &corev1.Pod{}
+	Expect(k8sClient.Get(context.Background(), client.ObjectKey{Name: podName, Namespace: namespace}, pod)).To(Succeed())
+	Expect(pod.Spec.Containers).NotTo(BeEmpty())
+	return pod.Spec.Containers[0].Name
 }
