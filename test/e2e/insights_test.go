@@ -161,7 +161,7 @@ var _ = Describe("WebServerControllerTest", Ordered, func() {
 			initialPodName := waitForPod()
 			checkLogsContainString(initialPodName, PayloadAcceptedLog)
 
-			deletePod(namespace, initialPodName)
+			forcePodRestart(namespace, initialPodName)
 
 			// Create a new pod
 			var newPodName string
