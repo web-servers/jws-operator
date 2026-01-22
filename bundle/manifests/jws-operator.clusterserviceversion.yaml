@@ -443,7 +443,6 @@ spec:
           replicas: 1
           selector:
             matchLabels:
-              app.kubernetes.io/name: jws-operator
               control-plane: controller-manager
           strategy: {}
           template:
