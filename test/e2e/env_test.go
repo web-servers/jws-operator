@@ -38,7 +38,6 @@ var _ = Describe("WebServer controller", Ordered, func() {
 	ctx := context.Background()
 	name := "image-basic-test"
 	appName := "test-tomcat-demo"
-	namespace := "jws-operator-tests"
 	image := "quay.io/web-servers/tomcat10:latest"
 
 	webserver := &webserversv1alpha1.WebServer{
