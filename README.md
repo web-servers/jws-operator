@@ -283,7 +283,8 @@ The quay.io ones are public
 
 You also need to be able to push to:
 ```
-quay.io/${USER}/test
+quay.io/${USER}/source-script-test
+quay.io/${USER}/source-test
 ```
 To be able to pull container images, make the 'secretfortests' secret to be a default for pulling:
 ```
