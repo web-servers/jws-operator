@@ -75,10 +75,11 @@ var _ = Describe("WebServerControllerTest", Ordered, func() {
 		})
 
 		It("Update Test", func() {
-			createdWebserver := getWebServer(name)
+			var createdWebserver *webserversv1alpha1.WebServer
 
 			// Update WebImage and update WebServer
 			Eventually(func() bool {
+				createdWebserver = getWebServer(name)
 				createdWebserver.Spec.WebImage.ApplicationImage = newImage
 
 				err := k8sClient.Update(ctx, createdWebserver)
@@ -91,13 +92,6 @@ var _ = Describe("WebServerControllerTest", Ordered, func() {
 			}, time.Second*30, time.Millisecond*250).Should(BeTrue())
 
 			foundDeployment := &kbappsv1.Deployment{}
-			Eventually(func() bool {
-				err := k8sClient.Get(ctx, types.NamespacedName{Name: appName, Namespace: namespace}, foundDeployment)
-				return err == nil
-			}, time.Second*10, time.Millisecond*250).Should(BeTrue())
-
-			foundImage := foundDeployment.Spec.Template.Spec.Containers[0].Image
-			Expect(foundImage).Should(Equal(newImage), "Image Update Test: image check failed")
 
 			// Wait until the replicas are available
 			Eventually(func() bool {
@@ -107,12 +101,13 @@ var _ = Describe("WebServerControllerTest", Ordered, func() {
 					return false
 				}
 
-				if createdWebserver.Spec.Replicas == foundDeployment.Status.AvailableReplicas {
-					return true
-				} else {
+				foundImage := foundDeployment.Spec.Template.Spec.Containers[0].Image
+				if foundImage != newImage {
 					return false
 				}
-			}, time.Second*420, time.Second*30).Should(BeTrue(), "Image Update Test: Required amount of replicas were not achieved")
+
+				return createdWebserver.Spec.Replicas == foundDeployment.Status.AvailableReplicas
+			}, time.Second*420, time.Second*30).Should(BeTrue(), "Image Update Test: Required amount of replicas with updated image were not achieved")
 
 			_, err := utils.WebServerRouteTest(k8sClient, ctx, thetest, webserver, testURI, false, nil, false)
 			Expect(err).Should(Succeed())
