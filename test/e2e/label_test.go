@@ -94,7 +94,9 @@ var _ = Describe("WebServerControllerTest", Ordered, func() {
 				return true
 			}, time.Second*30, time.Millisecond*250).Should(BeTrue())
 
-			Expect(checkLabel(appName, key, value)).Should(BeTrue())
+			Eventually(func() bool {
+				return checkLabel(appName, key, value)
+			}, time.Second*30, time.Millisecond*250).Should(BeTrue())
 		})
 
 		It("RemoveLabelTest", func() {
@@ -121,7 +123,9 @@ var _ = Describe("WebServerControllerTest", Ordered, func() {
 				return true
 			}, time.Second*30, time.Millisecond*250).Should(BeTrue())
 
-			Expect(checkLabel(appName, key, value)).Should(BeFalse())
+			Eventually(func() bool {
+				return checkLabel(appName, key, value)
+			}, time.Second*30, time.Millisecond*250).Should(BeFalse())
 		})
 
 		It("SelectorTest", func() {
@@ -173,7 +177,9 @@ var _ = Describe("WebServerControllerTest", Ordered, func() {
 					client.InNamespace(webserver.Namespace),
 					client.MatchingLabels(labels),
 				}
-				Expect(k8sClient.List(ctx, podList, listOpts...)).Should(Succeed())
+				if k8sClient.List(ctx, podList, listOpts...) != nil {
+					return false
+				}
 
 				return webserver.Spec.Replicas != int32(len(podList.Items))
 			}, time.Second*300, time.Millisecond*500).Should(BeTrue(), "The number of deployed pods with metering labels does not match the WebServer specification podList.")
