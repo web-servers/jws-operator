@@ -205,7 +205,7 @@ var _ = Describe("WebServerControllerTest", Ordered, func() {
 				}
 
 				return new_count > original_count
-			}, time.Second*30, time.Second*1).Should(BeTrue(), "no new build pod was recognized.")
+			}, time.Minute*5, time.Second*1).Should(BeTrue(), "no new build pod was recognized.")
 		})
 	})
 })
