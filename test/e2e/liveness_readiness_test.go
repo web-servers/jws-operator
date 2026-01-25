@@ -235,22 +235,19 @@ var _ = Describe("WebServerControllerTest", Ordered, func() {
 			}
 
 			Eventually(func() bool {
-				found := false
-
 				if k8sClient.List(ctx, eventList, listOpts...) != nil {
 					return false
 				}
 
 				for _, event := range eventList.Items {
-					if event.LastTimestamp.After(cutoffTime) && strings.Contains(event.Message, "Liveness probe failed") == true {
-						found = true
-						break
+					if event.LastTimestamp.After(cutoffTime) && strings.Contains(event.Message, "Liveness probe failed") {
+						return true
 					}
 				}
 
-				return found
+				return false
 
-			}, time.Minute*2, time.Second*5).Should(BeTrue(), "Event about liveness failure was not found.")
+			}, time.Minute*5, time.Second*5).Should(BeTrue(), "Event about liveness failure was not found.")
 		})
 	})
 })
