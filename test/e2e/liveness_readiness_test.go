@@ -122,38 +122,39 @@ var _ = Describe("WebServerControllerTest", Ordered, func() {
 				client.InNamespace(webserver.Namespace),
 			}
 
-			Expect(k8sClient.List(ctx, podList, listOpts...)).Should(Succeed())
+			Eventually(func() bool {
+				if k8sClient.List(ctx, podList, listOpts...) != nil {
+					return false
+				}
 
-			found := false
+				for _, pod := range podList.Items {
+					if strings.Contains(pod.Name, appName) && strings.Contains(pod.Name, "build") {
+						result := restClient.Get().
+							Namespace(namespace).
+							Resource("pods").
+							Name(pod.Name).
+							SubResource("log").
+							Param("container", "sti-build")
 
-			for _, pod := range podList.Items {
-				if strings.Contains(pod.Name, appName) && strings.Contains(pod.Name, "build") {
-					result := restClient.Get().
-						Namespace(namespace).
-						Resource("pods").
-						Name(pod.Name).
-						SubResource("log").
-						Param("container", "sti-build")
+						rc, err := result.Stream(ctx)
+						if err != nil {
+							continue
+						}
 
-					rc, err := result.Stream(ctx)
-					if err != nil {
-						continue
-					}
+						data, err := io.ReadAll(rc)
+						Expect(rc.Close()).Should(Succeed())
 
-					data, err := io.ReadAll(rc)
-					Expect(rc.Close()).Should(Succeed())
+						if err != nil {
+							continue
+						}
 
-					if err != nil {
-						continue
-					}
-
-					if bytes.Contains(data, []byte(mavenMirrorURL)) {
-						found = true
+						if bytes.Contains(data, []byte(mavenMirrorURL)) {
+							return true
+						}
 					}
 				}
-			}
-
-			Expect(found).Should(BeTrue())
+				return false
+			}, time.Second*60, time.Second).Should(BeTrue(), "Maven mirror was not found in logs")
 		})
 
 		It("ArtifactAndContextDirUpdateTest", func() {
@@ -194,7 +195,9 @@ var _ = Describe("WebServerControllerTest", Ordered, func() {
 			Eventually(func() bool {
 				found := false
 
-				Expect(k8sClient.List(ctx, eventList, listOpts...)).Should(Succeed())
+				if k8sClient.List(ctx, eventList, listOpts...) != nil {
+					return false
+				}
 
 				for _, event := range eventList.Items {
 					if event.LastTimestamp.After(cutoffTime) && strings.Contains(event.Message, "Readiness probe failed") == true {
@@ -234,7 +237,9 @@ var _ = Describe("WebServerControllerTest", Ordered, func() {
 			Eventually(func() bool {
 				found := false
 
-				Expect(k8sClient.List(ctx, eventList, listOpts...)).Should(Succeed())
+				if k8sClient.List(ctx, eventList, listOpts...) != nil {
+					return false
+				}
 
 				for _, event := range eventList.Items {
 					if event.LastTimestamp.After(cutoffTime) && strings.Contains(event.Message, "Liveness probe failed") == true {
