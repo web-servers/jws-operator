@@ -47,7 +47,7 @@ var _ = Describe("WebServerControllerTest", Ordered, func() {
 	sourceRepositoryURL := "https://github.com/web-servers/demo-webapp"
 	sourceRepositoryRef := "main"
 	pushsecret := "secretfortests"
-	pushedimage := "quay.io/" + os.Getenv("USER") + "/test"
+	pushedimage := "quay.io/" + os.Getenv("USER") + "/source-script-test"
 	imagebuilder := "quay.io/web-servers/tomcat10-buildah"
 
 	webserver := &webserversv1alpha1.WebServer{
