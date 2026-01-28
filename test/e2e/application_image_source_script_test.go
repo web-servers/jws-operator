@@ -24,8 +24,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	"k8s.io/apimachinery/pkg/types"
-
 	webserversv1alpha1 "github.com/web-servers/jws-operator/api/v1alpha1"
 	"github.com/web-servers/jws-operator/test/utils"
 
@@ -121,11 +119,9 @@ STORAGE_DRIVER=vfs buildah push --authfile /auth/.dockerconfigjson ${webAppWarIm
 		It("Update Test", func() {
 			createdWebserver := &webserversv1alpha1.WebServer{}
 			Eventually(func() bool {
-				err := k8sClient.Get(ctx, types.NamespacedName{Name: name, Namespace: namespace}, createdWebserver)
-				return err == nil
-			}, time.Second*10, time.Millisecond*250).Should(BeTrue())
+				createdWebserver = getWebServer(name)
 
-			createdWebserver.Spec.WebImage.WebApp.Builder.ApplicationBuildScript = `#!/bin/sh
+				createdWebserver.Spec.WebImage.WebApp.Builder.ApplicationBuildScript = `#!/bin/sh
 cd tmp          
 echo "my html is _VERY_ ugly" > index.html
 mkdir WEB-INF           
@@ -146,14 +142,13 @@ HOME=/tmp
 STORAGE_DRIVER=vfs buildah bud -f /Dockerfile.JWS -t ${webAppWarImage} --authfile /auth/.dockerconfigjson --build-arg webAppSourceImage=${webAppSourceImage}        
 STORAGE_DRIVER=vfs buildah push --authfile /auth/.dockerconfigjson ${webAppWarImage}
 `
-			Eventually(func() bool {
 				err := k8sClient.Update(ctx, createdWebserver)
 				if err != nil {
 					return false
 				}
 				thetest.Logf("WebServer %s updated\n", name)
 				return true
-			}, time.Second*10, time.Millisecond*250).Should(BeTrue(), "Application update failed")
+			}, time.Second*30, time.Millisecond*250).Should(BeTrue(), "Application update failed")
 
 			err := utils.WebServerTestFor(k8sClient, ctx, thetest, webserver, testURI, "my html is _VERY_ ugly")
 			Expect(err).Should(Succeed())
