@@ -499,20 +499,12 @@ spec:
                   capabilities:
                     drop:
                     - ALL
-                volumeMounts:
-                - mountPath: /tmp/k8s-webhook-server/serving-certs
-                  name: webhook-certs
-                  readOnly: true
               securityContext:
                 runAsNonRoot: true
                 seccompProfile:
                   type: RuntimeDefault
               serviceAccountName: jws-operator-controller-manager
               terminationGracePeriodSeconds: 10
-              volumes:
-              - name: webhook-certs
-                secret:
-                  secretName: webhook-server-cert
       - label:
           app.kubernetes.io/name: jws-operator-insights
           control-plane: controller-manager
