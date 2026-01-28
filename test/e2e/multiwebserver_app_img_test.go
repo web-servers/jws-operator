@@ -49,13 +49,16 @@ var _ = Describe("WebServerControllerTest", Ordered, func() {
 		_ = getURL(name+"-"+strconv.Itoa(i), "", []byte{})
 		time.Sleep(time.Second * time.Duration(rand.IntN(10)+1))
 
-		createdWebserver := getWebServer(name + "-" + strconv.Itoa(i))
 		randomReplicas := int32(rand.IntN(5) + 1)
-		createdWebserver.Spec.Replicas = randomReplicas
-
 		fmt.Printf("Random replica count: %d\n", randomReplicas)
 
-		Expect(k8sClient.Update(ctx, createdWebserver)).Should(Succeed())
+		Eventually(func() bool {
+			createdWebserver := getWebServer(name + "-" + strconv.Itoa(i))
+			createdWebserver.Spec.Replicas = randomReplicas
+
+			return k8sClient.Update(ctx, createdWebserver) == nil
+		}, time.Second*300, time.Millisecond*500).Should(BeTrue())
+
 		_ = getURL(name+"-"+strconv.Itoa(i), "", []byte{})
 
 		Eventually(func() bool {
@@ -69,16 +72,18 @@ var _ = Describe("WebServerControllerTest", Ordered, func() {
 				client.InNamespace(namespace),
 				client.MatchingLabels(labels),
 			}
-			Expect(k8sClient.List(ctx, podList, listOpts...)).Should(Succeed())
+			if k8sClient.List(ctx, podList, listOpts...) != nil {
+				return false
+			}
 
 			numberOfDeployedPods := int32(len(podList.Items))
-			if numberOfDeployedPods != createdWebserver.Spec.Replicas {
+			if numberOfDeployedPods != randomReplicas {
 				fmt.Printf("The number of deployed pods does not match the WebServer specification podList.\n")
 				return false
 			} else {
 				return true
 			}
-		}, time.Second*300, time.Millisecond*500).Should(BeTrue())
+		}, time.Minute*5, time.Second).Should(BeTrue())
 	}
 
 	imgStream := &imagev1.ImageStream{

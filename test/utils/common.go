@@ -583,7 +583,7 @@ func WebServerTestFor(clt client.Client, ctx context.Context, t *testing.T, webS
 			}
 			if len(curwebServer.Status.Hosts) == 0 {
 				t.Logf("WebServer.Status.Hosts is empty. Attempt %d/10\n", i)
-				time.Sleep(10 * time.Second)
+				time.Sleep(30 * time.Second)
 			} else {
 				break
 			}

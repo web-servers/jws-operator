@@ -78,20 +78,20 @@ var _ = Describe("WebServer controller", Ordered, func() {
 				return checkPodsEnvVariables(k8sClient, ctx, name, namespace, "MY_ENV", "my-random-string")
 			}, time.Minute*5, time.Second*10).Should(BeTrue())
 
-			createdWebserver := getWebServer(name)
-			envVars := createdWebserver.Spec.EnvironmentVariables
-
-			for index, env := range envVars {
-				if env.Name == "MY_ENV" {
-					envVars[index] = corev1.EnvVar{Name: "MY_ENV", Value: "my-updated-string"}
-				}
-			}
-
-			createdWebserver.Spec.EnvironmentVariables = envVars
-
 			Eventually(func() bool {
+				createdWebserver := getWebServer(name)
+				envVars := createdWebserver.Spec.EnvironmentVariables
+
+				for index, env := range envVars {
+					if env.Name == "MY_ENV" {
+						envVars[index] = corev1.EnvVar{Name: "MY_ENV", Value: "my-updated-string"}
+					}
+				}
+
+				createdWebserver.Spec.EnvironmentVariables = envVars
+
 				return k8sClient.Update(ctx, createdWebserver) == nil
-			}, time.Second*10, time.Millisecond*250).Should(BeTrue())
+			}, time.Second*30, time.Millisecond*250).Should(BeTrue())
 
 			Eventually(func() bool {
 				return checkPodsEnvVariables(k8sClient, ctx, name, namespace, "MY_ENV", "my-updated-string")
@@ -99,47 +99,51 @@ var _ = Describe("WebServer controller", Ordered, func() {
 		})
 
 		It("Add and Remove Test", func() {
-			createdWebserver := getWebServer(name)
-			envVars := createdWebserver.Spec.EnvironmentVariables
-			envVars = append(envVars, corev1.EnvVar{Name: "MY_ENV_II", Value: "specific-string"})
-			createdWebserver.Spec.EnvironmentVariables = envVars
-			envVarsCount := len(envVars)
+			var createdWebserver *webserversv1alpha1.WebServer
+			var envVars []corev1.EnvVar
+			var envVarsCount int
 
 			Eventually(func() bool {
-				return k8sClient.Update(ctx, createdWebserver) == nil
-			}, time.Second*10, time.Millisecond*250).Should(BeTrue())
+				createdWebserver = getWebServer(name)
+				envVars = createdWebserver.Spec.EnvironmentVariables
+				envVars = append(envVars, corev1.EnvVar{Name: "MY_ENV_II", Value: "specific-string"})
+				createdWebserver.Spec.EnvironmentVariables = envVars
+				envVarsCount = len(envVars)
 
+				return k8sClient.Update(ctx, createdWebserver) == nil
+			}, time.Second*30, time.Millisecond*250).Should(BeTrue())
+
+			createdWebserver = getWebServer(name)
 			Expect(createdWebserver.Spec.EnvironmentVariables).Should(HaveLen(envVarsCount))
 
 			Eventually(func() bool {
 				return checkPodsEnvVariables(k8sClient, ctx, name, namespace, "MY_ENV_II", "specific-string")
 			}, time.Minute*5, time.Second*10).Should(BeTrue())
 
+			Eventually(func() bool {
+				createdWebserver = getWebServer(name)
+
+				envVars = createdWebserver.Spec.EnvironmentVariables
+				var removeIndex int
+
+				for i, env := range envVars {
+					if env.Name == "MY_ENV_II" {
+						removeIndex = i
+					}
+				}
+
+				envVars = append(envVars[:removeIndex], envVars[removeIndex+1:]...)
+
+				createdWebserver.Spec.EnvironmentVariables = envVars
+				envVarsCount = len(envVars)
+
+				return k8sClient.Update(ctx, createdWebserver) == nil
+			}, time.Second*30, time.Millisecond*250).Should(BeTrue())
+
 			createdWebserver = getWebServer(name)
 
-			envVars = createdWebserver.Spec.EnvironmentVariables
-			var removeIndex int
-
-			for i, env := range envVars {
-				if env.Name == "MY_ENV_II" {
-					removeIndex = i
-				}
-			}
-
-			envVars = append(envVars[:removeIndex], envVars[removeIndex+1:]...)
-
-			createdWebserver.Spec.EnvironmentVariables = envVars
-			envVarsCount = len(envVars)
-
-			Eventually(func() bool {
-				return k8sClient.Update(ctx, createdWebserver) == nil
-			}, time.Second*10, time.Millisecond*250).Should(BeTrue())
-
-			Eventually(func() bool {
-				return k8sClient.Get(ctx, types.NamespacedName{Name: name, Namespace: namespace}, createdWebserver) == nil
-			}, time.Second*10, time.Millisecond*250).Should(BeTrue())
-
 			Expect(createdWebserver.Spec.EnvironmentVariables).Should(HaveLen(envVarsCount))
+
 			Eventually(func() bool {
 				return checkPodsEnvVariables(k8sClient, ctx, name, namespace, "MY_ENV_II", "specific-string")
 			}, time.Minute*5, time.Second*10).Should(BeFalse())
