@@ -88,7 +88,7 @@ var _ = Describe("WebServerControllerTest", Ordered, func() {
 			Expect(k8sClient.Create(ctx, webserver)).ShouldNot(Succeed())
 		})
 
-		It("WebImageTest", func() {
+		It("WebImgTest", func() {
 			webserver := &webserversv1alpha1.WebServer{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      name,
@@ -106,7 +106,7 @@ var _ = Describe("WebServerControllerTest", Ordered, func() {
 			Expect(k8sClient.Create(ctx, webserver)).ShouldNot(Succeed())
 		})
 
-		It("WebImageTest", func() {
+		It("WebImgTest", func() {
 			webserver := &webserversv1alpha1.WebServer{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      name,
@@ -124,7 +124,7 @@ var _ = Describe("WebServerControllerTest", Ordered, func() {
 			Expect(k8sClient.Create(ctx, webserver)).ShouldNot(Succeed())
 		})
 
-		It("WebImageStreamTest-I", func() {
+		It("WebImgStreamTest-I", func() {
 			webserver := &webserversv1alpha1.WebServer{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      name,
@@ -142,7 +142,7 @@ var _ = Describe("WebServerControllerTest", Ordered, func() {
 			Expect(k8sClient.Create(ctx, webserver)).ShouldNot(Succeed())
 		})
 
-		It("WebImageStreamTest-II", func() {
+		It("WebImgStreamTest-II", func() {
 			webserver := &webserversv1alpha1.WebServer{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      name,
