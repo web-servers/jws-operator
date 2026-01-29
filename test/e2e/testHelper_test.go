@@ -189,9 +189,10 @@ func checkOperatorLogs() {
 
 	listOpts := []client.ListOption{
 		client.MatchingLabels(labels),
+		client.InNamespace(namespace),
 	}
 	Expect(k8sClient.List(ctx, podList, listOpts...)).Should(Succeed())
-	Expect(podList.Items).Should(HaveLen(1), "Not able to find operator pod.")
+	Expect(podList.Items).Should(HaveLen(1), fmt.Sprintf("Not able to find operator pod: len(podList.Items) = %d", len(podList.Items)))
 
 	operatorPod := podList.Items[0]
 	podLogOptions := &corev1.PodLogOptions{
@@ -207,7 +208,13 @@ func checkOperatorLogs() {
 	Expect(err).ShouldNot(HaveOccurred())
 	Expect(podLogs.Close()).ShouldNot(HaveOccurred())
 	Expect(buffer.Bytes()).ShouldNot(BeEmpty(), "Not able to read controller-manager's logs.")
-	Expect(bytes.Contains(bytes.ToLower(buffer.Bytes()), []byte("error"))).Should(BeFalse(), "Error message occurred in controller-manager's logs.")
+
+	if bytes.Contains(bytes.ToLower(buffer.Bytes()), []byte("error")) {
+		fmt.Println(">>>> Pod's log <<<<")
+		fmt.Println(buffer.String())
+		fmt.Println(">>>> Pod's log <<<<")
+		Expect(true).Should(BeFalse())
+	}
 }
 
 // getPodLogs returns the feed logs as a string.
