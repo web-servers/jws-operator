@@ -469,6 +469,10 @@ spec:
                         fieldPath: metadata.namespace
                   - name: INSIGHTS_ENABLED
                     value: "true"
+                  - name: WATCH_NAMESPACE
+                    valueFrom:
+                      fieldRef:
+                        fieldPath: metadata.annotations['olm.targetNamespaces']
                 image: quay.io/mmadzin/jws-operator:latest
                 livenessProbe:
                   httpGet:

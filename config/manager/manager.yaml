@@ -66,6 +66,11 @@ spec:
         image: controller:latest
         name: manager
         ports: []
+        env:
+          - name: WATCH_NAMESPACE
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.annotations['olm.targetNamespaces']
         securityContext:
           allowPrivilegeEscalation: false
           capabilities:
