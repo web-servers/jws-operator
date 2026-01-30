@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 	"time"
 
 	. "github.com/onsi/gomega"
@@ -341,4 +342,31 @@ func getPodContainerName(podName string) string {
 	Expect(k8sClient.Get(context.Background(), client.ObjectKey{Name: podName, Namespace: namespace}, pod)).To(Succeed())
 	Expect(pod.Spec.Containers).NotTo(BeEmpty())
 	return pod.Spec.Containers[0].Name
+}
+
+func waitForBuildPodsToSucceed() {
+	// Get all the pods
+	podList := &corev1.PodList{}
+
+	listOpts := []client.ListOption{
+		client.InNamespace(namespace),
+	}
+
+	// Check that all the building pods succeeded
+	Eventually(func() bool {
+		if k8sClient.List(ctx, podList, listOpts...) != nil {
+			return false
+		}
+
+		for _, pod := range podList.Items {
+			if strings.HasSuffix(pod.Name, "-build") {
+				// Check if Phase is "Succeeded"
+				if pod.Status.Phase != "Succeeded" {
+					fmt.Printf("Pod %s is currently: %s\n", pod.Name, pod.Status.Phase)
+					return false
+				}
+			}
+		}
+		return true
+	}, time.Minute*5, time.Second*5).Should(BeTrue(), "Building pods took too long time.")
 }
