@@ -55,14 +55,15 @@ var (
 	// isCertManagerAlreadyInstalled will be set true when CertManager CRDs be found on the cluster
 	isCertManagerAlreadyInstalled = false
 
-	cfg        *rest.Config
-	k8sClient  client.Client
-	restClient *rest.RESTClient
-	clientset  *kubernetes.Clientset
-	ctx        context.Context
-	thetest    *testing.T
-	testImg    = os.Getenv("TEST_IMG")
-	namespace  = os.Getenv("NAMESPACE_FOR_TESTING")
+	cfg           *rest.Config
+	k8sClient     client.Client
+	restClient    *rest.RESTClient
+	clientset     *kubernetes.Clientset
+	ctx           context.Context
+	thetest       *testing.T
+	testImg       = os.Getenv("TEST_IMG")
+	testImgUpdate = os.Getenv("TEST_IMG_UPDATE")
+	namespace     = os.Getenv("NAMESPACE_FOR_TESTING")
 )
 
 // TestE2E runs the end-to-end (e2e) test suite for the project. These tests execute in an isolated,
