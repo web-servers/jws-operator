@@ -370,3 +370,23 @@ func waitForBuildPodsToSucceed() {
 		return true
 	}, time.Minute*5, time.Second*5).Should(BeTrue(), "Building pods took too long time.")
 }
+
+func waitForPodsActiveState(name string) {
+	Eventually(func() bool {
+		createdWebserver := getWebServer(name)
+
+		if len(createdWebserver.Status.Pods) != int(createdWebserver.Spec.Replicas) {
+			return false
+		}
+
+		for _, pod := range createdWebserver.Status.Pods {
+			if pod.State != webserversv1alpha1.PodStateActive {
+				fmt.Printf("Pod %s is in state %s\n", pod.Name, pod.State)
+				return false
+			}
+		}
+
+		return true
+
+	}, time.Minute*3, time.Second*2).Should(BeTrue(), "Not all pods got to ACTIVE state")
+}
