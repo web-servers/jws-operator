@@ -20,6 +20,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"sync"
 
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -57,9 +58,20 @@ type WebServerCustomValidator struct {
 	// TODO(user): Add more fields as needed for validation
 }
 
+type AppRegistry struct {
+	mu      sync.RWMutex
+	allApps map[string][]WebApp
+}
+
+type WebApp struct {
+	WebServerName string
+	AppName       string
+}
+
 var _ webhook.CustomValidator = &WebServerCustomValidator{}
-var webserver_appNames = make(map[string]string)
-var appNames_webserver = make(map[string]string)
+var registry = AppRegistry{
+	allApps: make(map[string][]WebApp),
+}
 
 // ValidateCreate implements webhook.CustomValidator so a webhook will be registered for the type WebServer.
 func (v *WebServerCustomValidator) ValidateCreate(_ context.Context, obj runtime.Object) (admission.Warnings, error) {
@@ -68,8 +80,6 @@ func (v *WebServerCustomValidator) ValidateCreate(_ context.Context, obj runtime
 		return nil, fmt.Errorf("expected a WebServer object but got %T", obj)
 	}
 	webserverlog.Info("Validation for WebServer upon creation", "name", webserver.GetName())
-	webserverlog.Info("Validation for WebServer upon creation", "name2", webserver.Name)
-	webserverlog.Info("Validation for WebServer upon creation", "app-name", webserver.Spec.ApplicationName)
 
 	printWebServer(webserver)
 	return checkApplicationName(webserver)
@@ -95,8 +105,14 @@ func (v *WebServerCustomValidator) ValidateDelete(ctx context.Context, obj runti
 	}
 	webserverlog.Info("Validation for WebServer upon deletion", "name", webserver.GetName())
 
-	delete(appNames_webserver, webserver.Spec.ApplicationName)
-	delete(webserver_appNames, webserver.Name)
+	list := registry.allApps[webserver.Namespace]
+	for i, web := range list {
+		if web.WebServerName == webserver.Name {
+			// Remove the item by slicing around it
+			registry.allApps[webserver.Namespace] = append(list[:i], list[i+1:]...)
+			break
+		}
+	}
 
 	return nil, nil
 }
@@ -104,31 +120,48 @@ func (v *WebServerCustomValidator) ValidateDelete(ctx context.Context, obj runti
 func printWebServer(webserver *webserversv1alpha1.WebServer) {
 	fmt.Printf("name: %s\n", webserver.Name)
 	fmt.Printf("applicationName: %s\n", webserver.Spec.ApplicationName)
+	fmt.Printf("namespace: %s\n", webserver.Namespace)
 }
 
 func checkApplicationName(webserver *webserversv1alpha1.WebServer) (admission.Warnings, error) {
+	// Acquire a Write Lock immediately
+	registry.mu.Lock()
+	// Ensure the lock is released when the function exits
+	defer registry.mu.Unlock()
+
 	appName := webserver.Spec.ApplicationName
 	webserverName := webserver.Name
+	namespace := webserver.Namespace
 
-	webserverNameForAppName, appNameExists := appNames_webserver[appName]
+	list := registry.allApps[namespace]
 
-	if appNameExists && webserverNameForAppName == webserverName {
-		return nil, nil
-	}
-
-	if appNameExists && webserverNameForAppName != webserverName {
-		return nil, errors.New("application name is already used")
-	}
-
-	if !appNameExists && webserverNameForAppName != webserverName {
-		old_appName, webserverExists := webserver_appNames[webserverName]
-
-		if webserverExists {
-			delete(appNames_webserver, old_appName)
+	for i := range list {
+		// Webserver is managing existing app - OK
+		if list[i].WebServerName == webserverName && list[i].AppName == appName {
+			return nil, nil
 		}
-		webserver_appNames[webserverName] = appName
-		appNames_webserver[appName] = webserverName
+
+		// Webserver updated app name - need to search whether app name is available in that namespace
+		if list[i].WebServerName == webserverName && list[i].AppName != appName {
+			for j := range list {
+				if list[j].AppName == appName {
+					// Application name already used - return error
+					return nil, errors.New("application name is already used")
+				}
+			}
+			// Application name can be used
+			list[i].AppName = appName
+			return nil, nil
+		}
+
+		// Application name is used by other webserver
+		if list[i].WebServerName != webserverName && list[i].AppName == appName {
+			return nil, errors.New("application name is already used")
+		}
 	}
+
+	// Application name can be used
+	registry.allApps[namespace] = append(registry.allApps[namespace], WebApp{WebServerName: webserverName, AppName: appName})
 
 	return nil, nil
 }
