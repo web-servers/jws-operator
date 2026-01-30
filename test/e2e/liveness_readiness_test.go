@@ -102,6 +102,7 @@ var _ = Describe("WebServerControllerTest", Ordered, func() {
 
 	Context("LivenessReadinessTest", func() {
 		It("ArtifactAndContextDirTest", func() {
+			waitForBuildPodsToSucceed()
 			getURL(name, "/ocp-app/MainApp", []byte{})
 		})
 
@@ -114,6 +115,8 @@ var _ = Describe("WebServerControllerTest", Ordered, func() {
 
 				return k8sClient.Update(ctx, createdWebServer) == nil
 			}, time.Second*30, time.Millisecond*250).Should(BeTrue(), "Update failed")
+
+			waitForBuildPodsToSucceed()
 
 			getURL(name, "/ocp-app/MainApp", []byte{})
 
@@ -166,6 +169,8 @@ var _ = Describe("WebServerControllerTest", Ordered, func() {
 				return k8sClient.Update(ctx, createdWebServer) == nil
 			}, time.Second*30, time.Millisecond*250).Should(BeTrue(), "Update failed")
 
+			waitForBuildPodsToSucceed()
+
 			_ = getURL(name, "/ocp-subapp", []byte{})
 		})
 
@@ -182,6 +187,8 @@ var _ = Describe("WebServerControllerTest", Ordered, func() {
 
 				return k8sClient.Update(ctx, createdWebServer) == nil
 			}, time.Second*30, time.Millisecond*250).Should(BeTrue(), "Update failed")
+
+			waitForBuildPodsToSucceed()
 
 			_ = getURL(name, "/ocp-app/MainApp", []byte{})
 			cutoffTime := createdWebServer.CreationTimestamp.Time
@@ -224,6 +231,8 @@ var _ = Describe("WebServerControllerTest", Ordered, func() {
 
 				return k8sClient.Update(ctx, createdWebServer) == nil
 			}, time.Second*30, time.Millisecond*250).Should(BeTrue(), "Update failed")
+
+			waitForBuildPodsToSucceed()
 
 			_ = getURL(name, "/ocp-app/MainApp", []byte{})
 			cutoffTime := createdWebServer.CreationTimestamp.Time
