@@ -77,9 +77,10 @@ var _ = Describe("WebServerControllerTest", Ordered, func() {
 		It("Update Test", func() {
 			var createdWebserver *webserversv1alpha1.WebServer
 
+			waitForPodsActiveState(name)
+
 			// Update WebImage and update WebServer
 			Eventually(func() bool {
-				createdWebserver = getWebServer(name)
 				createdWebserver.Spec.WebImage.ApplicationImage = newImage
 
 				err := k8sClient.Update(ctx, createdWebserver)
