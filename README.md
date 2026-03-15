@@ -18,7 +18,7 @@ The development workflow used in this prototype is standard to all Operator deve
 
 To build the operator, you will first need to install the following:
 
-- [Golang] (https://golang.org/doc/install)
+- [Golang](https://golang.org/doc/install)
 - [podman and podman-docker] (most of the linux distributions have it).
 
 ### Procedure
@@ -113,7 +113,7 @@ $ export NAMESPACE="jws-operator"
 $ oc new-project $NAMESPACE
 ```
 
-3. Install the JWS Tomcat Basic Image Stream in the _openshift_ project namespace. For testing purposes, this repository provides a version of the corresponding script (_xpaas-streams/jws54-tomcat9-image-stream.json_) using the **unsecured Red Hat Registy** (registry.access.redhat.com). Please make sure to use the [latest version](https://github.com/openshift/openshift-ansible) with a secured registry for production use.
+3. Install the JWS Tomcat Basic Image Stream in the _openshift_ project namespace. For testing purposes, this repository provides a version of the corresponding script (_xpaas-streams/jws54-tomcat9-image-stream.json_) using the **unsecured Red Hat Registry** (registry.access.redhat.com). Please make sure to use the [latest version](https://github.com/openshift/openshift-ansible) with a secured registry for production use.
 
 ```bash
 $ oc create -f xpaas-streams/jws56-tomcat9-image-stream.json -n openshift
@@ -212,7 +212,7 @@ $ oc apply -f config/samples/web.servers.org_webservers_cr.yaml
 
 ```bash
 kubectl expose deployment jws-app --type=LoadBalancer --name=jws-balancer
-kubectl kubectl get svc
+kubectl get svc
 NAME              TYPE           CLUSTER-IP      EXTERNAL-IP   PORT(S)          AGE
 jws-balancer      LoadBalancer   10.100.57.140   <pending>     8080:32567/TCP   4m6s
 ```
