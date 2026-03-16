@@ -177,17 +177,22 @@ type PersistentLogs struct {
 }
 
 // (Optional) Source code information
+// (Optional) Source code information
 type WebSourcesSpec struct {
-	// URL for the repository of the application sources
+	// URL for the repository of the application sources. 
+	// Must be a valid Git URL. Example: 'https://github.com/jboss-openshift/tomee-demo.git'
+	// +kubebuilder:validation:Pattern=`^(http|https|git)://.*$`
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Source Repository URL",order=1
 	SourceRepositoryURL string `json:"sourceRepositoryUrl"`
 	// Secret for the repository of the application sources
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Source Repository Secret",order=2
 	SourceRepositorySecret string `json:"sourceRepositorySecret,omitempty"`
-	// Branch in the source repository
+	// Branch or tag in the source repository. Defaults to 'master' if not specified.
+	// +kubebuilder:default:="master"
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Source Repository Reference",order=3
 	SourceRepositoryRef string `json:"sourceRepositoryRef,omitempty"`
-	// Subdirectory in the source repository
+	// Subdirectory within the source repository where the application code resides. Defaults to the root directory ('.').
+	// +kubebuilder:default:="."
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Context Directory",order=4
 	ContextDir string `json:"contextDir,omitempty"`
 	// (Optional) Sources related parameters
@@ -227,10 +232,14 @@ type WebhookSecrets struct {
 }
 
 type WebServerHealthCheckSpec struct {
-	// String for the pod readiness health check logic
+	// Shell command or script to determine if the JWS instance is ready to accept traffic.
+	// Example: '/usr/bin/curl -f http://localhost:8080/'
+	// +kubebuilder:validation:MinLength=1
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Server Readiness Script",order=1
 	ServerReadinessScript string `json:"serverReadinessScript"`
-	// String for the pod liveness health check logic
+
+	// Shell command or script to determine if the container is still healthy. If it fails, the container is restarted.
+	// Example: '/usr/bin/pgrep -f java'
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Server Liveness Script",order=2
 	ServerLivenessScript string `json:"serverLivenessScript,omitempty"`
 }
