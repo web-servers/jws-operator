@@ -179,7 +179,7 @@ type PersistentLogs struct {
 // (Optional) Source code information
 // (Optional) Source code information
 type WebSourcesSpec struct {
-	// URL for the repository of the application sources. 
+	// URL for the repository of the application sources.
 	// Must be a valid Git URL. Example: 'https://github.com/jboss-openshift/tomee-demo.git'
 	// +kubebuilder:validation:Pattern=`^(http|https|git)://.*$`
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Source Repository URL",order=1
