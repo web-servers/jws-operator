@@ -52,7 +52,7 @@ $ make manifests docker-build docker-push
 ```
 
 **Note** the Makefile uses _go mod tidy_, _go mod vendor_ then _go build_ to build the executable and podman to build and push the image.  
-**Note** the build is done using a docker image: Check the Dockerfile, note the FROM golang:1.17 as builder so don't forget to adjust it with changing the go version in go.mod.  
+**Note** the build is done using a docker image: Check the Dockerfile, note the FROM golang:1.24 as builder so don't forget to adjust it with changing the go version in go.mod.  
 **Note** To generate the `vendor` directory which is needed to build the operator internally in RH build system, check out the repository and run `go mod vendor` (add -v for verbose output) and wait for the directory to get updated.  
 **Note** The TEST_ASSET_KUBE_APISERVER, TEST_ASSET_ETCD and TEST_ASSET_KUBECTL can be used to define kube-apiserver, etcd and kubectl if they are not in $PATH (see https://book.kubebuilder.io/reference/envtest.html for more).
 
@@ -74,7 +74,7 @@ To remove
 operator-sdk cleanup jws-operator
 ```
 **Note** Check the installModes: in bundle/manifests/jws-operator.clusterserviceversion.yaml (all AllNamespaces is openshift-operators)
-**Note** Uninstall other versions of the operator otherwise the your modifications might not be visible.
+**Note** Uninstall other versions of the operator otherwise your modifications might not be visible.
 
 ## Install the operator from sources.
 
@@ -86,7 +86,7 @@ The operator is pre-built and containerized in a docker image. By default, the d
 make deploy IMG=quay.io/${USER}/jws-operator
 ```
 
-**Note** Uninstall other versions of the operator otherwise the your modifications might not be visible.
+**Note** Uninstall other versions of the operator otherwise your modifications might not be visible.
 
 To check for the operator installation you can check the operator pods
 ```bash
@@ -167,7 +167,7 @@ oc delete webserver.web.servers.org/example-webserver
 oc delete deployment.apps/jws-operator
 ```
 
-Note that the first _oc delete_ deletes what the operator creates for the example-webserver application, these second _oc delete_ deletes the operator and all resource it needs to run. The ImageStream can be deleted manually if needed.
+Note that the first _oc delete_ deletes what the operator creates for the example-webserver application, the second _oc delete_ deletes the operator and all resources it needs to run. The ImageStream can be deleted manually if needed.
 
 ## Deploy for an existing JWS or Tomcat image
 
@@ -232,7 +232,7 @@ oc delete webserver.web.servers.org/example-webserver
 make undeploy
 ```
 
-Note that the first _oc delete_ deletes what the operator creates for the example-webserver application, these second _oc delete_ deletes the operator and all resource it needs to run. The ImageStream can be deleted manually if needed.
+Note that the first _oc delete_ deletes what the operator creates for the example-webserver application, the second _oc delete_ deletes the operator and all resources it needs to run. The ImageStream can be deleted manually if needed.
 
 ## Configuring Readiness or Liveness probes:
 
@@ -264,7 +264,7 @@ If you are using a openjdk:8-jre-alpine based image and /test is your health URL
   serverReadinessScript: /bin/busybox wget http://localhost:8080/test -O /dev/null
 ```
 
-Note that HealthCheckValve requires tomcat 9.0.38+ or 10.0.0-M8 to work as expected and it was introducted in 9.0.15.
+Note that HealthCheckValve requires tomcat 9.0.38+ or 10.0.0-M8 to work as expected and it was introduced in 9.0.15.
 
 ## Testing
 To run a test with a real cluster you need a real cluster (kubernetes or openshift). A secret is needed to run a bunch of tests.
