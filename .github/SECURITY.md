@@ -6,7 +6,11 @@ The maintainers of this project take security seriously and encourage responsibl
 ## Reporting a Vulnerability
 If you discover a potential security issue, please do not open a public GitHub issue.
 
-Instead, report the vulnerability privately to the project maintainers so it can be investigated and resolved before public disclosure.
+Instead, report the vulnerability privately to Red Hat Product Security at secalert@redhat.com so it can be investigated and resolved before public disclosure. You can use our GPG key to communicate with us securely.
+
+To report an issue in any Red Hat branded website or online service, please contact Red Hat Information Security at site-security@redhat.com.
+
+https://access.redhat.com/security/team/contact
 
 ## What to Include
 When reporting a vulnerability, please include:
