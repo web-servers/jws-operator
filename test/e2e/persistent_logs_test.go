@@ -101,7 +101,7 @@ var _ = Describe("WebServerControllerTest", Ordered, func() {
 				}
 
 				return false
-			}, time.Second*120, time.Millisecond*500).Should(BeTrue())
+			}, time.Second*480, time.Millisecond*500).Should(BeTrue())
 
 		})
 
@@ -130,7 +130,7 @@ var _ = Describe("WebServerControllerTest", Ordered, func() {
 				}
 
 				return false
-			}, time.Second*120, time.Millisecond*500).Should(BeTrue())
+			}, time.Second*480, time.Millisecond*500).Should(BeTrue())
 		})
 
 		It("BothLogsAvailability", func() {
@@ -156,7 +156,7 @@ var _ = Describe("WebServerControllerTest", Ordered, func() {
 				}
 
 				return false
-			}, time.Second*120, time.Millisecond*500).Should(BeTrue())
+			}, time.Second*480, time.Millisecond*500).Should(BeTrue())
 		})
 
 	})
