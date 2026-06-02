@@ -12,6 +12,7 @@ import (
 	. "github.com/onsi/gomega"
 	imagev1 "github.com/openshift/api/image/v1"
 	webserversv1alpha1 "github.com/web-servers/jws-operator/api/v1alpha1"
+	kbappsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
@@ -214,7 +215,7 @@ func checkOperatorLogs() {
 		fmt.Println(">>>> Pod's log <<<<")
 		fmt.Println(buffer.String())
 		fmt.Println(">>>> Pod's log <<<<")
-		Expect(true).Should(BeFalse())
+		Expect(true).Should(BeFalse(), "The operator logs should not contain an error massage")
 	}
 }
 
@@ -369,4 +370,49 @@ func waitForBuildPodsToSucceed() {
 		}
 		return true
 	}, time.Minute*5, time.Second*5).Should(BeTrue(), "Building pods took too long time.")
+}
+
+func waitForPodsActiveState(webserverName string) {
+	foundDeployment := &kbappsv1.Deployment{}
+
+	Eventually(func() bool {
+		createdWebserver := getWebServer(webserverName)
+		webserverNamespacedName := types.NamespacedName{Name: webserverName, Namespace: createdWebserver.ObjectMeta.Namespace}
+
+		err := k8sClient.Get(ctx, webserverNamespacedName, foundDeployment)
+
+		if err != nil {
+			thetest.Fatalf("can't read Deployment")
+			return false
+		}
+
+		// Checks pods state in the operator
+		if int(createdWebserver.Spec.Replicas) != len(createdWebserver.Status.Pods) {
+			return false
+		}
+		for _, pod := range createdWebserver.Status.Pods {
+			if pod.State != webserversv1alpha1.PodStateActive {
+				fmt.Printf("Pod %s is in state %s\n", pod.Name, pod.State)
+				return false
+			}
+		}
+
+		// Checks pods state in the cluster
+		return createdWebserver.Spec.Replicas == foundDeployment.Status.AvailableReplicas
+	}, time.Second*420, time.Second*30).Should(BeTrue(), "Image Update Test: Required amount of replicas with updated image were not achieved")
+}
+
+func isApplicationImageWasUpdated(createdWebserver *webserversv1alpha1.WebServer, oldImage string) bool {
+	foundDeployment := &kbappsv1.Deployment{}
+	webserverNamespacedName := types.NamespacedName{Name: createdWebserver.Name, Namespace: createdWebserver.Namespace}
+
+	err := k8sClient.Get(ctx, webserverNamespacedName, foundDeployment)
+
+	if err != nil {
+		thetest.Fatalf("can't read Deployment")
+		return false
+	}
+
+	foundImage := foundDeployment.Spec.Template.Spec.Containers[0].Image
+	return foundImage != oldImage
 }

@@ -307,7 +307,8 @@ make test-e2e-real
 
 Testing can be configured via environment variables:
   - NAMESPACE_FOR_TESTING - Namespace where webservers will be deployed. Default value: ```jws-operator-tests```
-  - TEST_IMG - Default image for tests which do not require specific image. Default value: ```quay.io/web-servers/tomcat-demo```
+  - TEST_IMG_UPDATE - The image required for the Update test. Default value: ```quay.io/web-servers/tomcat10update:latest```
+  - TEST_IMG - Default image for tests which do not require specific image. Default value: ```quay.io/web-servers/tomcat10:latest```
   - EXECUTE_TEST - Comma-separated list of test which will be executed.
   - TEST_PARAM - additional ginkgo settings.
 
