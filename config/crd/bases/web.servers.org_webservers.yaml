@@ -783,10 +783,15 @@ spec:
                     description: Pod health checks information
                     properties:
                       serverLivenessScript:
-                        description: String for the pod liveness health check logic
+                        description: |-
+                          Shell command or script to determine if the container is still healthy. If it fails, the container is restarted.
+                          Example: '/usr/bin/pgrep -f java'
                         type: string
                       serverReadinessScript:
-                        description: String for the pod readiness health check logic
+                        description: |-
+                          Shell command or script to determine if the JWS instance is ready to accept traffic.
+                          Example: '/usr/bin/curl -f http://localhost:8080/'
+                        minLength: 1
                         type: string
                     required:
                     - serverReadinessScript
@@ -807,10 +812,15 @@ spec:
                     description: Pod health checks information
                     properties:
                       serverLivenessScript:
-                        description: String for the pod liveness health check logic
+                        description: |-
+                          Shell command or script to determine if the container is still healthy. If it fails, the container is restarted.
+                          Example: '/usr/bin/pgrep -f java'
                         type: string
                       serverReadinessScript:
-                        description: String for the pod readiness health check logic
+                        description: |-
+                          Shell command or script to determine if the JWS instance is ready to accept traffic.
+                          Example: '/usr/bin/curl -f http://localhost:8080/'
+                        minLength: 1
                         type: string
                     required:
                     - serverReadinessScript
@@ -819,17 +829,25 @@ spec:
                     description: (Optional) Source code information
                     properties:
                       contextDir:
-                        description: Subdirectory in the source repository
+                        default: .
+                        description: Subdirectory within the source repository where
+                          the application code resides. Defaults to the root directory
+                          ('.').
                         type: string
                       sourceRepositoryRef:
-                        description: Branch in the source repository
+                        default: master
+                        description: Branch or tag in the source repository. Defaults
+                          to 'master' if not specified.
                         type: string
                       sourceRepositorySecret:
                         description: Secret for the repository of the application
                           sources
                         type: string
                       sourceRepositoryUrl:
-                        description: URL for the repository of the application sources
+                        description: |-
+                          URL for the repository of the application sources.
+                          Must be a valid Git URL. Example: 'https://github.com/jboss-openshift/tomee-demo.git'
+                        pattern: ^(http|https|git)://.*$
                         type: string
                       webSourcesParams:
                         description: (Optional) Sources related parameters
