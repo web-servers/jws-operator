@@ -23,11 +23,8 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	"k8s.io/apimachinery/pkg/types"
-
 	webserversv1alpha1 "github.com/web-servers/jws-operator/api/v1alpha1"
 	"github.com/web-servers/jws-operator/test/utils"
-	kbappsv1 "k8s.io/api/apps/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -39,8 +36,6 @@ var _ = Describe("WebServerControllerTest", Ordered, func() {
 	name := "image-basic-test"
 	appName := "test-tomcat-demo"
 	testURI := "/health"
-	image := "quay.io/web-servers/tomcat10:latest"
-	newImage := "quay.io/web-servers/tomcat10update:latest"
 
 	webserver := &webserversv1alpha1.WebServer{
 		TypeMeta: metav1.TypeMeta{
@@ -55,7 +50,7 @@ var _ = Describe("WebServerControllerTest", Ordered, func() {
 			ApplicationName: appName,
 			Replicas:        int32(2),
 			WebImage: &webserversv1alpha1.WebImageSpec{
-				ApplicationImage: image,
+				ApplicationImage: testImg,
 			},
 		},
 	}
@@ -70,6 +65,8 @@ var _ = Describe("WebServerControllerTest", Ordered, func() {
 
 	Context("ApplicationImageTest", func() {
 		It("Basic Test", func() {
+			// Checks if Web Server was deployed with the PREVIOUS version of the image
+			waitForPodsActiveState(name)
 			_, err := utils.WebServerRouteTest(k8sClient, ctx, thetest, webserver, testURI, false, nil, false)
 			Expect(err).Should(Succeed())
 		})
@@ -80,7 +77,7 @@ var _ = Describe("WebServerControllerTest", Ordered, func() {
 			// Update WebImage and update WebServer
 			Eventually(func() bool {
 				createdWebserver = getWebServer(name)
-				createdWebserver.Spec.WebImage.ApplicationImage = newImage
+				createdWebserver.Spec.WebImage.ApplicationImage = testImgUpdate
 
 				err := k8sClient.Update(ctx, createdWebserver)
 				if err != nil {
@@ -91,24 +88,10 @@ var _ = Describe("WebServerControllerTest", Ordered, func() {
 				return true
 			}, time.Second*30, time.Millisecond*250).Should(BeTrue())
 
-			foundDeployment := &kbappsv1.Deployment{}
+			waitForPodsActiveState(name)
+			isApplicationImageWasUpdated(createdWebserver, testImg)
 
-			// Wait until the replicas are available
-			Eventually(func() bool {
-				err := k8sClient.Get(ctx, types.NamespacedName{Name: appName, Namespace: namespace}, foundDeployment)
-				if err != nil {
-					thetest.Fatalf("can't read Deployment")
-					return false
-				}
-
-				foundImage := foundDeployment.Spec.Template.Spec.Containers[0].Image
-				if foundImage != newImage {
-					return false
-				}
-
-				return createdWebserver.Spec.Replicas == foundDeployment.Status.AvailableReplicas
-			}, time.Second*420, time.Second*30).Should(BeTrue(), "Image Update Test: Required amount of replicas with updated image were not achieved")
-
+			// Checks if Web Server was deployed with the NEW version of the image
 			_, err := utils.WebServerRouteTest(k8sClient, ctx, thetest, webserver, testURI, false, nil, false)
 			Expect(err).Should(Succeed())
 		})
