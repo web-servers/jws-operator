@@ -309,7 +309,8 @@ Testing can be configured via environment variables:
   - NAMESPACE_FOR_TESTING - Namespace where webservers will be deployed. Default value: ```jws-operator-tests```
   - TEST_IMG - Default image for tests which do not require specific image. Default value: ```quay.io/web-servers/tomcat-demo```
   - EXECUTE_TEST - Comma-separated list of test which will be executed.
-  - TEST_PARAM - additional ginkgo settings.
+  - TEST_TIMEOUT - Overall timeout for running the e2e tests.
+  - TEST_PARAM - Additional ginkgo settings.
 
 The whole testsuite takes about 40 minutes...
 
