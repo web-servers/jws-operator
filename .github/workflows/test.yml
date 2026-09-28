@@ -28,10 +28,9 @@ jobs:
     - name: Setup KUBEBUILDER_ASSETS
       run: |
         export K8S_VERSION=1.20.2
-        curl -sSLo envtest-bins.tar.gz "https://go.kubebuilder.io/test-tools/${K8S_VERSION}/$(go env GOOS)/$(go env GOARCH)"
-        sudo mkdir /usr/local/kubebuilder
-        sudo tar -C /usr/local/kubebuilder --strip-components=1 -zvxf envtest-bins.tar.gz
-        sudo cp /usr/local/kubebuilder/bin/* /usr/local/bin
+        export PATH=$PATH:$(go env GOPATH)/bin
+        go install sigs.k8s.io/controller-runtime/tools/setup-envtest@latest
+        setup-envtest use $K8S_VERSION
        
     - name: Make controller-gen
       run: make controller-gen
@@ -40,4 +39,4 @@ jobs:
       run: go mod vendor
       
     - name: Basic Operator's Tests
-      run: KUBEBUILDER_ASSETS=/usr/local/bin go test -timeout 60m ./... -coverprofile cover.out
+      run: KUBEBUILDER_ASSETS=$(setup-envtest use 1.20.2 -p path) go test -timeout 60m ./... -coverprofile cover.out
