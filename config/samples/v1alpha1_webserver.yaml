@@ -1,8 +1,31 @@
 apiVersion: web.servers.org/v1alpha1
 kind: WebServer
 metadata:
-  name: webserver-example
+  name: jws-imagestream-sample
 spec:
-  applicationName: webapp
+  # Base name for application resources (Deployment, Service, etc.)
+  applicationName: "jws-app"
+
+  # Instance count. +kubebuilder:validation:Minimum=0
   replicas: 1
-  useInsightsClient: false
+
+  # Deployment Method: ImageStream (Recommended for OpenShift S2I builds)
+  webImageStream:
+    # Target ImageStream. Example: 'jws56-openjdk11-openshift'
+    imageStreamName: "jws56-openjdk11-openshift"
+    # Target namespace. Defaults to current namespace if omitted.
+    imageStreamNamespace: "openshift"
+
+    # Source-to-Image (S2I) configuration
+    webSources:
+      # Valid Git URI. Pattern: ^(http|https|git)://.*$
+      sourceRepositoryUrl: "https://github.com/jboss-openshift/tomee-demo.git"
+      # Target branch/tag. Defaults to 'master'.
+      sourceRepositoryRef: "master"
+      # Context directory for build. Defaults to '.'.
+      contextDir: "."
+
+    # Probe configuration to manage pod lifecycle
+    webServerHealthCheck:
+      # Required. Command to verify JWS is ready for traffic.
+      serverReadinessScript: "/usr/bin/curl -f http://localhost:8080/"
