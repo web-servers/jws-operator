@@ -161,8 +161,9 @@ var _ = Describe("WebServerControllerTest", Ordered, func() {
 					return false
 				}
 				return strings.Contains(output, "X25519MLKEM768")
-			}, "1m", "20s").Should(BeTrue(),
-				"Expected X25519MLKEM768 in TLS negotiation. openssl output: "+output)
+			}, "1m", "20s").Should(BeTrue(), func() string {
+				return "Expected X25519MLKEM768 in TLS negotiation. openssl output: " + output
+			})
 		})
 
 		It("curl HTTP GET to /health over PQC", func() {
@@ -183,8 +184,9 @@ var _ = Describe("WebServerControllerTest", Ordered, func() {
 					return false
 				}
 				return strings.TrimSpace(output) == "200"
-			}, "1m", "20s").Should(BeTrue(),
-				"Expected HTTP 200 over PQC connection, got: "+output)
+			}, "1m", "20s").Should(BeTrue(), func() string {
+				return "Expected HTTP 200 over PQC connection, got: " + output
+			})
 		})
 
 		It("Go HTTP client with X25519MLKEM768", func() {
@@ -210,8 +212,9 @@ var _ = Describe("WebServerControllerTest", Ordered, func() {
 				resp.Body.Close()
 				output = resp.Status
 				return resp.StatusCode == http.StatusOK
-			}, "1m", "20s").Should(BeTrue(),
-				"Expected HTTP 200 over PQC connection, got: "+output)
+			}, "1m", "20s").Should(BeTrue(), func() string {
+				return "Expected HTTP 200 over PQC connection, got: " + output
+			})
 		})
 	})
 })
