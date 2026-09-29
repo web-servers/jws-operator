@@ -209,7 +209,7 @@ var _ = Describe("WebServerControllerTest", Ordered, func() {
 					thetest.Logf("Go PQC client error: %v", err)
 					return false
 				}
-				resp.Body.Close()
+				_ = resp.Body.Close()
 				output = resp.Status
 				return resp.StatusCode == http.StatusOK
 			}, "1m", "20s").Should(BeTrue(), func() string {
