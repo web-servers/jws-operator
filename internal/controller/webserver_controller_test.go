@@ -32,8 +32,6 @@ import (
 	webserversorgv1alpha1 "github.com/web-servers/jws-operator/api/v1alpha1"
 )
 
-var c client.Client
-
 var _ = Describe("WebServer Controller", func() {
 	Context("When reconciling a resource", func() {
 		const resourceName = "test-resource"
@@ -69,7 +67,7 @@ var _ = Describe("WebServer Controller", func() {
 				Scheme: k8sClient.Scheme(),
 			}
 
-			err := c.Create(ctx, webserver)
+			err := k8sClient.Create(ctx, webserver)
 
 			Expect(err).NotTo(HaveOccurred())
 
