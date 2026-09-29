@@ -293,7 +293,3 @@ type WebServerList struct {
 	metav1.ListMeta `json:"metadata,omitempty"`
 	Items           []WebServer `json:"items"`
 }
-
-func init() {
-	SchemeBuilder.Register(&WebServer{}, &WebServerList{})
-}

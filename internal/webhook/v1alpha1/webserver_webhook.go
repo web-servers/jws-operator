@@ -22,10 +22,8 @@ import (
 	"fmt"
 	"sync"
 
-	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
-	"sigs.k8s.io/controller-runtime/pkg/webhook"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
 	webserversv1alpha1 "github.com/web-servers/jws-operator/api/v1alpha1"
@@ -37,7 +35,7 @@ var webserverlog = logf.Log.WithName("webserver-resource")
 
 // SetupWebServerWebhookWithManager registers the webhook for WebServer in the manager.
 func SetupWebServerWebhookWithManager(mgr ctrl.Manager) error {
-	return ctrl.NewWebhookManagedBy(mgr).For(&webserversv1alpha1.WebServer{}).
+	return ctrl.NewWebhookManagedBy(mgr, &webserversv1alpha1.WebServer{}).
 		WithValidator(&WebServerCustomValidator{}).
 		Complete()
 }
@@ -68,41 +66,29 @@ type WebApp struct {
 	AppName       string
 }
 
-var _ webhook.CustomValidator = &WebServerCustomValidator{}
+var _ admission.Validator[*webserversv1alpha1.WebServer] = &WebServerCustomValidator{}
 var registry = AppRegistry{
 	allApps: make(map[string][]WebApp),
 }
 
-// ValidateCreate implements webhook.CustomValidator so a webhook will be registered for the type WebServer.
-func (v *WebServerCustomValidator) ValidateCreate(_ context.Context, obj runtime.Object) (admission.Warnings, error) {
-	webserver, ok := obj.(*webserversv1alpha1.WebServer)
-	if !ok {
-		return nil, fmt.Errorf("expected a WebServer object but got %T", obj)
-	}
+// ValidateCreate implements admission.Validator so a webhook will be registered for the type WebServer.
+func (v *WebServerCustomValidator) ValidateCreate(_ context.Context, webserver *webserversv1alpha1.WebServer) (admission.Warnings, error) {
 	webserverlog.Info("Validation for WebServer upon creation", "name", webserver.GetName())
 
 	printWebServer(webserver)
 	return checkApplicationName(webserver)
 }
 
-// ValidateUpdate implements webhook.CustomValidator so a webhook will be registered for the type WebServer.
-func (v *WebServerCustomValidator) ValidateUpdate(_ context.Context, oldObj, newObj runtime.Object) (admission.Warnings, error) {
-	webserver, ok := newObj.(*webserversv1alpha1.WebServer)
-	if !ok {
-		return nil, fmt.Errorf("expected a WebServer object for the newObj but got %T", newObj)
-	}
+// ValidateUpdate implements admission.Validator so a webhook will be registered for the type WebServer.
+func (v *WebServerCustomValidator) ValidateUpdate(_ context.Context, _, webserver *webserversv1alpha1.WebServer) (admission.Warnings, error) {
 	webserverlog.Info("Validation for WebServer upon update", "name", webserver.GetName())
 
 	printWebServer(webserver)
 	return checkApplicationName(webserver)
 }
 
-// ValidateDelete implements webhook.CustomValidator so a webhook will be registered for the type WebServer.
-func (v *WebServerCustomValidator) ValidateDelete(ctx context.Context, obj runtime.Object) (admission.Warnings, error) {
-	webserver, ok := obj.(*webserversv1alpha1.WebServer)
-	if !ok {
-		return nil, fmt.Errorf("expected a WebServer object but got %T", obj)
-	}
+// ValidateDelete implements admission.Validator so a webhook will be registered for the type WebServer.
+func (v *WebServerCustomValidator) ValidateDelete(_ context.Context, webserver *webserversv1alpha1.WebServer) (admission.Warnings, error) {
 	webserverlog.Info("Validation for WebServer upon deletion", "name", webserver.GetName())
 
 	list := registry.allApps[webserver.Namespace]
