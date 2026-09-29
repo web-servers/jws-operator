@@ -24,9 +24,10 @@ import (
 
 	//	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
+	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	webserversorgv1alpha1 "github.com/web-servers/jws-operator/api/v1alpha1"
@@ -35,30 +36,45 @@ import (
 var _ = Describe("WebServer Controller", func() {
 	Context("When reconciling a resource", func() {
 		const resourceName = "test-resource"
+		var ctx context.Context
+		var typeNamespacedName types.NamespacedName
+		var webserver *webserversorgv1alpha1.WebServer
 
-		ctx := context.Background()
+		BeforeEach(func() {
+			ctx = context.Background()
 
-		typeNamespacedName := types.NamespacedName{
-			Name:      resourceName,
-			Namespace: "mm-test", // TODO(user):Modify as needed
-		}
-		webserver := &webserversorgv1alpha1.WebServer{
-			TypeMeta: metav1.TypeMeta{
-				Kind:       "WebServer",
-				APIVersion: "web.servers.org/v1alpha1",
-			},
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "xyz",
-				Namespace: "mm-test",
-			},
-			Spec: webserversorgv1alpha1.WebServerSpec{
-				Replicas:        3,
-				ApplicationName: "abc",
-				WebImage: &webserversorgv1alpha1.WebImageSpec{
-					ApplicationImage: "quay.io/web-servers/tomcat10:latest",
+			ns := &corev1.Namespace{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "mm-test",
 				},
-			},
-		}
+			}
+
+			err := k8sClient.Create(ctx, ns)
+			if err != nil && !apierrors.IsAlreadyExists(err) {
+				Expect(err).NotTo(HaveOccurred())
+			}
+			typeNamespacedName = types.NamespacedName{
+				Name:      resourceName,
+				Namespace: "mm-test", // TODO(user):Modify as needed
+			}
+			webserver = &webserversorgv1alpha1.WebServer{
+				TypeMeta: metav1.TypeMeta{
+					Kind:       "WebServer",
+					APIVersion: "web.servers.org/v1alpha1",
+				},
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      resourceName,
+					Namespace: "mm-test",
+				},
+				Spec: webserversorgv1alpha1.WebServerSpec{
+					Replicas:        3,
+					ApplicationName: "abc",
+					WebImage: &webserversorgv1alpha1.WebImageSpec{
+						ApplicationImage: "quay.io/web-servers/tomcat10:latest",
+					},
+				},
+			}
+		})
 
 		It("should successfully reconcile the resource", func() {
 			By("Reconciling the created resource")

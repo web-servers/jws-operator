@@ -70,7 +70,7 @@ var _ = BeforeSuite(func() {
 		ErrorIfCRDPathMissing: true,
 
 		// Priority: 1. Use KUBEBUILDER_ASSETS from env, 2. Fallback to getFirstFoundEnvTestBinaryDir()
-        	BinaryAssetsDirectory: os.Getenv("KUBEBUILDER_ASSETS"),
+		BinaryAssetsDirectory: os.Getenv("KUBEBUILDER_ASSETS"),
 	}
 
 	// Retrieve the first found binary directory to allow running tests from IDEs
