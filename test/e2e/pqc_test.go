@@ -170,7 +170,7 @@ var _ = Describe("WebServerControllerTest", Ordered, func() {
 
 			var output string
 			Eventually(func() bool {
-				cmd := exec.Command("curl", "-k", "-s", "-o", "/dev/null", "-w", "%{http_code}",
+				cmd := exec.Command("curl", "-k", "-sS", "-o", "/dev/null", "-w", "%{http_code}",
 					"--curves", "X25519MLKEM768",
 					"https://"+routeHost+testURI,
 				)
