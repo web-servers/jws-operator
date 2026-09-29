@@ -18,6 +18,8 @@ package e2e
 
 import (
 	"context"
+	"crypto/tls"
+	"net/http"
 	"os/exec"
 	"strings"
 	"time"
@@ -154,11 +156,12 @@ var _ = Describe("WebServerControllerTest", Ordered, func() {
 				out, err := cmd.CombinedOutput()
 				output = string(out)
 				if err != nil {
+					output = output + err.Error()
 					thetest.Logf("openssl s_client error: %v", err)
 					return false
 				}
 				return strings.Contains(output, "X25519MLKEM768")
-			}, "3m", "10s").Should(BeTrue(),
+			}, "1m", "20s").Should(BeTrue(),
 				"Expected X25519MLKEM768 in TLS negotiation. openssl output: "+output)
 		})
 
@@ -175,11 +178,39 @@ var _ = Describe("WebServerControllerTest", Ordered, func() {
 				out, err := cmd.CombinedOutput()
 				output = string(out)
 				if err != nil {
+					output = output + err.Error()
 					thetest.Logf("curl PQC error: %v", err)
 					return false
 				}
 				return strings.TrimSpace(output) == "200"
-			}, "3m", "10s").Should(BeTrue(),
+			}, "1m", "20s").Should(BeTrue(),
+				"Expected HTTP 200 over PQC connection, got: "+output)
+		})
+
+		It("Go HTTP client with X25519MLKEM768", func() {
+			routeHost := webserver.Spec.TLSConfig.RouteHostname[4:]
+
+			httpClient := &http.Client{
+				Transport: &http.Transport{
+					TLSClientConfig: &tls.Config{
+						InsecureSkipVerify: true,
+						CurvePreferences:   []tls.CurveID{tls.X25519MLKEM768},
+					},
+				},
+			}
+
+			var output string
+			Eventually(func() bool {
+				resp, err := httpClient.Get("https://" + routeHost + testURI)
+				if err != nil {
+					output = output + err.Error()
+					thetest.Logf("Go PQC client error: %v", err)
+					return false
+				}
+				resp.Body.Close()
+				output = resp.Status
+				return resp.StatusCode == http.StatusOK
+			}, "1m", "20s").Should(BeTrue(),
 				"Expected HTTP 200 over PQC connection, got: "+output)
 		})
 	})
