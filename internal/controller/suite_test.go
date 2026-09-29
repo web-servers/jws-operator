@@ -68,6 +68,9 @@ var _ = BeforeSuite(func() {
 	testEnv = &envtest.Environment{
 		CRDDirectoryPaths:     []string{filepath.Join("..", "..", "config", "crd", "bases")},
 		ErrorIfCRDPathMissing: true,
+
+		// Priority: 1. Use KUBEBUILDER_ASSETS from env, 2. Fallback to getFirstFoundEnvTestBinaryDir()
+		BinaryAssetsDirectory: os.Getenv("KUBEBUILDER_ASSETS"),
 	}
 
 	// Retrieve the first found binary directory to allow running tests from IDEs
