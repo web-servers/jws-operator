@@ -27,11 +27,9 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	imagev1 "github.com/openshift/api/image/v1"
 	routev1 "github.com/openshift/api/route/v1"
 	webserversv1alpha1 "github.com/web-servers/jws-operator/api/v1alpha1"
 	"github.com/web-servers/jws-operator/test/utils"
-	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -45,29 +43,9 @@ var _ = Describe("WebServerControllerTest", Ordered, func() {
 	name := "pqc-key-exchange-test"
 	appName := "pqc-key-exchange"
 	testURI := "/health"
-	imageStreamName := "pqc-test"
-	imageStreamNamespace := namespace
 
 	helperRouteName := "pqc-domain-helper"
 	host := ""
-
-	imgStream := &imagev1.ImageStream{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      imageStreamName,
-			Namespace: namespace,
-		},
-		Spec: imagev1.ImageStreamSpec{
-			Tags: []imagev1.TagReference{
-				{
-					Name: "latest",
-					From: &corev1.ObjectReference{
-						Kind: "DockerImage",
-						Name: testImg,
-					},
-				},
-			},
-		},
-	}
 
 	helperRoute := &routev1.Route{
 		ObjectMeta: metav1.ObjectMeta{
@@ -93,23 +71,19 @@ var _ = Describe("WebServerControllerTest", Ordered, func() {
 			Namespace: namespace,
 		},
 		Spec: webserversv1alpha1.WebServerSpec{
-			ApplicationName:      appName,
-			Replicas:             1,
-			UseSessionClustering: false,
+			ApplicationName: appName,
+			Replicas:        1,
 			TLSConfig: webserversv1alpha1.TLSConfig{
 				RouteHostname: "Will be set later",
 				TLSSecret:     "test-tls-secret",
 			},
-			WebImageStream: &webserversv1alpha1.WebImageStreamSpec{
-				ImageStreamName:      imageStreamName,
-				ImageStreamNamespace: imageStreamNamespace,
+			WebImage: &webserversv1alpha1.WebImageSpec{
+				ApplicationImage: testImg,
 			},
 		},
 	}
 
 	BeforeAll(func() {
-		createImageStream(imgStream)
-
 		Expect(k8sClient.Create(ctx, helperRoute)).Should(Succeed())
 
 		foundRoute := &routev1.Route{}
@@ -134,8 +108,6 @@ var _ = Describe("WebServerControllerTest", Ordered, func() {
 			err := k8sClient.Get(ctx, types.NamespacedName{Name: helperRouteName, Namespace: namespace}, &routev1.Route{})
 			return apierrors.IsNotFound(err)
 		}, "2m", "5s").Should(BeTrue(), "the helper route should be deleted")
-
-		deleteImageStream(imgStream)
 	})
 
 	// The goal of the test is to check if JWS supports PQC key exchange, and it can be done without a change to the Operator.
